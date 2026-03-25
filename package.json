@@ -1,7 +1,7 @@
 {
-  "name": "fusee",
+  "name": "fusee-framework",
   "version": "0.1.0-alpha.1",
-  "description": "🚀 Fusée - Signals-first JS Framework | Peak Performance",
+  "description": "Fusée - Signals-first JS Framework | Peak Performance",
   "main": "framework/index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -10,5 +10,11 @@
   "author": "",
   "license": "MIT",
   "type": "commonjs",
-  "repository": "https://github.com/SebiSomu/fusee"
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SebiSomu/fusee.git"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/"
+  }
 }
