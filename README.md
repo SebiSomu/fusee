@@ -1,8 +1,15 @@
-\# 🚀 Fusée v0.1.0-alpha
+# Fusée Framework
+**v0.1.0-alpha — Peak Performance JS Framework**
 
+## Run
 
+### JavaScript (instant)
+```bash
+npx serve .
+```
 
-Peak Performance JS Framework
-
-\*\*Signals + Components + SPA\*\*
-
+### TypeScript
+```bash
+npx tsc
+# then change index.html script src to: ./dist/app/main.js
+npx serve .

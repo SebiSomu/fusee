@@ -3,6 +3,7 @@
   "version": "0.1.0-alpha.1",
   "description": "Fusée - Signals-first JS Framework | Peak Performance",
   "main": "framework/index.js",
+  "types": "framework/types/index.d.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -16,5 +17,8 @@
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org/"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.2"
   }
 }
