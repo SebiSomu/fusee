@@ -6,10 +6,10 @@ type HomeResult = {
     template: string
 }
 
-export const Home = defineComponent<EmptyProps>({
+export const Home = defineComponent({
     props: [],
     components: { Counter },
-    setup(_props: EmptyProps): HomeResult {
+    setup(): HomeResult {
         const title = signal<string>('Welcome!')
 
         return {

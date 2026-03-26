@@ -41,7 +41,7 @@ export type ComponentApi = {
 
 export declare function onMount(fn: () => void): void
 export declare function onUnmount(fn: () => void): void
-export declare function defineComponent<TProps = ComponentProps>(options: ComponentOptions<TProps>): ComponentFactory<TProps>
+export declare function defineComponent<TProps = EmptyProps>(options: ComponentOptions<TProps>): ComponentFactory<TProps>
 
 // Internal helper for prop resolution (not exported)
 declare function resolveProps(schema: PropSchema, received: ComponentProps): ComponentProps

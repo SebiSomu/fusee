@@ -1,4 +1,4 @@
-import { defineComponent, signal, computed, onMount, onUnmount, type Signal, type ComponentOptions, type PropConfig } from '../../framework/index.js'
+import { defineComponent, signal, computed, onMount, onUnmount, type Signal } from '../../framework/index.js'
 
 type CounterProps = {
     initialValue?: string
@@ -13,7 +13,7 @@ type CounterResult = {
     template: string
 }
 
-export const Counter = defineComponent<CounterProps>({
+export const Counter = defineComponent({
     props: {
         initialValue: { type: String, default: '0' }
     },

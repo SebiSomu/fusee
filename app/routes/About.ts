@@ -5,9 +5,9 @@ type AboutResult = {
     template: string
 }
 
-export const About = defineComponent<EmptyProps>({
+export const About = defineComponent({
     props: [],
-    setup(_props: EmptyProps): AboutResult {
+    setup(): AboutResult {
         const loaded = signal<boolean>(false)
 
         onMount(() => {

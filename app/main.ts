@@ -10,5 +10,6 @@ const routes: Route[] = [
 
 createRouter(routes)
 
-const outlet = document.getElementById('app') as HTMLElement
+const outlet = document.getElementById('app')
+if (!outlet) throw new Error('[app] #app element not found in DOM')
 mountOutlet(outlet)
