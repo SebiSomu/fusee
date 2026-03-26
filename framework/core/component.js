@@ -50,7 +50,7 @@ function resolveProps(schema, received) {
             const typeMap = { String: 'string', Number: 'number', Boolean: 'boolean' }
             if (typeMap[expectedType] && actualType !== typeMap[expectedType]) {
                 console.warn(
-                    `[framework] Prop "${key}" expected ${expectedType} but got ${actualType}` 
+                    `[framework] Prop "${key}" expected ${expectedType} but got ${actualType}`
                 )
             }
         }
@@ -102,14 +102,16 @@ export function defineComponent(options) {
         function render(container) {
             instance._element = container
 
-            const e = effect(() => {
-                const html = resolveTemplate(result.template, result, options.components || {})
-                container.innerHTML = html
-                bindEvents(container, result)
-                bindComponents(container, options.components || {})
-            })
+            // mountTemplate construiește DOM-ul O SINGURĂ DATĂ
+            // și leagă fiecare {{ expr }} direct la un TextNode reactiv
+            const { effects } = mountTemplate(
+                result.template,
+                container,
+                result,
+                options.components || {}
+            )
 
-            instance._effects.push(e)
+            instance._effects.push(...effects)
 
             // Run mount hooks after first render
             for (const hook of instance._mountHooks) hook()
@@ -132,33 +134,70 @@ export function defineComponent(options) {
     }
 }
 
-// ── Template resolver ─────────────────────────────────────────────────────────
-// Replaces {{ expr }} with evaluated values from the component result object.
-function resolveTemplate(template, context, components) {
-    return template.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, key) => {
+// ── Mount template ────────────────────────────────────────────────────────────
+// Parse template ONCE, build static DOM,
+// and bind each {{ expr }} directly to a reactive TextNode via effect().
+// No more innerHTML after mounting — only textNode.textContent updates.
+function mountTemplate(template, container, context, components) {
+    const effects = []
+    const placeholderMap = new Map()  // id → key from context
+    let i = 0
+
+    // Step 1: replace {{ expr }} with unique span placeholders
+    const processedHTML = template.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, key) => {
         if (key in components) {
-            // Nested component: {{ Counter }} → render component placeholder
+            // Nested component — div placeholder as before
             return `<div data-component="${key}"></div>`
         }
-        const val = context[key]
-        if (typeof val === 'function') {
-            // Could be a signal — call it to get value
-            try { return val() } catch { return '' }
-        }
-        return val ?? ''
+        // Signal or value — span with unique id
+        const id = `__fx_${i++}__`
+        placeholderMap.set(id, key)
+        return `<span data-fx-id="${id}"></span>`
     })
+
+    // Step 2: set innerHTML ONCE — only static structure
+    container.innerHTML = processedHTML
+
+    // Step 3: for each placeholder, replace span with a TextNode
+    // and bind it to signal via effect — only it updates from now
+    for (const [id, key] of placeholderMap) {
+        const span = container.querySelector(`[data-fx-id="${id}"]`)
+        if (!span) continue
+
+        const textNode = document.createTextNode('')
+        span.replaceWith(textNode)
+
+        // Effect bound directly to TextNode — signal changes → only textContent update
+        const e = effect(() => {
+            const val = context[key]
+            textNode.textContent = String(
+                typeof val === 'function' ? val() : val ?? ''
+            )
+        })
+
+        effects.push(e)
+    }
+
+    // Step 4: bind events ONCE — DOM no longer destroyed,
+    // so listeners remain permanently attached
+    bindEvents(container, context)
+
+    // Step 5: mount child components ONCE
+    bindComponents(container, components)
+
+    return { effects }
 }
 
 // ── Event binding ─────────────────────────────────────────────────────────────
-// Finds all elements with @event attributes and attaches listeners.
-// Re-runs after every template re-render (innerHTML wipe clears old listeners).
+// Called ONCE at mounting — no more re-bind needed
+// because DOM is no longer destroyed on each signal update.
 function bindEvents(container, context) {
     const all = container.querySelectorAll('*')
     for (const el of all) {
         for (const attr of [...el.attributes]) {
             if (attr.name.startsWith('@')) {
-                const eventName = attr.name.slice(1)          // @click → click
-                const handlerName = attr.value                 // "increment"
+                const eventName = attr.name.slice(1)    // @click → click
+                const handlerName = attr.value           // "increment"
                 const handler = context[handlerName]
                 if (typeof handler === 'function') {
                     el.removeAttribute(attr.name)
@@ -170,7 +209,8 @@ function bindEvents(container, context) {
 }
 
 // ── Nested component mounting ─────────────────────────────────────────────────
-// Finds data-component placeholders and mounts child components inside them.
+// Called ONCE at mounting — children no longer remount
+// on each parent update.
 function bindComponents(container, components) {
     const placeholders = container.querySelectorAll('[data-component]')
     for (const placeholder of placeholders) {

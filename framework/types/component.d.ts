@@ -43,5 +43,6 @@ export declare function onMount(fn: () => void): void
 export declare function onUnmount(fn: () => void): void
 export declare function defineComponent<TProps = EmptyProps>(options: ComponentOptions<TProps>): ComponentFactory<TProps>
 
-// Internal helper for prop resolution (not exported)
+// Internal helpers for prop resolution and template mounting (not exported)
 declare function resolveProps(schema: PropSchema, received: ComponentProps): ComponentProps
+declare function mountTemplate(template: string, container: HTMLElement, context: ComponentResult, components: Record<string, ComponentFactory>): void[]
