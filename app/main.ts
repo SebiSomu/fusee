@@ -4,8 +4,8 @@ import { Home } from './routes/Home.js'
 import { About } from './routes/About.js'
 
 const routes: Route[] = [
-  { path: '/', component: Home },
-  { path: '/about', component: About },
+    { path: '/', component: Home },
+    { path: '/about', component: About },
 ]
 
 createRouter(routes)
