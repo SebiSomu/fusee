@@ -1,4 +1,4 @@
-import { defineComponent, signal, onMount, onUnmount, type Signal, type ComponentOptions } from '../../framework/index.js'
+import { defineComponent, signal, computed, onMount, onUnmount, type Signal, type ComponentOptions, type PropConfig } from '../../framework/index.js'
 
 type CounterProps = {
     initialValue?: string
@@ -14,24 +14,23 @@ type CounterResult = {
 }
 
 export const Counter = defineComponent({
-    props: ['initialValue'],
+    props: {
+        initialValue: { type: String, default: '0' }
+    },
     setup(props: CounterProps): CounterResult {
         const count = signal<number>(Number(props.initialValue) || 0)
-        const double = signal<number>(0)
+        const double = computed(() => count() * 2)
 
         function increment(): void { 
             count(count() + 1) 
-            double(count() * 2) 
         }
         
         function decrement(): void { 
             count(count() - 1) 
-            double(count() * 2) 
         }
         
         function reset(): void { 
             count(0) 
-            double(0) 
         }
 
         onMount(() => console.log('[Counter] mounted, initial:', count()))

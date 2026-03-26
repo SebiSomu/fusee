@@ -2,6 +2,14 @@
 
 export type ComponentProps = Record<string, any>
 
+export type PropSchema = string[] | Record<string, PropConfig>
+
+export type PropConfig = {
+    type?: FunctionConstructor | StringConstructor | NumberConstructor | BooleanConstructor
+    default?: any | (() => any)
+    required?: boolean
+}
+
 export type ComponentInstance = {
     props: ComponentProps
     _mountHooks: (() => void)[]
@@ -16,7 +24,7 @@ export type ComponentResult = {
 }
 
 export type ComponentOptions = {
-    props?: string[]
+    props?: PropSchema
     components?: Record<string, ComponentFactory>
     setup: (props: ComponentProps) => ComponentResult
 }
@@ -32,3 +40,6 @@ export type ComponentApi = {
 export declare function onMount(fn: () => void): void
 export declare function onUnmount(fn: () => void): void
 export declare function defineComponent(options: ComponentOptions): ComponentFactory
+
+// Internal helper for prop resolution (not exported)
+declare function resolveProps(schema: PropSchema, received: ComponentProps): ComponentProps

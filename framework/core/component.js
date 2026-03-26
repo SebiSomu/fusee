@@ -4,6 +4,77 @@ import { effect } from './signal.js'
 // Lifecycle context — set while setup() runs
 let currentInstance = null
 
+/**
+ * Resolve and validate component props against schema
+ * @param {string[]|Object} schema - Array of prop names or object with prop definitions
+ * @param {Object} received - Props passed to component
+ * @returns {Object} Resolved props with defaults applied
+ */
+function resolveProps(schema, received) {
+    // Schema can be simple array ['title', 'count']
+    // or object { title: { type: String, default: 'Untitled', required: false } }
+    const isArray = Array.isArray(schema)
+    const resolved = {}
+
+    if (isArray) {
+        // Old style — just validate prop exists
+        for (const key of schema) {
+            if (!(key in received)) {
+                console.warn(`[framework] Missing prop "${key}"`)
+            }
+            resolved[key] = received[key]
+        }
+        // Warn for unknown props
+        for (const key of Object.keys(received)) {
+            if (!schema.includes(key)) {
+                console.warn(`[framework] Unknown prop "${key}"`)
+            }
+        }
+        return resolved
+    }
+
+    // Object style with type/default/required
+    for (const [key, config] of Object.entries(schema)) {
+        const value = received[key]
+
+        // Required check
+        if (config.required && value === undefined) {
+            console.error(`[framework] Required prop "${key}" is missing`)
+        }
+
+        // Type check
+        if (value !== undefined && config.type) {
+            const expectedType = config.type.name  // String, Number, Boolean etc.
+            const actualType = typeof value
+
+            const typeMap = { String: 'string', Number: 'number', Boolean: 'boolean' }
+            if (typeMap[expectedType] && actualType !== typeMap[expectedType]) {
+                console.warn(
+                    `[framework] Prop "${key}" expected ${expectedType} but got ${actualType}` 
+                )
+            }
+        }
+
+        // Apply default if prop is missing
+        if (value === undefined && config.default !== undefined) {
+            resolved[key] = typeof config.default === 'function'
+                ? config.default()   // default factory (for objects/arrays)
+                : config.default
+        } else {
+            resolved[key] = value
+        }
+    }
+
+    // Warn for unknown props
+    for (const key of Object.keys(received)) {
+        if (!(key in schema)) {
+            console.warn(`[framework] Unknown prop "${key}"`)
+        }
+    }
+
+    return resolved
+}
+
 export function onMount(fn) {
     if (currentInstance) currentInstance._mountHooks.push(fn)
 }
@@ -15,7 +86,7 @@ export function onUnmount(fn) {
 export function defineComponent(options) {
     return function ComponentFactory(props = {}) {
         const instance = {
-            props,
+            props: options.props ? resolveProps(options.props, props) : props,
             _mountHooks: [],
             _unmountHooks: [],
             _effects: [],
@@ -24,16 +95,8 @@ export function defineComponent(options) {
 
         // Run setup() with lifecycle context active
         currentInstance = instance
-        const result = options.setup(props)
+        const result = options.setup(instance.props)
         currentInstance = null
-
-        // Validate props defined in component
-        const allowedProps = options.props || []
-        for (const key of Object.keys(props)) {
-            if (!allowedProps.includes(key)) {
-                console.warn(`[framework] Unknown prop "${key}" passed to component.`)
-            }
-        }
 
         // ── Template rendering ───────────────────────────────────────────────────
         function render(container) {

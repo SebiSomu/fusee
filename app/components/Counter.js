@@ -1,7 +1,9 @@
 import { defineComponent, signal, computed, onMount, onUnmount } from '../../framework/index.js'
 
 export const Counter = defineComponent({
-    props: ['initialValue'],
+    props: {
+        initialValue: { type: String, default: '0' }
+    },
     setup(props) {
         const count = signal(Number(props.initialValue) || 0)
         
