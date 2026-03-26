@@ -1,13 +1,13 @@
-import { defineComponent, signal, onMount, type Signal, type ComponentOptions } from '../../framework/index.js'
+import { defineComponent, signal, onMount, type Signal, type EmptyProps } from '../../framework/index.js'
 
 type AboutResult = {
     loaded: Signal<boolean>
     template: string
 }
 
-export const About = defineComponent({
+export const About = defineComponent<EmptyProps>({
     props: [],
-    setup(): AboutResult {
+    setup(_props: EmptyProps): AboutResult {
         const loaded = signal<boolean>(false)
 
         onMount(() => {
@@ -26,4 +26,4 @@ export const About = defineComponent({
             `
         }
     }
-} as ComponentOptions)
+})

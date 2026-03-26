@@ -2,6 +2,8 @@
 
 export type ComponentProps = Record<string, any>
 
+export type EmptyProps = Record<string, never>
+
 export type PropSchema = string[] | Record<string, PropConfig>
 
 export type PropConfig = {
@@ -23,13 +25,13 @@ export type ComponentResult = {
     [key: string]: any
 }
 
-export type ComponentOptions = {
+export type ComponentOptions<TProps = ComponentProps> = {
     props?: PropSchema
     components?: Record<string, ComponentFactory>
-    setup: (props: ComponentProps) => ComponentResult
+    setup: (props: TProps) => ComponentResult
 }
 
-export type ComponentFactory = (props?: ComponentProps) => ComponentApi
+export type ComponentFactory<TProps = ComponentProps> = (props?: TProps) => ComponentApi
 
 export type ComponentApi = {
     render: (container: HTMLElement) => ComponentInstance
@@ -39,7 +41,7 @@ export type ComponentApi = {
 
 export declare function onMount(fn: () => void): void
 export declare function onUnmount(fn: () => void): void
-export declare function defineComponent(options: ComponentOptions): ComponentFactory
+export declare function defineComponent<TProps = ComponentProps>(options: ComponentOptions<TProps>): ComponentFactory<TProps>
 
 // Internal helper for prop resolution (not exported)
 declare function resolveProps(schema: PropSchema, received: ComponentProps): ComponentProps

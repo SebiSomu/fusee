@@ -1,4 +1,4 @@
-import { defineComponent, signal, type Signal, type ComponentOptions } from '../../framework/index.js'
+import { defineComponent, signal, type Signal, type EmptyProps } from '../../framework/index.js'
 import { Counter } from '../components/Counter.js'
 
 type HomeResult = {
@@ -6,10 +6,10 @@ type HomeResult = {
     template: string
 }
 
-export const Home = defineComponent({
+export const Home = defineComponent<EmptyProps>({
     props: [],
     components: { Counter },
-    setup(): HomeResult {
+    setup(_props: EmptyProps): HomeResult {
         const title = signal<string>('Welcome!')
 
         return {
@@ -24,4 +24,4 @@ export const Home = defineComponent({
             `
         }
     }
-} as ComponentOptions)
+})

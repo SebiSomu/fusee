@@ -13,7 +13,7 @@ type CounterResult = {
     template: string
 }
 
-export const Counter = defineComponent({
+export const Counter = defineComponent<CounterProps>({
     props: {
         initialValue: { type: String, default: '0' }
     },
@@ -56,4 +56,4 @@ export const Counter = defineComponent({
             `
         }
     }
-} as ComponentOptions)
+})

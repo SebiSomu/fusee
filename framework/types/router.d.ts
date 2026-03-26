@@ -9,6 +9,7 @@ export type Route = {
 
 export type Router = {
     navigate: (path: string) => void
+    destroy: () => void
 }
 
 export declare function createRouter(routes: Route[]): Router
