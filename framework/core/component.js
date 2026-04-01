@@ -4,12 +4,6 @@ import { effect } from './signal.js'
 // Lifecycle context — set while setup() runs
 let currentInstance = null
 
-/**
- * Resolve and validate component props against schema
- * @param {string[]|Object} schema - Array of prop names or object with prop definitions
- * @param {Object} received - Props passed to component
- * @returns {Object} Resolved props with defaults applied
- */
 function resolveProps(schema, received) {
     // Schema can be simple array ['title', 'count']
     // or object { title: { type: String, default: 'Untitled', required: false } }
@@ -17,14 +11,12 @@ function resolveProps(schema, received) {
     const resolved = {}
 
     if (isArray) {
-        // Old style — just validate prop exists
         for (const key of schema) {
             if (!(key in received)) {
                 console.warn(`[framework] Missing prop "${key}"`)
             }
             resolved[key] = received[key]
         }
-        // Warn for unknown props
         for (const key of Object.keys(received)) {
             if (!schema.includes(key)) {
                 console.warn(`[framework] Unknown prop "${key}"`)
@@ -44,7 +36,7 @@ function resolveProps(schema, received) {
 
         // Type check
         if (value !== undefined && config.type) {
-            const expectedType = config.type.name  // String, Number, Boolean etc.
+            const expectedType = config.type.name
             const actualType = typeof value
 
             const typeMap = { String: 'string', Number: 'number', Boolean: 'boolean' }
@@ -102,8 +94,6 @@ export function defineComponent(options) {
         function render(container) {
             instance._element = container
 
-            // mountTemplate construiește DOM-ul O SINGURĂ DATĂ
-            // și leagă fiecare {{ expr }} direct la un TextNode reactiv
             const { effects } = mountTemplate(
                 result.template,
                 container,
@@ -113,7 +103,6 @@ export function defineComponent(options) {
 
             instance._effects.push(...effects)
 
-            // Run mount hooks after first render
             for (const hook of instance._mountHooks) hook()
 
             return instance
@@ -179,7 +168,6 @@ function mountTemplate(template, container, context, components) {
     }
 
     // Step 4: bind events ONCE — DOM no longer destroyed,
-    // so listeners remain permanently attached
     bindEvents(container, context)
 
     // Step 5: mount child components ONCE

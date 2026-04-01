@@ -5,7 +5,12 @@ export type SignalAccessor<T> = {
     (newValue: T): void;
 }
 
+export type ComputedAccessor<T> = {
+    (): T;
+}
+
 export type Signal<T = any> = SignalAccessor<T>
+export type Computed<T = any> = ComputedAccessor<T>
 
 export type EffectRunner = {
     (): void;
@@ -14,4 +19,7 @@ export type EffectRunner = {
 
 export declare function signal<T>(initialValue: T): Signal<T>
 export declare function effect(fn: () => void): EffectRunner
-export declare function computed<T>(fn: () => T): Signal<T>
+export declare function computed<T>(fn: () => T): Computed<T>
+export declare function batch<T>(fn: () => T): T
+export declare function untrack<T>(fn: () => T): T
+

@@ -14,7 +14,7 @@ export const About = defineComponent({
             template: `
                 <div class="page">
                     <h1>About</h1>
-                    <p>Framework custom — prototip SPA.</p>
+                    <p>Framework custom — SPA prototipe</p>
                     <p><strong>Features:</strong> signals, defineComponent, hash router, lifecycle hooks.</p>
                     <p class="status">{{ loaded }}</p>
                 </div>

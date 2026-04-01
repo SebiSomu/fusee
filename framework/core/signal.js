@@ -4,12 +4,48 @@
 
 let currentEffect = null
 
+// ─── Batching ────────────────────────────────────────────────────────────────
+// Collects all pending effect runs during a batch, then flushes them once.
+let batchDepth = 0
+const pendingEffects = new Set()
+
+export function batch(fn) {
+    batchDepth++
+    try {
+        return fn()
+    } finally {
+        batchDepth--
+        if (batchDepth === 0) {
+            // Flush all pending effects once
+            const toRun = [...pendingEffects]
+            pendingEffects.clear()
+            for (const effect of toRun) effect()
+        }
+    }
+}
+
+function scheduleEffect(effectFn) {
+    if (batchDepth > 0) {
+        // Inside batch — defer execution
+        pendingEffects.add(effectFn)
+    } else {
+        // Outside batch — run immediately
+        effectFn()
+    }
+}
+
+// ─── Sentinel for distinguishing signal() read vs signal(undefined) write ────
+const SIGNAL_NO_ARG = Symbol('SIGNAL_NO_ARG')
+
+// ─── signal(initialValue) ────────────────────────────────────────────────────
+// Uses arguments.length to distinguish read (0 args) from write (1 arg),
+// so signal(undefined) correctly writes `undefined` instead of reading.
 export function signal(initialValue) {
     let value = initialValue
     const subscribers = new Set()
 
-    function accessor(newValue) {
-        if (newValue === undefined) {
+    function accessor() {
+        if (arguments.length === 0) {
             // READ — track dependency if inside an effect
             if (currentEffect) {
                 subscribers.add(currentEffect)
@@ -18,9 +54,10 @@ export function signal(initialValue) {
             return value
         } else {
             // WRITE — notify subscribers only if value changed
+            const newValue = arguments[0]
             if (newValue !== value) {
                 value = newValue
-                for (const sub of [...subscribers]) sub()
+                for (const sub of [...subscribers]) scheduleEffect(sub)
             }
         }
     }
@@ -28,6 +65,7 @@ export function signal(initialValue) {
     return accessor
 }
 
+// ─── effect(fn) ──────────────────────────────────────────────────────────────
 export function effect(fn) {
     const run = () => {
         // Clean up previous subscriptions before re-running
@@ -44,40 +82,46 @@ export function effect(fn) {
     return run
 }
 
+// ─── computed(fn) ────────────────────────────────────────────────────────────
+// Pull-based lazy evaluation with push-based invalidation.
 export function computed(fn) {
     let value
-    let dirty = true // for lazy-loading
+    let dirty = true
+    let initialized = false
     const subscribers = new Set()
 
-    const runner = effect(() => {
-        console.log('[computed] tracking dependencies...')
-        fn()
-        if (!dirty) {
+    const e = effect(() => {
+        if (!initialized) {
+            // First run — compute value AND track deps
+            value = fn()
+            dirty = false
+            initialized = true
+        } else {
+            // Re-triggered by dependency change — just invalidate
             dirty = true
-            console.log('[computed] dependencies changed, marking dirty')
-            for (const sub of [...subscribers]) sub()
+            // Notify downstream effects/computeds that this value changed
+            for (const sub of [...subscribers]) scheduleEffect(sub)
         }
     })
 
-    dirty = true
-    console.log('[computed] initialized, ready for lazy eval')
-
-    function accessor(newValue) {
-        if (newValue === undefined) {
+    function accessor() {
+        if (arguments.length === 0) {
+            // READ — register as dependency for any outer effect
             if (currentEffect) {
                 subscribers.add(currentEffect)
                 currentEffect.deps.add(subscribers)
             }
             if (dirty) {
-                console.log('[computed] dirty - recomputing value')
+                // Lazy recomputation with dep tracking so the effect
+                // stays subscribed to the correct upstream signals
                 const prevEffect = currentEffect
-                currentEffect = null
-                value = fn()
-                currentEffect = prevEffect
-                dirty = false
-                console.log('[computed] computed value:', value)
-            } else {
-                console.log('[computed] clean - returning cached:', value)
+                currentEffect = e  // track deps under our internal effect
+                try {
+                    value = fn()
+                    dirty = false
+                } finally {
+                    currentEffect = prevEffect
+                }
             }
             return value
         }
@@ -85,4 +129,17 @@ export function computed(fn) {
     }
 
     return accessor
+}
+
+// ─── untrack(fn) ─────────────────────────────────────────────────────────────
+// Runs fn without tracking any signal reads as dependencies.
+// Useful inside effects when you need to read a signal without subscribing.
+export function untrack(fn) {
+    const prevEffect = currentEffect
+    currentEffect = null
+    try {
+        return fn()
+    } finally {
+        currentEffect = prevEffect
+    }
 }
