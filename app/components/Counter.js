@@ -8,20 +8,15 @@ export const Counter = defineComponent({
         const count = signal(Number(props.initialValue) || 0)
         const multiplier = signal(1)
         
-        // TEST: computed cu lazy loading
         const double = computed(() => {
             console.log('[Counter] computing double...')
             return count() * 2
         })
 
-        // Exemplu untrack: efectul reacționează la schimbările 'count',
-        // dar ignoră schimbările 'multiplier' datorită lui untrack().
         effect(() => {
             console.log(`[Counter Effect] Count: ${count()} | Step ignored in tracking: ${untrack(() => multiplier())}`)
         })
 
-        // Exemplu batch: update multiple fără a interoga interfața sau efectele conectate
-        // de mai multe ori
         function updateMultiple() {
             batch(() => {
                 count(count() + 5)
