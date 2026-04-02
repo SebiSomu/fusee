@@ -132,6 +132,37 @@ function processDirectives(root, context, components, effects) {
     processFor(root, context, components, effects)
     processIf(root, context, components, effects)
     processShow(root, context, effects)
+    processModel(root, context, effects)
+}
+
+function processModel(root, context, effects) {
+    const modelEls = root.querySelectorAll('[f-model]')
+    for (const el of modelEls) {
+        if (!el.parentNode) continue
+
+        const expr = el.getAttribute('f-model')
+        el.removeAttribute('f-model')
+
+        const signalMethod = context[expr]
+        if (typeof signalMethod === 'function' && signalMethod.isSignal) {
+            effects.push(effect(() => {
+                const val = signalMethod()
+                if (el.type === 'checkbox') {
+                    el.checked = !!val
+                } else {
+                    el.value = val ?? ''
+                }
+            }))
+
+            const eventName = (el.tagName === 'SELECT' || el.type === 'checkbox' || el.type === 'radio') ? 'change' : 'input'
+            el.addEventListener(eventName, () => {
+                const newVal = el.type === 'checkbox' ? el.checked : el.value
+                batch(() => signalMethod(newVal))
+            })
+        } else {
+            console.warn(`[framework] f-model requires a signal. Received invalid expression: "${expr}"`)
+        }
+    }
 }
 
 function processFor(root, context, components, effects) {
