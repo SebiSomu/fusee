@@ -133,6 +133,24 @@ function processDirectives(root, context, components, effects) {
     processIf(root, context, components, effects)
     processShow(root, context, effects)
     processModel(root, context, effects)
+    processRefs(root, context)
+}
+
+function processRefs(root, context) {
+    const refEls = root.querySelectorAll('[f-ref]')
+    for (const el of refEls) {
+        if (!el.parentNode) continue
+
+        const refName = el.getAttribute('f-ref')
+        el.removeAttribute('f-ref')
+
+        const refVar = context[refName]
+        if (typeof refVar === 'function' && refVar.isSignal) {
+            refVar(el)
+        } else {
+            console.warn(`[framework] f-ref requires a signal in context. Received invalid target: "${refName}"`)
+        }
+    }
 }
 
 function processModel(root, context, effects) {
