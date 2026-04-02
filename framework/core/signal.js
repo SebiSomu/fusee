@@ -30,8 +30,6 @@ function scheduleEffect(effectFn) {
     }
 }
 
-const SIGNAL_NO_ARG = Symbol('SIGNAL_NO_ARG')
-
 export function signal(initialValue) {
     let value = initialValue
     const subscribers = new Set()
@@ -66,35 +64,32 @@ export function effect(fn) {
     }
 
     run.deps = new Set()
-    if (onEffectCreated)
-        onEffectCreated(run)
-    run()
-
-    return () => {
+    
+    const cleanup = () => {
         for (const dep of run.deps) dep.delete(run)
         run.deps.clear()
     }
+
+    if (onEffectCreated)
+        onEffectCreated(cleanup)
+    run()
+
+    return cleanup
 }
 
 export function computed(fn) {
     let value
     let dirty = true
-    let initialized = false
     const subscribers = new Set()
 
-    let runner = null
-
-    const e = effect(() => {
-        runner = currentEffect
-        if (!initialized) {
-            value = fn()
-            dirty = false
-            initialized = true
-        } else {
+    const computedNode = () => {
+        if (!dirty) {
             dirty = true
             for (const sub of [...subscribers]) scheduleEffect(sub)
         }
-    })
+    }
+    
+    computedNode.deps = new Set()
 
     function accessor() {
         if (arguments.length === 0) {
@@ -103,18 +98,27 @@ export function computed(fn) {
                 currentEffect.deps.add(subscribers)
             }
             if (dirty) {
+                for (const dep of computedNode.deps) dep.delete(computedNode)
+                computedNode.deps.clear()
+
                 const prevEffect = currentEffect
-                currentEffect = runner
+                currentEffect = computedNode
                 try {
                     value = fn()
-                    dirty = false
                 } finally {
                     currentEffect = prevEffect
                 }
+                dirty = false
             }
             return value
         }
         console.warn('[framework] computed() is read-only')
+    }
+
+    accessor.dispose = () => {
+        for (const dep of computedNode.deps) dep.delete(computedNode)
+        computedNode.deps.clear()
+        subscribers.clear()
     }
 
     return accessor

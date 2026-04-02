@@ -108,12 +108,7 @@ export function defineComponent(options) {
             for (const hook of instance._unmountHooks) hook()
             for (const e of instance._effects) {
                 if (typeof e === 'function') {
-                    if (e.deps) {
-                        for (const dep of e.deps) dep.delete(e)
-                        e.deps.clear()
-                    } else {
-                        e()
-                    }
+                    e()
                 }
             }
             if (instance._element) instance._element.innerHTML = ''

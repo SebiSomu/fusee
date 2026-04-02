@@ -44,4 +44,4 @@ export declare function onUnmount(fn: () => void): void
 export declare function defineComponent<TProps = EmptyProps>(options: ComponentOptions<TProps>): ComponentFactory<TProps>
 
 declare function resolveProps(schema: PropSchema, received: ComponentProps): ComponentProps
-declare function mountTemplate(template: string, container: HTMLElement, context: ComponentResult, components: Record<string, ComponentFactory>): void[]
+declare function mountTemplate(template: string, container: HTMLElement, context: ComponentResult, components: Record<string, ComponentFactory>): { effects: (() => void)[] }
