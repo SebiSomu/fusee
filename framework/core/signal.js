@@ -1,3 +1,5 @@
+// ─── Reactivity Engine ───────────────────────────────────────────────────────
+
 let currentEffect = null
 let onEffectCreated = null
 
@@ -62,7 +64,7 @@ export function effect(fn) {
     }
 
     run.deps = new Set()
-    
+
     const cleanup = () => {
         for (const dep of run.deps) dep.delete(run)
         run.deps.clear()
@@ -86,7 +88,7 @@ export function computed(fn) {
             for (const sub of [...subscribers]) scheduleEffect(sub)
         }
     }
-    
+
     computedNode.deps = new Set()
 
     function accessor() {
@@ -102,11 +104,14 @@ export function computed(fn) {
                 const prevEffect = currentEffect
                 currentEffect = computedNode
                 try {
-                    value = fn()
+                    const newValue = fn()
+                    if (newValue !== value) {
+                        value = newValue
+                    }
                 } finally {
                     currentEffect = prevEffect
+                    dirty = false
                 }
-                dirty = false
             }
             return value
         }
