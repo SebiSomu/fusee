@@ -15,9 +15,11 @@ export function batch(fn) {
     } finally {
         batchDepth--
         if (batchDepth === 0) {
-            const toRun = [...pendingEffects]
-            pendingEffects.clear()
-            for (const effect of toRun) effect()
+            while (pendingEffects.size > 0) {
+                const toRun = [...pendingEffects]
+                pendingEffects.clear()
+                for (const effect of toRun) effect()
+            }
         }
     }
 }
@@ -43,7 +45,7 @@ export function signal(initialValue) {
             return value
         } else {
             const newValue = arguments[0]
-            if (newValue !== value) {
+            if (!Object.is(value, newValue)) {
                 value = newValue
                 for (const sub of [...subscribers]) scheduleEffect(sub)
             }
