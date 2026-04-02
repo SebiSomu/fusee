@@ -7,18 +7,12 @@ import {
     MUSTACHE_RE
 } from './evaluator.js'
 
-/**
- * Mounts a template into a container with a given context and components.
- */
 export function mountTemplate(template, container, context, components) {
     const effects = []
-
-    // Pre-processing for :attr="expr" bindings
     let processed = template.replace(/(<[a-zA-Z0-9-]+\s[^>]*?)\s:([a-zA-Z][a-zA-Z0-9-]*)=/g, '$1 data-bind-$2=')
 
-    // Component placeholder replacement
     for (const name of Object.keys(components)) {
-        const re = new RegExp(`\\{\\{\\s*${name}(.*?)\\}\\}`, 'g')
+        const re = new RegExp(`\\{\\{\\s*${name}(\\s+.*?|\\s*)\\}\\}`, 'g')
         processed = processed.replace(re, (match, propsStr) => {
             let attrs = ''
             if (propsStr && propsStr.trim()) {
@@ -29,9 +23,9 @@ export function mountTemplate(template, container, context, components) {
                     const attrValue = attrMatch[2]
 
                     if (attrName.startsWith(':')) {
-                        attrs += ` data-bind-prop-${attrName.slice(1)}="${attrValue}"`
+                        attrs += ` data-bind-prop-${attrName.slice(1).toLowerCase()}="${attrValue}"`
                     } else {
-                        attrs += ` data-prop-${attrName}="${attrValue}"`
+                        attrs += ` data-prop-${attrName.toLowerCase()}="${attrValue}"`
                     }
                 }
             }
@@ -41,13 +35,9 @@ export function mountTemplate(template, container, context, components) {
 
     container.innerHTML = processed
     compileNode(container, context, components, effects)
-
     return { effects }
 }
 
-/**
- * Compiles a DOM tree by applying directives, text nodes, attribute bindings, events, and component binding.
- */
 export function compileNode(node, context, components, effects) {
     processDirectives(node, context, components, effects)
     processTextNodes(node, context, effects)
@@ -56,9 +46,6 @@ export function compileNode(node, context, components, effects) {
     bindComponents(node, components, context, effects)
 }
 
-/**
- * Handles text node interpolation with mustache syntax.
- */
 function processTextNodes(root, context, effects) {
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
     const targets = []
@@ -94,16 +81,12 @@ function processTextNodes(root, context, effects) {
     }
 }
 
-/**
- * Handles attribute bindings for reactive attributes.
- */
 function processAttrBindings(root, context, effects) {
     const all = root.querySelectorAll('*')
 
     for (const el of all) {
         for (const attr of [...el.attributes]) {
-            // :attr or data-bind-
-            if (attr.name.startsWith('data-bind-')) {
+            if (attr.name.startsWith('data-bind-') && !attr.name.startsWith('data-bind-prop-')) {
                 const realAttr = attr.name.slice(10)
                 const expr = attr.value
                 el.removeAttribute(attr.name)
@@ -124,7 +107,6 @@ function processAttrBindings(root, context, effects) {
                 continue
             }
 
-            // mustache in attribute value
             if (MUSTACHE_RE.test(attr.value)) {
                 const attrName = attr.name
                 const parts = parseInterpolation(attr.value)
@@ -149,9 +131,6 @@ function processAttrBindings(root, context, effects) {
     }
 }
 
-/**
- * Binds event listeners specified with @attribute="@handler".
- */
 function bindEvents(container, context) {
     const all = container.querySelectorAll('*')
     for (const el of all) {
@@ -171,9 +150,6 @@ function bindEvents(container, context) {
     }
 }
 
-/**
- * Binds components to their placeholders with props passing.
- */
 function bindComponents(container, components, context, effects) {
     const placeholders = container.querySelectorAll('[data-component]')
     const els = container.matches && container.matches('[data-component]') ? [container, ...placeholders] : placeholders
@@ -183,25 +159,38 @@ function bindComponents(container, components, context, effects) {
         if (ComponentFn) {
             const props = {}
             for (const attr of [...placeholder.attributes]) {
-                if (attr.name.startsWith('data-prop-')) {
-                    props[attr.name.slice(10)] = attr.value
-                } else if (attr.name.startsWith('data-bind-prop-')) {
-                    const propName = attr.name.slice(15)
-                    const parentKey = attr.value
+                const attrName = attr.name.toLowerCase()
+                
+                if (attrName.startsWith('data-prop-')) {
+                    props[attrName.slice(10)] = attr.value
+                } else if (attrName.startsWith('data-bind-prop-')) {
+                    const propName = attrName.slice(15)
+                    const expression = attr.value.trim()
 
-                    Object.defineProperty(props, propName, {
-                        get() {
-                            const val = context[parentKey]
-                            return typeof val === 'function' && val.isSignal ? val() : val
-                        },
-                        enumerable: true
-                    })
+                    if (expression in context) {
+                        Object.defineProperty(props, propName, {
+                            get() {
+                                const val = context[expression]
+                                return typeof val === 'function' && val.isSignal ? val() : val
+                            },
+                            enumerable: true,
+                            configurable: true
+                        })
+                    } else {
+                        Object.defineProperty(props, propName, {
+                            get() {
+                                return evaluateExpression(expression, context)
+                            },
+                            enumerable: true,
+                            configurable: true
+                        })
+                    }
                 }
             }
-            const child = ComponentFn(props)
-            child.render(placeholder)
+            const childComponent = ComponentFn(props)
+            childComponent.render(placeholder)
             if (effects) {
-                effects.push(() => child.unmount())
+                effects.push(() => childComponent.unmount())
             }
         }
     }

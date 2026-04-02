@@ -1,5 +1,3 @@
-// ─── Reactivity Engine ───────────────────────────────────────────────────────
-
 let currentEffect = null
 let onEffectCreated = null
 
@@ -18,7 +16,7 @@ export function batch(fn) {
             while (pendingEffects.size > 0) {
                 const toRun = [...pendingEffects]
                 pendingEffects.clear()
-                for (const effect of toRun) effect()
+                for (const eff of toRun) eff()
             }
         }
     }
@@ -67,14 +65,12 @@ export function effect(fn) {
     }
 
     run.deps = new Set()
-
     const cleanup = () => {
         for (const dep of run.deps) dep.delete(run)
         run.deps.clear()
     }
 
-    if (onEffectCreated)
-        onEffectCreated(cleanup)
+    if (onEffectCreated) onEffectCreated(cleanup)
     run()
 
     return cleanup
@@ -108,9 +104,7 @@ export function computed(fn) {
                 currentEffect = computedNode
                 try {
                     const newValue = fn()
-                    if (newValue !== value) {
-                        value = newValue
-                    }
+                    if (newValue !== value) value = newValue
                 } finally {
                     currentEffect = prevEffect
                     dirty = false

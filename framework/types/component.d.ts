@@ -27,7 +27,7 @@ export type ComponentResult = {
 
 export type ComponentOptions<TProps = ComponentProps> = {
     props?: PropSchema
-    components?: Record<string, ComponentFactory>
+    components?: Record<string, ComponentFactory<any>>
     setup: (props: TProps) => ComponentResult
 }
 

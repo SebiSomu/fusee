@@ -91,17 +91,13 @@ export function processFor(root, context, components, effects) {
             const rawItems = evaluateExpression(arrayExpr, context)
             const list = Array.isArray(rawItems) ? rawItems : []
 
-            for (const e of previousEffects) {
-                if (typeof e === 'function') e()
-            }
-            for (const node of previousNodes) {
-                node.parentNode?.removeChild(node)
-            }
+            for (const e of previousEffects) if (typeof e === 'function') e()
+            for (const node of previousNodes) node.parentNode?.removeChild(node)
+            
             previousNodes = []
             previousEffects = []
 
             const fragment = document.createDocumentFragment()
-
             list.forEach((item, index) => {
                 const clone = templateNode.cloneNode(true)
                 const childContext = Object.create(context)
@@ -122,36 +118,88 @@ export function processFor(root, context, components, effects) {
 }
 
 export function processIf(root, context, components, effects) {
-    const ifEls = root.querySelectorAll('[f-if]')
-    for (const el of ifEls) {
-        if (!el.parentNode) continue
+    const ifEls = Array.from(root.querySelectorAll('[f-if]'))
+    const processedEls = new Set()
 
-        const expr = el.getAttribute('f-if')
-        el.removeAttribute('f-if')
+    for (const ifEl of ifEls) {
+        if (processedEls.has(ifEl)) continue
 
-        const anchor = document.createComment('f-if')
-        const parent = el.parentNode
-        parent.insertBefore(anchor, el)
+        const parent = ifEl.parentNode
+        if (!parent) continue
 
-        const templateNode = el.cloneNode(true)
-        parent.removeChild(el)
+        const group = []
+        let curr = ifEl
 
-        let currentUserNode = null
-        let childEffects = []
+        while (curr) {
+            if (curr.nodeType === 1) { 
+                const type = curr.hasAttribute('f-if') ? 'if' :
+                             curr.hasAttribute('f-elif') ? 'elif' :
+                             curr.hasAttribute('f-else-if') ? 'elif' :
+                             curr.hasAttribute('f-else') ? 'else' : null
+
+                if (type) {
+                    const expr = type === 'else' ? 'true' : curr.getAttribute(`f-${type === 'elif' && curr.hasAttribute('f-else-if') ? 'else-if' : type}`)
+                    group.push({ node: curr, expr, type, isElement: true })
+                    processedEls.add(curr)
+                    
+                    curr.removeAttribute('f-if')
+                    curr.removeAttribute('f-elif')
+                    curr.removeAttribute('f-else-if')
+                    curr.removeAttribute('f-else')
+
+                    if (type === 'else') break
+                } else {
+                    break
+                }
+            } else if (curr.nodeType === 3 && curr.textContent.trim() === '' || curr.nodeType === 8) {
+                group.push({ node: curr, isElement: false })
+            } else {
+                break
+            }
+            curr = curr.nextSibling
+        }
+
+        const templates = group
+            .filter(item => item.isElement)
+            .map(item => ({
+                template: item.node.cloneNode(true),
+                expr: item.expr,
+                type: item.type
+            }))
+
+        const anchor = document.createComment('f-condition-anchor')
+        parent.insertBefore(anchor, ifEl)
+
+        for (const item of group) item.node.remove()
+
+        let activeIndex = -1
+        let activeNode = null
+        let activeCleanup = []
 
         effects.push(effect(() => {
-            const val = evaluateExpression(expr, context)
-            if (val && !currentUserNode) {
-                currentUserNode = templateNode.cloneNode(true)
-                compileNode(currentUserNode, context, components, childEffects)
-                anchor.parentNode.insertBefore(currentUserNode, anchor.nextSibling)
-            } else if (!val && currentUserNode) {
-                for (const e of childEffects) {
-                    if (typeof e === 'function') e()
+            let nextIndex = -1
+            for (let i = 0; i < templates.length; i++) {
+                const isMatch = templates[i].type === 'else' ? true : evaluateExpression(templates[i].expr, context)
+                if (isMatch) {
+                    nextIndex = i
+                    break
                 }
-                childEffects = []
-                currentUserNode.parentNode.removeChild(currentUserNode)
-                currentUserNode = null
+            }
+
+            if (nextIndex !== activeIndex) {
+                for (const cleanup of activeCleanup) if (typeof cleanup === 'function') cleanup()
+                activeCleanup = []
+                if (activeNode) {
+                    activeNode.remove()
+                    activeNode = null
+                }
+
+                if (nextIndex !== -1) {
+                    activeNode = templates[nextIndex].template.cloneNode(true)
+                    compileNode(activeNode, context, components, activeCleanup)
+                    anchor.parentNode.insertBefore(activeNode, anchor.nextSibling)
+                }
+                activeIndex = nextIndex
             }
         }))
     }

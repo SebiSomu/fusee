@@ -12,32 +12,39 @@ function resolveProps(schema, received) {
     const resolved = {}
 
     const normalizedSchema = {}
-    for (const key of Object.keys(isArray ? {} : schema)) {
-        normalizedSchema[key.toLowerCase()] = key
+    if (isArray) {
+        schema.forEach(k => normalizedSchema[k.toLowerCase()] = k)
+    } else {
+        for (const key of Object.keys(schema)) {
+            normalizedSchema[key.toLowerCase()] = key
+        }
     }
-    if (isArray) schema.forEach(k => normalizedSchema[k.toLowerCase()] = k)
 
-    for (const [receivedKey, value] of Object.entries(received)) {
+    for (const receivedKey of Object.keys(received)) {
         const schemaKey = isArray
             ? schema.find(k => k.toLowerCase() === receivedKey.toLowerCase())
             : normalizedSchema[receivedKey.toLowerCase()]
 
-        if (schemaKey) {
-            const descriptor = Object.getOwnPropertyDescriptor(received, receivedKey)
-            if (descriptor && (descriptor.get || descriptor.set)) {
-                Object.defineProperty(resolved, schemaKey, descriptor)
-            } else {
-                resolved[schemaKey] = value
-            }
-        } else {
+        if (!schemaKey) {
             console.warn(`[framework] Unknown prop "${receivedKey}"`)
+            continue
+        }
+
+        const descriptor = Object.getOwnPropertyDescriptor(received, receivedKey)
+        if (descriptor && descriptor.get) {
+            Object.defineProperty(resolved, schemaKey, {
+                get: descriptor.get,
+                enumerable: true,
+                configurable: true
+            })
+        } else {
+            resolved[schemaKey] = received[receivedKey]
         }
     }
 
-    // Checking defaults/required for object schema
     if (!isArray) {
         for (const [key, config] of Object.entries(schema)) {
-            if (resolved[key] === undefined) {
+            if (!(key in resolved)) {
                 if (config.required) {
                     console.error(`[framework] Required prop "${key}" is missing`)
                 }
@@ -47,8 +54,9 @@ function resolveProps(schema, received) {
                         : config.default
                 }
             } else if (config.type) {
+                const value = resolved[key]
                 const expectedType = config.type.name
-                const actualType = typeof resolved[key]
+                const actualType = typeof value
                 const typeMap = { String: 'string', Number: 'number', Boolean: 'boolean' }
                 if (typeMap[expectedType] && actualType !== typeMap[expectedType]) {
                     console.warn(`[framework] Prop "${key}" expected ${expectedType} but got ${actualType}`)
@@ -93,7 +101,6 @@ export function defineComponent(options) {
             )
 
             instance._effects.push(...effects)
-
             for (const hook of instance._mountHooks) hook()
 
             return instance
@@ -102,9 +109,7 @@ export function defineComponent(options) {
         function unmount() {
             for (const hook of instance._unmountHooks) hook()
             for (const e of instance._effects) {
-                if (typeof e === 'function') {
-                    e()
-                }
+                if (typeof e === 'function') e()
             }
             if (instance._element) instance._element.innerHTML = ''
         }

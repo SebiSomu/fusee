@@ -3,10 +3,13 @@
 export type SignalAccessor<T> = {
     (): T;
     (newValue: T): void;
+    isSignal: boolean;
 }
 
 export type ComputedAccessor<T> = {
     (): T;
+    isSignal: boolean;
+    readonly: true;
 }
 
 export type Signal<T = any> = SignalAccessor<T>
