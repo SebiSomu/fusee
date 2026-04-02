@@ -13,9 +13,8 @@ export function evaluateExpression(expr, context) {
     const values = []
 
     for (const k in context) {
-        keys.push(k)
-        const val = context[k]
-        values.push(val?.isSignal ? val() : val)
+        keys.push(k);
+        values.push(context[k]);
     }
 
     try {

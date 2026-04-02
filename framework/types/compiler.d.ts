@@ -14,13 +14,11 @@ export function compileNode(
     effects: (() => void)[]
 ): void
 
-export function processTextNodes(root: HTMLElement, context: ComponentResult, effects: (() => void)[]): void
+function processTextNodes(root: HTMLElement, context: ComponentResult, effects: (() => void)[]): void
+function processAttrBindings(root: HTMLElement, context: ComponentResult, effects: (() => void)[]): void
+function bindEvents(container: HTMLElement, context: ComponentResult): void
 
-export function processAttrBindings(root: HTMLElement, context: ComponentResult, effects: (() => void)[]): void
-
-export function bindEvents(container: HTMLElement, context: ComponentResult): void
-
-export function bindComponents(
+function bindComponents(
     container: HTMLElement,
     components: Record<string, ComponentFactory>,
     context: ComponentResult,
