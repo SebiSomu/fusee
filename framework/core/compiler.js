@@ -1,10 +1,22 @@
 import { effect, batch } from './signal.js'
+import { processDirectives } from './directives.js'
+import {
+    evaluateExpression,
+    parseInterpolation,
+    sanitizeAttr,
+    MUSTACHE_RE
+} from './evaluator.js'
 
+/**
+ * Mounts a template into a container with a given context and components.
+ */
 export function mountTemplate(template, container, context, components) {
     const effects = []
 
+    // Pre-processing for :attr="expr" bindings
     let processed = template.replace(/(<[a-zA-Z0-9-]+\s[^>]*?)\s:([a-zA-Z][a-zA-Z0-9-]*)=/g, '$1 data-bind-$2=')
 
+    // Component placeholder replacement
     for (const name of Object.keys(components)) {
         const re = new RegExp(`\\{\\{\\s*${name}(.*?)\\}\\}`, 'g')
         processed = processed.replace(re, (match, propsStr) => {
@@ -33,6 +45,9 @@ export function mountTemplate(template, container, context, components) {
     return { effects }
 }
 
+/**
+ * Compiles a DOM tree by applying directives, text nodes, attribute bindings, events, and component binding.
+ */
 export function compileNode(node, context, components, effects) {
     processDirectives(node, context, components, effects)
     processTextNodes(node, context, effects)
@@ -41,8 +56,9 @@ export function compileNode(node, context, components, effects) {
     bindComponents(node, components, context, effects)
 }
 
-const MUSTACHE_RE = /\{\{\s*(.+?)\s*\}\}/
-
+/**
+ * Handles text node interpolation with mustache syntax.
+ */
 function processTextNodes(root, context, effects) {
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
     const targets = []
@@ -78,11 +94,15 @@ function processTextNodes(root, context, effects) {
     }
 }
 
+/**
+ * Handles attribute bindings for reactive attributes.
+ */
 function processAttrBindings(root, context, effects) {
     const all = root.querySelectorAll('*')
 
     for (const el of all) {
         for (const attr of [...el.attributes]) {
+            // :attr or data-bind-
             if (attr.name.startsWith('data-bind-')) {
                 const realAttr = attr.name.slice(10)
                 const expr = attr.value
@@ -104,6 +124,7 @@ function processAttrBindings(root, context, effects) {
                 continue
             }
 
+            // mustache in attribute value
             if (MUSTACHE_RE.test(attr.value)) {
                 const attrName = attr.name
                 const parts = parseInterpolation(attr.value)
@@ -128,230 +149,9 @@ function processAttrBindings(root, context, effects) {
     }
 }
 
-function processDirectives(root, context, components, effects) {
-    processFor(root, context, components, effects)
-    processIf(root, context, components, effects)
-    processShow(root, context, effects)
-    processModel(root, context, effects)
-    processRefs(root, context)
-}
-
-function processRefs(root, context) {
-    const refEls = root.querySelectorAll('[f-ref]')
-    for (const el of refEls) {
-        if (!el.parentNode) continue
-
-        const refName = el.getAttribute('f-ref')
-        el.removeAttribute('f-ref')
-
-        const refVar = context[refName]
-        if (typeof refVar === 'function' && refVar.isSignal) {
-            refVar(el)
-        } else {
-            console.warn(`[framework] f-ref requires a signal in context. Received invalid target: "${refName}"`)
-        }
-    }
-}
-
-function processModel(root, context, effects) {
-    const modelEls = root.querySelectorAll('[f-model]')
-    for (const el of modelEls) {
-        if (!el.parentNode) continue
-
-        const expr = el.getAttribute('f-model')
-        el.removeAttribute('f-model')
-
-        const signalMethod = context[expr]
-        if (typeof signalMethod === 'function' && signalMethod.isSignal) {
-            effects.push(effect(() => {
-                const val = signalMethod()
-                if (el.type === 'checkbox') {
-                    el.checked = !!val
-                } else {
-                    el.value = val ?? ''
-                }
-            }))
-
-            const eventName = (el.tagName === 'SELECT' || el.type === 'checkbox' || el.type === 'radio') ? 'change' : 'input'
-            el.addEventListener(eventName, () => {
-                const newVal = el.type === 'checkbox' ? el.checked : el.value
-                batch(() => signalMethod(newVal))
-            })
-        } else {
-            console.warn(`[framework] f-model requires a signal. Received invalid expression: "${expr}"`)
-        }
-    }
-}
-
-function processFor(root, context, components, effects) {
-    const forEls = root.querySelectorAll('[f-for]')
-    for (const el of forEls) {
-        if (!el.parentNode) continue
-
-        const expr = el.getAttribute('f-for')
-        el.removeAttribute('f-for')
-
-        const match = expr.match(/^\s*(?:(?:\(\s*([a-zA-Z_$][0-9a-zA-Z_$]*)\s*,\s*([a-zA-Z_$][0-9a-zA-Z_$]*)\s*\))|([a-zA-Z_$][0-9a-zA-Z_$]*))\s+in\s+(.+)\s*$/)
-        if (!match) {
-            console.warn(`[framework] Invalid f-for expression: "${expr}"`)
-            continue
-        }
-
-        const itemName = match[3] || match[1]
-        const indexName = match[2]
-        const arrayExpr = match[4]
-
-        const anchor = document.createComment('f-for')
-        const parent = el.parentNode
-        parent.insertBefore(anchor, el)
-
-        const templateNode = el.cloneNode(true)
-        parent.removeChild(el)
-
-        let previousNodes = []
-        let previousEffects = []
-
-        effects.push(effect(() => {
-            const rawItems = evaluateExpression(arrayExpr, context)
-            const list = Array.isArray(rawItems) ? rawItems : []
-
-            for (const e of previousEffects) {
-                if (typeof e === 'function') e()
-            }
-            for (const node of previousNodes) {
-                node.parentNode?.removeChild(node)
-            }
-            previousNodes = []
-            previousEffects = []
-
-            const fragment = document.createDocumentFragment()
-
-            list.forEach((item, index) => {
-                const clone = templateNode.cloneNode(true)
-                const childContext = Object.create(context)
-                childContext[itemName] = item
-                if (indexName) childContext[indexName] = index
-
-                const childEffects = []
-                compileNode(clone, childContext, components, childEffects)
-
-                fragment.appendChild(clone)
-                previousNodes.push(clone)
-                previousEffects.push(...childEffects)
-            })
-
-            anchor.parentNode.insertBefore(fragment, anchor)
-        }))
-    }
-}
-
-function processIf(root, context, components, effects) {
-    const ifEls = root.querySelectorAll('[f-if]')
-    for (const el of ifEls) {
-        if (!el.parentNode) continue
-
-        const expr = el.getAttribute('f-if')
-        el.removeAttribute('f-if')
-
-        const anchor = document.createComment('f-if')
-        const parent = el.parentNode
-        parent.insertBefore(anchor, el)
-
-        const templateNode = el.cloneNode(true)
-        parent.removeChild(el)
-
-        let currentUserNode = null
-        let childEffects = []
-
-        effects.push(effect(() => {
-            const val = evaluateExpression(expr, context)
-            if (val && !currentUserNode) {
-                currentUserNode = templateNode.cloneNode(true)
-                compileNode(currentUserNode, context, components, childEffects)
-                anchor.parentNode.insertBefore(currentUserNode, anchor.nextSibling)
-            } else if (!val && currentUserNode) {
-                for (const e of childEffects) {
-                    if (typeof e === 'function') e()
-                }
-                childEffects = []
-                currentUserNode.parentNode.removeChild(currentUserNode)
-                currentUserNode = null
-            }
-        }))
-    }
-}
-
-function processShow(root, context, effects) {
-    const showEls = root.querySelectorAll('[f-show]')
-    for (const el of showEls) {
-        if (!el.parentNode) continue
-
-        const expr = el.getAttribute('f-show')
-        el.removeAttribute('f-show')
-        const originalDisplay = el.style.display === 'none' ? '' : el.style.display
-
-        effects.push(effect(() => {
-            const val = evaluateExpression(expr, context)
-            el.style.display = val ? originalDisplay : 'none'
-        }))
-    }
-}
-
-const SENSITIVE_ATTRS = ['href', 'src', 'srcset', 'formaction', 'xlink:href', 'data']
-const DANGEROUS_SCHEMES = /^(javascript|data|vbscript|file):/i
-
-function sanitizeAttr(name, value) {
-    const attrName = name.toLowerCase()
-    if (SENSITIVE_ATTRS.includes(attrName)) {
-        const trimmed = value.trim()
-        if (DANGEROUS_SCHEMES.test(trimmed)) {
-            console.warn(`[framework] Blocked potential XSS on ${name}: "${value}"`)
-            return 'about:blank'
-        }
-    }
-    return value
-}
-
-function evaluateExpression(expr, context) {
-    const keys = []
-    const values = []
-
-    for (const k in context) {
-        keys.push(k)
-        const val = context[k]
-        values.push(val?.isSignal ? val() : val)
-    }
-
-    try {
-        const fn = new Function(...keys, `return ${expr}`)
-        return fn(...values)
-    } catch (e) {
-        console.warn(`[framework] Error evaluating expression "${expr}":`, e)
-        return ''
-    }
-}
-
-function parseInterpolation(str) {
-    const parts = []
-    const regex = /\{\{\s*(.+?)\s*\}\}/g
-    let lastIndex = 0
-    let match
-
-    while ((match = regex.exec(str)) !== null) {
-        if (match.index > lastIndex) {
-            parts.push({ type: 'static', value: str.slice(lastIndex, match.index) })
-        }
-        parts.push({ type: 'dynamic', key: match[1] })
-        lastIndex = regex.lastIndex
-    }
-
-    if (lastIndex < str.length) {
-        parts.push({ type: 'static', value: str.slice(lastIndex) })
-    }
-
-    return parts
-}
-
+/**
+ * Binds event listeners specified with @attribute="@handler".
+ */
 function bindEvents(container, context) {
     const all = container.querySelectorAll('*')
     for (const el of all) {
@@ -371,6 +171,9 @@ function bindEvents(container, context) {
     }
 }
 
+/**
+ * Binds components to their placeholders with props passing.
+ */
 function bindComponents(container, components, context, effects) {
     const placeholders = container.querySelectorAll('[data-component]')
     const els = container.matches && container.matches('[data-component]') ? [container, ...placeholders] : placeholders
