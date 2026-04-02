@@ -8,6 +8,9 @@ type CounterResult = {
     count: Signal<number>
     multiplier: Signal<number>
     double: Computed<number>
+    valueClass: Computed<string>
+    isZero: Computed<boolean>
+    counterTitle: Computed<string>
     increment: () => void
     decrement: () => void
     reset: () => void
@@ -24,6 +27,16 @@ export const Counter = defineComponent({
         const multiplier = signal<number>(1)
 
         const double = computed(() => count() * 2)
+
+        const valueClass = computed(() =>
+            count() >= 0 ? 'value positive' : 'value negative'
+        )
+
+        const isZero = computed(() => count() === 0)
+
+        const counterTitle = computed(() =>
+            `Counter: ${count()} (×${multiplier()})`
+        )
 
         effect(() => {
             console.log(`[Counter Effect] Count: ${count()} | Step ignored in tracking: ${untrack(() => multiplier())}`)
@@ -55,18 +68,21 @@ export const Counter = defineComponent({
             count,
             multiplier,
             double,
+            valueClass,
+            isZero,
+            counterTitle,
             increment,
             decrement,
             reset,
             updateMultiple,
             template: `
-                <div class="counter">
+                <div class="counter" :title="counterTitle">
                     <h2>Counter</h2>
-                    <p class="value">Count: {{ count }} (Multiplier step: {{ multiplier }})</p>
+                    <p class="{{ valueClass }}">Count: {{ count }} (Multiplier step: {{ multiplier }})</p>
                     <p class="derived">double: {{ double }}</p>
                     <div class="actions">
                         <button @click="decrement">−</button>
-                        <button @click="reset">reset</button>
+                        <button @click="reset" :disabled="isZero">reset</button>
                         <button @click="increment">+</button>
                         <button @click="updateMultiple">+5 & Step (Batched)</button>
                     </div>
@@ -75,3 +91,4 @@ export const Counter = defineComponent({
         }
     }
 })
+

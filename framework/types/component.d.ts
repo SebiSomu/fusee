@@ -43,5 +43,14 @@ export declare function onMount(fn: () => void): void
 export declare function onUnmount(fn: () => void): void
 export declare function defineComponent<TProps = EmptyProps>(options: ComponentOptions<TProps>): ComponentFactory<TProps>
 
+type InterpolationPart =
+    | { type: 'static'; value: string }
+    | { type: 'dynamic'; key: string }
+
 declare function resolveProps(schema: PropSchema, received: ComponentProps): ComponentProps
 declare function mountTemplate(template: string, container: HTMLElement, context: ComponentResult, components: Record<string, ComponentFactory>): { effects: (() => void)[] }
+declare function processTextNodes(root: HTMLElement, context: ComponentResult, effects: (() => void)[]): void
+declare function processAttrBindings(root: HTMLElement, context: ComponentResult, effects: (() => void)[]): void
+declare function parseInterpolation(str: string): InterpolationPart[]
+declare function bindEvents(container: HTMLElement, context: ComponentResult): void
+declare function bindComponents(container: HTMLElement, components: Record<string, ComponentFactory>): void

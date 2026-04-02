@@ -1,5 +1,3 @@
-// ─── Reactivity Engine ───────────────────────────────────────────────────────
-
 let currentEffect = null
 let onEffectCreated = null
 
