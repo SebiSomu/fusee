@@ -17,7 +17,9 @@ export const Home = defineComponent({
                     <h1>{{ title.toUpperCase() + '!!!' }}</h1>
                     <p>This is an SPA built with my own JavaScript custom framework!</p>
                     <p>Made with passion by Sebastian Șomu</p>
-                    <button @click="toggleCounter" class="primary-btn" style="margin-bottom: 20px;">Toggle Counter (f-if)</button>
+
+                    <button @click="toggleCounter" class="primary-btn" style="margin: 20px 0;">Toggle Counter (f-if)</button>
+                    
                     <div f-if="showCounter">
                         {{ Counter initialValue="10" :parentTitle="title" }}
                     </div>

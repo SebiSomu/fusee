@@ -129,6 +129,74 @@ function processAttrBindings(root, context, effects) {
 }
 
 function processDirectives(root, context, components, effects) {
+    processFor(root, context, components, effects)
+    processIf(root, context, components, effects)
+    processShow(root, context, effects)
+}
+
+function processFor(root, context, components, effects) {
+    const forEls = root.querySelectorAll('[f-for]')
+    for (const el of forEls) {
+        if (!el.parentNode) continue
+
+        const expr = el.getAttribute('f-for')
+        el.removeAttribute('f-for')
+
+        const match = expr.match(/^\s*(?:(?:\(\s*([a-zA-Z_$][0-9a-zA-Z_$]*)\s*,\s*([a-zA-Z_$][0-9a-zA-Z_$]*)\s*\))|([a-zA-Z_$][0-9a-zA-Z_$]*))\s+in\s+(.+)\s*$/)
+        if (!match) {
+            console.warn(`[framework] Invalid f-for expression: "${expr}"`)
+            continue
+        }
+
+        const itemName = match[3] || match[1]
+        const indexName = match[2]
+        const arrayExpr = match[4]
+
+        const anchor = document.createComment('f-for')
+        const parent = el.parentNode
+        parent.insertBefore(anchor, el)
+
+        const templateNode = el.cloneNode(true)
+        parent.removeChild(el)
+
+        let previousNodes = []
+        let previousEffects = []
+
+        effects.push(effect(() => {
+            const rawItems = evaluateExpression(arrayExpr, context)
+            const list = Array.isArray(rawItems) ? rawItems : []
+
+            for (const e of previousEffects) {
+                if (typeof e === 'function') e()
+            }
+            for (const node of previousNodes) {
+                node.parentNode?.removeChild(node)
+            }
+            previousNodes = []
+            previousEffects = []
+
+            const fragment = document.createDocumentFragment()
+
+            list.forEach((item, index) => {
+                const clone = templateNode.cloneNode(true)
+                const childContext = Object.create(context)
+                childContext[itemName] = item
+                if (indexName) childContext[indexName] = index
+
+                const childEffects = []
+                compileNode(clone, childContext, components, childEffects)
+
+                fragment.appendChild(clone)
+                previousNodes.push(clone)
+                previousEffects.push(...childEffects)
+            })
+
+            anchor.parentNode.insertBefore(fragment, anchor)
+        }))
+    }
+}
+
+function processIf(root, context, components, effects) {
     const ifEls = root.querySelectorAll('[f-if]')
     for (const el of ifEls) {
         if (!el.parentNode) continue
@@ -162,7 +230,9 @@ function processDirectives(root, context, components, effects) {
             }
         }))
     }
+}
 
+function processShow(root, context, effects) {
     const showEls = root.querySelectorAll('[f-show]')
     for (const el of showEls) {
         if (!el.parentNode) continue
@@ -194,11 +264,15 @@ function sanitizeAttr(name, value) {
 }
 
 function evaluateExpression(expr, context) {
-    const keys = Object.keys(context)
-    const values = keys.map(k => {
+    const keys = []
+    const values = []
+
+    for (const k in context) {
+        keys.push(k)
         const val = context[k]
-        return val?.isSignal ? val() : val
-    })
+        values.push(val?.isSignal ? val() : val)
+    }
+
     try {
         const fn = new Function(...keys, `return ${expr}`)
         return fn(...values)
