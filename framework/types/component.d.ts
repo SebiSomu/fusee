@@ -53,4 +53,4 @@ declare function processTextNodes(root: HTMLElement, context: ComponentResult, e
 declare function processAttrBindings(root: HTMLElement, context: ComponentResult, effects: (() => void)[]): void
 declare function parseInterpolation(str: string): InterpolationPart[]
 declare function bindEvents(container: HTMLElement, context: ComponentResult): void
-declare function bindComponents(container: HTMLElement, components: Record<string, ComponentFactory>): void
+declare function bindComponents(container: HTMLElement, components: Record<string, ComponentFactory>, context: ComponentResult): void

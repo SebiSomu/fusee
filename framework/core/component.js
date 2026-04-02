@@ -10,52 +10,49 @@ function resolveProps(schema, received) {
     const isArray = Array.isArray(schema)
     const resolved = {}
 
-    if (isArray) {
-        for (const key of schema) {
-            if (!(key in received)) {
-                console.warn(`[framework] Missing prop "${key}"`)
-            }
-            resolved[key] = received[key]
-        }
-        for (const key of Object.keys(received)) {
-            if (!schema.includes(key)) {
-                console.warn(`[framework] Unknown prop "${key}"`)
-            }
-        }
-        return resolved
+    const normalizedSchema = {}
+    for (const key of Object.keys(isArray ? {} : schema)) {
+        normalizedSchema[key.toLowerCase()] = key
     }
+    if (isArray) schema.forEach(k => normalizedSchema[k.toLowerCase()] = k)
 
-    for (const [key, config] of Object.entries(schema)) {
-        const value = received[key]
+    for (const [receivedKey, value] of Object.entries(received)) {
+        const schemaKey = isArray 
+            ? schema.find(k => k.toLowerCase() === receivedKey.toLowerCase())
+            : normalizedSchema[receivedKey.toLowerCase()]
 
-        if (config.required && value === undefined) {
-            console.error(`[framework] Required prop "${key}" is missing`)
-        }
-
-        if (value !== undefined && config.type) {
-            const expectedType = config.type.name
-            const actualType = typeof value
-
-            const typeMap = { String: 'string', Number: 'number', Boolean: 'boolean' }
-            if (typeMap[expectedType] && actualType !== typeMap[expectedType]) {
-                console.warn(
-                    `[framework] Prop "${key}" expected ${expectedType} but got ${actualType}`
-                )
+        if (schemaKey) {
+            const descriptor = Object.getOwnPropertyDescriptor(received, receivedKey)
+            if (descriptor && (descriptor.get || descriptor.set)) {
+                Object.defineProperty(resolved, schemaKey, descriptor)
+            } else {
+                resolved[schemaKey] = value
             }
-        }
-
-        if (value === undefined && config.default !== undefined) {
-            resolved[key] = typeof config.default === 'function'
-                ? config.default()
-                : config.default
         } else {
-            resolved[key] = value
+            console.warn(`[framework] Unknown prop "${receivedKey}"`)
         }
     }
 
-    for (const key of Object.keys(received)) {
-        if (!(key in schema)) {
-            console.warn(`[framework] Unknown prop "${key}"`)
+    // Checking defaults/required for object schema
+    if (!isArray) {
+        for (const [key, config] of Object.entries(schema)) {
+            if (resolved[key] === undefined) {
+                if (config.required) {
+                    console.error(`[framework] Required prop "${key}" is missing`)
+                }
+                if (config.default !== undefined) {
+                    resolved[key] = typeof config.default === 'function'
+                        ? config.default()
+                        : config.default
+                }
+            } else if (config.type) {
+                const expectedType = config.type.name
+                const actualType = typeof resolved[key]
+                const typeMap = { String: 'string', Number: 'number', Boolean: 'boolean' }
+                if (typeMap[expectedType] && actualType !== typeMap[expectedType]) {
+                    console.warn(`[framework] Prop "${key}" expected ${expectedType} but got ${actualType}`)
+                }
+            }
         }
     }
 
@@ -118,11 +115,29 @@ export function defineComponent(options) {
 function mountTemplate(template, container, context, components) {
     const effects = []
 
-    let processed = template.replace(/\s:([a-zA-Z][a-zA-Z0-9-]*)=/g, ' data-bind-$1=')
+    // Convert :attr="expr" -> data-bind-attr="expr" only INSIDE tags
+    let processed = template.replace(/(<[a-zA-Z0-9-]+\s[^>]*?)\s:([a-zA-Z][a-zA-Z0-9-]*)=/g, '$1 data-bind-$2=')
     
     for (const name of Object.keys(components)) {
-        const re = new RegExp(`\\{\\{\\s*${name}\\s*\\}\\}`, 'g')
-        processed = processed.replace(re, `<div data-component="${name}"></div>`)
+        const re = new RegExp(`\\{\\{\\s*${name}(.*?)\\}\\}`, 'g')
+        processed = processed.replace(re, (match, propsStr) => {
+            let attrs = ''
+            if (propsStr && propsStr.trim()) {
+                const attrRegex = /(:?[a-zA-Z0-9-]+)="([^"]*)"/g
+                let attrMatch
+                while ((attrMatch = attrRegex.exec(propsStr)) !== null) {
+                    const attrName = attrMatch[1]
+                    const attrValue = attrMatch[2]
+                    
+                    if (attrName.startsWith(':')) {
+                        attrs += ` data-bind-prop-${attrName.slice(1)}="${attrValue}"`
+                    } else {
+                        attrs += ` data-prop-${attrName}="${attrValue}"`
+                    }
+                }
+            }
+            return `<div data-component="${name}"${attrs}></div>`
+        })
     }
 
     container.innerHTML = processed
@@ -130,7 +145,7 @@ function mountTemplate(template, container, context, components) {
     processTextNodes(container, context, effects)
     processAttrBindings(container, context, effects)
     bindEvents(container, context)
-    bindComponents(container, components)
+    bindComponents(container, components, context)
 
     return { effects }
 }
@@ -282,7 +297,7 @@ function bindEvents(container, context) {
     }
 }
 
-function bindComponents(container, components) {
+function bindComponents(container, components, context) {
     const placeholders = container.querySelectorAll('[data-component]')
     for (const placeholder of placeholders) {
         const name = placeholder.dataset.component
@@ -292,6 +307,17 @@ function bindComponents(container, components) {
             for (const attr of [...placeholder.attributes]) {
                 if (attr.name.startsWith('data-prop-')) {
                     props[attr.name.slice(10)] = attr.value
+                } else if (attr.name.startsWith('data-bind-prop-')) {
+                    const propName = attr.name.slice(15)
+                    const parentKey = attr.value
+                    
+                    Object.defineProperty(props, propName, {
+                        get() {
+                            const val = context[parentKey]
+                            return typeof val === 'function' ? val() : val
+                        },
+                        enumerable: true
+                    })
                 }
             }
             const child = ComponentFn(props)

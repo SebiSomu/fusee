@@ -19,7 +19,7 @@ export const Home = defineComponent({
                     <h1>{{ title }}</h1>
                     <p>This is an SPA built with my own JavaScript custom framework!</p>
                     <p>Made with passion by Sebastian Șomu</p>
-                    {{ Counter }}
+                    {{ Counter initialValue="10" :parentTitle="title" }}
                 </div>
             `
         }

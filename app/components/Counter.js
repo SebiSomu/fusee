@@ -2,7 +2,8 @@ import { defineComponent, signal, computed, effect, batch, untrack, onMount, onU
 
 export const Counter = defineComponent({
     props: {
-        initialValue: { type: String, default: '0' }
+        initialValue: { type: String, default: '0' },
+        parentTitle: { type: String, default: '' }
     },
     setup(props) {
         const count = signal(Number(props.initialValue) || 0)
@@ -52,9 +53,11 @@ export const Counter = defineComponent({
             decrement,
             reset,
             updateMultiple,
+            get parentTitle() { return props.parentTitle },
             template: `
                 <div class="counter" :title="counterTitle">
                     <h2>Counter</h2>
+                    <p style="font-size: 0.8rem; color: #888;">Message from Home: {{ parentTitle }}</p>
                     <p class="{{ valueClass }}">Count: {{ count }} (Multiplier step: {{ multiplier }})</p>
                     <p class="derived">double: {{ double }}</p>
                     <div class="actions">
