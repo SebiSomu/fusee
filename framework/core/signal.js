@@ -52,6 +52,7 @@ export function signal(initialValue) {
         }
     }
 
+    accessor.isSignal = true
     return accessor
 }
 
@@ -126,6 +127,7 @@ export function computed(fn) {
         subscribers.clear()
     }
 
+    accessor.isSignal = true
     return accessor
 }
 
