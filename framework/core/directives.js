@@ -2,9 +2,6 @@ import { effect, batch } from './signal.js'
 import { evaluateExpression } from './evaluator.js'
 import { compileNode } from './compiler.js'
 
-/**
- * Main entry point for processing directives on a node.
- */
 export function processDirectives(root, context, components, effects) {
     processFor(root, context, components, effects)
     processIf(root, context, components, effects)
@@ -13,9 +10,6 @@ export function processDirectives(root, context, components, effects) {
     processRefs(root, context)
 }
 
-/**
- * Handles f-ref directive for template element references.
- */
 export function processRefs(root, context) {
     const refEls = root.querySelectorAll('[f-ref]')
     for (const el of refEls) {
@@ -33,9 +27,6 @@ export function processRefs(root, context) {
     }
 }
 
-/**
- * Handles f-model directive for bidirectional data binding.
- */
 export function processModel(root, context, effects) {
     const modelEls = root.querySelectorAll('[f-model]')
     for (const el of modelEls) {
@@ -66,9 +57,6 @@ export function processModel(root, context, effects) {
     }
 }
 
-/**
- * Handles f-for directive for list rendering.
- */
 export function processFor(root, context, components, effects) {
     const forEls = root.querySelectorAll('[f-for]')
     for (const el of forEls) {
@@ -131,9 +119,6 @@ export function processFor(root, context, components, effects) {
     }
 }
 
-/**
- * Handles f-if directive for conditional rendering.
- */
 export function processIf(root, context, components, effects) {
     const ifEls = root.querySelectorAll('[f-if]')
     for (const el of ifEls) {
@@ -170,9 +155,6 @@ export function processIf(root, context, components, effects) {
     }
 }
 
-/**
- * Handles f-show directive for conditional visibility.
- */
 export function processShow(root, context, effects) {
     const showEls = root.querySelectorAll('[f-show]')
     for (const el of showEls) {

@@ -1,5 +1,5 @@
 # Fusée Framework
-**v0.1.0-alpha — Peak Performance JS Framework**
+**v0.2.0-alpha — Peak Performance JS Framework**
 
 ## Run
 
