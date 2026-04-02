@@ -19,10 +19,11 @@ export function processRefs(root, context) {
         el.removeAttribute('f-ref')
 
         const refVar = context[refName]
-        if (typeof refVar === 'function' && refVar.isSignal) {
+        if (typeof refVar === 'function' && refVar.isSignal && !refVar.readonly) {
             refVar(el)
         } else {
-            console.warn(`[framework] f-ref requires a signal in context. Received invalid target: "${refName}"`)
+            const reason = refVar?.readonly ? 'it is read-only (computed)' : 'it is not a signal'
+            console.warn(`[framework] f-ref requires a writable signal. Target "${refName}" is invalid: ${reason}`)
         }
     }
 }
@@ -36,7 +37,7 @@ export function processModel(root, context, effects) {
         el.removeAttribute('f-model')
 
         const signalMethod = context[expr]
-        if (typeof signalMethod === 'function' && signalMethod.isSignal) {
+        if (typeof signalMethod === 'function' && signalMethod.isSignal && !signalMethod.readonly) {
             effects.push(effect(() => {
                 const val = signalMethod()
                 if (el.type === 'checkbox') {
@@ -52,7 +53,8 @@ export function processModel(root, context, effects) {
                 batch(() => signalMethod(newVal))
             })
         } else {
-            console.warn(`[framework] f-model requires a signal. Received invalid expression: "${expr}"`)
+            const reason = signalMethod?.readonly ? 'it is read-only (computed)' : 'it is not a signal'
+            console.warn(`[framework] f-model requires a writable signal. Expression "${expr}" is invalid: ${reason}`)
         }
     }
 }

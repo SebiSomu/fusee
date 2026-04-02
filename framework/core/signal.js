@@ -128,6 +128,7 @@ export function computed(fn) {
     }
 
     accessor.isSignal = true
+    accessor.readonly = true
     return accessor
 }
 

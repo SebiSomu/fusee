@@ -14,7 +14,8 @@ export function evaluateExpression(expr, context) {
 
     for (const k in context) {
         keys.push(k);
-        values.push(context[k]);
+        const val = context[k];
+        values.push(typeof val === 'function' && val.isSignal ? val() : val);
     }
 
     try {
