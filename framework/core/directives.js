@@ -68,15 +68,16 @@ export function processFor(root, context, components, effects) {
         const expr = el.getAttribute('f-for')
         el.removeAttribute('f-for')
 
-        const match = expr.match(/^\s*(?:(?:\(\s*([a-zA-Z_$][0-9a-zA-Z_$]*)\s*,\s*([a-zA-Z_$][0-9a-zA-Z_$]*)\s*\))|([a-zA-Z_$][0-9a-zA-Z_$]*))\s+in\s+(.+)\s*$/)
+        const match = expr.match(/^\s*(?:(?:\(\s*([a-zA-Z_$][0-9a-zA-Z_$]*)(?:\s*,\s*([a-zA-Z_$][0-9a-zA-Z_$]*))?(?:\s*,\s*([a-zA-Z_$][0-9a-zA-Z_$]*))?\s*\))|([a-zA-Z_$][0-9a-zA-Z_$]*))\s+in\s+(.+)\s*$/)
         if (!match) {
             console.warn(`[framework] Invalid f-for expression: "${expr}"`)
             continue
         }
 
-        const itemName = match[3] || match[1]
-        const indexName = match[2]
-        const arrayExpr = match[4]
+        const itemName = match[4] || match[1]
+        const keyName = match[2]
+        const indexName = match[3]
+        const arrayExpr = match[5]
 
         const anchor = document.createComment('f-for')
         const parent = el.parentNode
@@ -90,20 +91,30 @@ export function processFor(root, context, components, effects) {
 
         effects.push(effect(() => {
             const rawItems = evaluateExpression(arrayExpr, context)
-            const list = Array.isArray(rawItems) ? rawItems : []
+            let items = []
+
+            if (Array.isArray(rawItems)) {
+                items = rawItems.map((item, index) => ({ value: item, key: index, index }))
+            } else if (typeof rawItems === 'number' && !isNaN(rawItems)) {
+                items = Array.from({ length: Math.max(0, Math.floor(rawItems)) }, (_, i) => ({ value: i + 1, key: i, index: i }))
+            } else if (rawItems && typeof rawItems === 'object') {
+                items = Object.entries(rawItems).map(([key, value], index) => ({ value, key, index }))
+            }
 
             for (const e of previousEffects) if (typeof e === 'function') e()
             for (const node of previousNodes) node.parentNode?.removeChild(node)
-            
+
             previousNodes = []
             previousEffects = []
 
             const fragment = document.createDocumentFragment()
-            list.forEach((item, index) => {
+            items.forEach((item) => {
                 const clone = templateNode.cloneNode(true)
                 const childContext = Object.create(context)
-                childContext[itemName] = item
-                if (indexName) childContext[indexName] = index
+
+                childContext[itemName] = item.value
+                if (keyName) childContext[keyName] = item.key
+                if (indexName) childContext[indexName] = item.index
 
                 const childEffects = []
                 compileNode(clone, childContext, components, childEffects)
@@ -132,17 +143,17 @@ export function processIf(root, context, components, effects) {
         let curr = ifEl
 
         while (curr) {
-            if (curr.nodeType === 1) { 
+            if (curr.nodeType === 1) {
                 const type = curr.hasAttribute('f-if') ? 'if' :
-                             curr.hasAttribute('f-elif') ? 'elif' :
-                             curr.hasAttribute('f-else-if') ? 'elif' :
-                             curr.hasAttribute('f-else') ? 'else' : null
+                    curr.hasAttribute('f-elif') ? 'elif' :
+                        curr.hasAttribute('f-else-if') ? 'elif' :
+                            curr.hasAttribute('f-else') ? 'else' : null
 
                 if (type) {
                     const expr = type === 'else' ? 'true' : curr.getAttribute(`f-${type === 'elif' && curr.hasAttribute('f-else-if') ? 'else-if' : type}`)
                     group.push({ node: curr, expr, type, isElement: true })
                     processedEls.add(curr)
-                    
+
                     curr.removeAttribute('f-if')
                     curr.removeAttribute('f-elif')
                     curr.removeAttribute('f-else-if')
