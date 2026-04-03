@@ -6,7 +6,6 @@ export const Home = defineComponent({
     components: { UserForm, CounterSection },
     setup() {
         const title = signal('Welcome!')
-
         return {
             title,
             changeTitle: () => title('Changed Title!'),

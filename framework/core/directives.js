@@ -8,6 +8,7 @@ export function processDirectives(root, context, components, effects) {
     processShow(root, context, effects)
     processModel(root, context, effects)
     processRefs(root, context)
+    processHtml(root, context, effects)
 }
 
 export function processRefs(root, context) {
@@ -217,6 +218,26 @@ export function processShow(root, context, effects) {
         effects.push(effect(() => {
             const val = evaluateExpression(expr, context)
             el.style.display = val ? originalDisplay : 'none'
+        }))
+    }
+}
+
+export function processHtml(root, context, effects) {
+    const els = root.querySelectorAll('[f-html]')
+    for (const el of els) {
+        if (!el.parentNode) continue
+
+        const expr = el.getAttribute('f-html')
+        el.removeAttribute('f-html')
+
+        const isDev = typeof import.meta.env !== 'undefined' ? !!import.meta.env.DEV : true
+        if (isDev) {
+            console.warn(`[framework] f-html can expose the site to XSS. Use only with trusted content.`)
+        }
+
+        effects.push(effect(() => {
+            const val = evaluateExpression(expr, context)
+            el.innerHTML = String(val ?? '')
         }))
     }
 }
