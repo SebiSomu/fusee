@@ -35,48 +35,135 @@ export function mountTemplate(template, container, context, components) {
 
     container.innerHTML = processed
     compileNode(container, context, components, effects)
+
     return { effects }
 }
 
 export function compileNode(node, context, components, effects) {
-    processDirectives(node, context, components, effects)
-    processTextNodes(node, context, effects)
-    processAttrBindings(node, context, effects)
-    bindComponents(node, components, context, effects)
-}
+    // Handle f-once (render once and discard reactive tracking for this subtree)
+    if (node.nodeType === 1 && node.hasAttribute('f-once')) {
+        node.removeAttribute('f-once')
+        const temporaryEffects = []
 
-function processTextNodes(root, context, effects) {
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
-    const targets = []
+        // Process ONLY this node and its children ONCE
+        processDirectives(node, context, components, temporaryEffects)
+        processAttributes(node, context, temporaryEffects)
+        processText(node, context, temporaryEffects)
+        bindComponents(node, components, context, temporaryEffects)
 
-    let node
-    while ((node = walker.nextNode())) {
-        if (MUSTACHE_RE.test(node.textContent)) {
-            targets.push(node)
+        // Recurse children but with temporary effects
+        let child = node.firstChild
+        while (child) {
+            compileOnce(child, context, components, temporaryEffects)
+            child = child.nextSibling
         }
+
+        // Cleanup immediately
+        for (const cleanup of temporaryEffects) if (typeof cleanup === 'function') cleanup()
+        return
     }
 
-    for (const textNode of targets) {
-        const parts = parseInterpolation(textNode.textContent)
-        const fragment = document.createDocumentFragment()
+    if (node.nodeType === 1) {
+        processDirectives(node, context, components, effects)
+        processAttributes(node, context, effects)
+        bindComponents(node, components, context, effects)
+    } else if (node.nodeType === 3) {
+        processText(node, context, effects)
+    }
 
-        for (const part of parts) {
-            if (part.type === 'static') {
-                fragment.appendChild(document.createTextNode(part.value))
-            } else {
-                const reactiveNode = document.createTextNode('')
-                fragment.appendChild(reactiveNode)
+    let child = node.firstChild
+    while (child) {
+        compileNode(child, context, components, effects)
+        child = child.nextSibling
+    }
+}
 
-                const key = part.key
-                const e = effect(() => {
-                    const resolved = evaluateExpression(key, context)
-                    reactiveNode.textContent = String(resolved ?? '')
-                })
-                effects.push(e)
-            }
+function compileOnce(node, context, components, effects) {
+    if (node.nodeType === 1) {
+        processDirectives(node, context, components, effects)
+        processAttributes(node, context, effects)
+        bindComponents(node, components, context, effects)
+    } else if (node.nodeType === 3) {
+        processText(node, context, effects)
+    }
+
+    let child = node.firstChild
+    while (child) {
+        compileOnce(child, context, components, effects)
+        child = child.nextSibling
+    }
+}
+
+function processText(node, context, effects) {
+    if (node.nodeType !== 3) return
+    const text = node.textContent
+    if (!MUSTACHE_RE.test(text)) return
+
+    const parts = parseInterpolation(text)
+    const fragment = document.createDocumentFragment()
+
+    for (const part of parts) {
+        if (part.type === 'static') {
+            fragment.appendChild(document.createTextNode(part.value))
+        } else {
+            const reactiveNode = document.createTextNode('')
+            fragment.appendChild(reactiveNode)
+            const key = part.key
+            const e = effect(() => {
+                const resolved = evaluateExpression(key, context)
+                reactiveNode.textContent = String(resolved ?? '')
+            })
+            effects.push(e)
+        }
+    }
+    node.parentNode.replaceChild(fragment, node)
+}
+
+function processAttributes(el, context, effects) {
+    if (el.nodeType !== 1) return
+    for (const attr of [...el.attributes]) {
+        if (attr.name.startsWith('data-bind-') && !attr.name.startsWith('data-bind-prop-')) {
+            const realAttr = attr.name.slice(10)
+            const expr = attr.value
+            el.removeAttribute(attr.name)
+
+            const e = effect(() => {
+                let resolved = evaluateExpression(expr, context)
+                if (realAttr === 'class') {
+                    if (!el._staticClass) el._staticClass = el.getAttribute('class') || ''
+                    let dynamicClass = ''
+                    if (Array.isArray(resolved)) dynamicClass = resolved.filter(Boolean).join(' ')
+                    else if (resolved !== null && typeof resolved === 'object') {
+                        dynamicClass = Object.entries(resolved).filter(([_, v]) => !!v).map(([k]) => k).join(' ')
+                    } else dynamicClass = String(resolved ?? '')
+                    el.className = (el._staticClass + ' ' + dynamicClass).trim()
+                } else if (realAttr === 'style') {
+                    if (resolved !== null && typeof resolved === 'object') {
+                        for (const k in resolved) el.style[k] = resolved[k]
+                    } else el.style.cssText = String(resolved ?? '')
+                } else {
+                    if (typeof resolved === 'boolean') {
+                        resolved ? el.setAttribute(realAttr, '') : el.removeAttribute(realAttr)
+                    } else el.setAttribute(realAttr, sanitizeAttr(realAttr, String(resolved)))
+                }
+            })
+            effects.push(e)
+            continue
         }
 
-        textNode.parentNode.replaceChild(fragment, textNode)
+        if (MUSTACHE_RE.test(attr.value)) {
+            const attrName = attr.name
+            const parts = parseInterpolation(attr.value)
+            el.removeAttribute(attrName)
+            const e = effect(() => {
+                let result = ''
+                for (const part of parts) {
+                    result += part.type === 'static' ? part.value : String(evaluateExpression(part.key, context) ?? '')
+                }
+                el.setAttribute(attrName, sanitizeAttr(attrName, result))
+            })
+            effects.push(e)
+        }
     }
 }
 
@@ -169,7 +256,7 @@ function bindComponents(container, components, context, effects) {
             const props = {}
             for (const attr of [...placeholder.attributes]) {
                 const attrName = attr.name.toLowerCase()
-                
+
                 if (attrName.startsWith('data-prop-')) {
                     props[attrName.slice(10)] = attr.value
                 } else if (attrName.startsWith('data-bind-prop-')) {
