@@ -47,8 +47,8 @@ export function compileNode(node, context, components, effects) {
 
         // Process ONLY this node and its children ONCE
         processDirectives(node, context, components, temporaryEffects)
-        processAttributes(node, context, temporaryEffects)
-        processText(node, context, temporaryEffects)
+        processBindingAttrs(node, context, temporaryEffects)
+        processMustaches(node, context, temporaryEffects)
         bindComponents(node, components, context, temporaryEffects)
 
         // Recurse children but with temporary effects
@@ -65,10 +65,10 @@ export function compileNode(node, context, components, effects) {
 
     if (node.nodeType === 1) {
         processDirectives(node, context, components, effects)
-        processAttributes(node, context, effects)
+        processBindingAttrs(node, context, effects)
         bindComponents(node, components, context, effects)
     } else if (node.nodeType === 3) {
-        processText(node, context, effects)
+        processMustaches(node, context, effects)
     }
 
     let child = node.firstChild
@@ -81,10 +81,10 @@ export function compileNode(node, context, components, effects) {
 function compileOnce(node, context, components, effects) {
     if (node.nodeType === 1) {
         processDirectives(node, context, components, effects)
-        processAttributes(node, context, effects)
+        processBindingAttrs(node, context, effects)
         bindComponents(node, components, context, effects)
     } else if (node.nodeType === 3) {
-        processText(node, context, effects)
+        processMustaches(node, context, effects)
     }
 
     let child = node.firstChild
@@ -94,7 +94,7 @@ function compileOnce(node, context, components, effects) {
     }
 }
 
-function processText(node, context, effects) {
+function processMustaches(node, context, effects) {
     if (node.nodeType !== 3) return
     const text = node.textContent
     if (!MUSTACHE_RE.test(text)) return
@@ -119,7 +119,7 @@ function processText(node, context, effects) {
     node.parentNode.replaceChild(fragment, node)
 }
 
-function processAttributes(el, context, effects) {
+function processBindingAttrs(el, context, effects) {
     if (el.nodeType !== 1) return
     for (const attr of [...el.attributes]) {
         if (attr.name.startsWith('data-bind-') && !attr.name.startsWith('data-bind-prop-')) {
@@ -166,85 +166,6 @@ function processAttributes(el, context, effects) {
         }
     }
 }
-
-function processAttrBindings(root, context, effects) {
-    const all = root.querySelectorAll('*')
-
-    for (const el of all) {
-        for (const attr of [...el.attributes]) {
-            if (attr.name.startsWith('data-bind-') && !attr.name.startsWith('data-bind-prop-')) {
-                const realAttr = attr.name.slice(10)
-                const expr = attr.value
-                el.removeAttribute(attr.name)
-
-                const e = effect(() => {
-                    let resolved = evaluateExpression(expr, context)
-
-                    if (realAttr === 'class') {
-                        const staticClass = el.getAttribute('class') || ''
-                        let dynamicClass = ''
-                        if (Array.isArray(resolved)) {
-                            dynamicClass = resolved.filter(Boolean).join(' ')
-                        } else if (resolved !== null && typeof resolved === 'object') {
-                            dynamicClass = Object.entries(resolved)
-                                .filter(([_, value]) => !!value)
-                                .map(([key, _]) => key)
-                                .join(' ')
-                        } else {
-                            dynamicClass = String(resolved ?? '')
-                        }
-                        // Use a data attribute to store the original static class to avoid losing it on updates
-                        if (!el._staticClass) el._staticClass = el.getAttribute('class') || ''
-                        el.className = (el._staticClass + ' ' + dynamicClass).trim()
-                    } else if (realAttr === 'style') {
-                        if (resolved !== null && typeof resolved === 'object') {
-                            for (const key in resolved) {
-                                el.style[key] = resolved[key]
-                            }
-                        } else {
-                            el.style.cssText = String(resolved ?? '')
-                        }
-                    } else {
-                        // Standard attribute behavior
-                        if (typeof resolved === 'boolean') {
-                            resolved
-                                ? el.setAttribute(realAttr, '')
-                                : el.removeAttribute(realAttr)
-                        } else {
-                            const safeValue = sanitizeAttr(realAttr, String(resolved))
-                            el.setAttribute(realAttr, safeValue)
-                        }
-                    }
-                })
-                effects.push(e)
-                continue
-            }
-
-            if (MUSTACHE_RE.test(attr.value)) {
-                const attrName = attr.name
-                const parts = parseInterpolation(attr.value)
-                el.removeAttribute(attrName)
-
-                const e = effect(() => {
-                    let result = ''
-                    for (const part of parts) {
-                        if (part.type === 'static') {
-                            result += part.value
-                        } else {
-                            const resolved = evaluateExpression(part.key, context)
-                            result += String(resolved ?? '')
-                        }
-                    }
-                    const safeValue = sanitizeAttr(attrName, result)
-                    el.setAttribute(attrName, safeValue)
-                })
-                effects.push(e)
-            }
-        }
-    }
-}
-
-
 
 function bindComponents(container, components, context, effects) {
     const placeholders = container.querySelectorAll('[data-component]')
