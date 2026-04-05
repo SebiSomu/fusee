@@ -14,15 +14,21 @@ export const Counter = defineComponent({
             return count() * 2
         })
 
-        const valueClass = computed(() =>
-            count() >= 0 ? 'value positive' : 'value negative'
-        )
-
         const isZero = computed(() => count() === 0)
 
         const counterTitle = computed(() =>
             `Counter: ${count()} (×${multiplier()})`
         )
+
+        const displayStyle = computed(() => ({
+            fontSize: '16rem',
+            fontWeight: '900',
+            lineHeight: '1',
+            margin: '0',
+            color: count() >= 0 ? '#3b82f6' : '#ef4444',
+            transition: 'all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+            transform: `scale(${1 + (Math.abs(count()) % 3) * 0.1})`
+        }))
 
         effect(() => {
             console.log(`[Counter Effect] Count: ${count()} | Step ignored in tracking: ${untrack(() => multiplier())}`)
@@ -46,7 +52,6 @@ export const Counter = defineComponent({
             count,
             multiplier,
             double,
-            valueClass,
             isZero,
             counterTitle,
             increment,
@@ -54,14 +59,21 @@ export const Counter = defineComponent({
             reset,
             updateMultiple,
             get parentTitle() { return props.parentTitle },
+            displayStyle,
             template: `
                 <div class="counter" :title="counterTitle" @keydown.arrowup.window="increment" @keydown.arrowdown.window="decrement">
                     <h2>Counter</h2>
                     <p style="font-size: 0.8rem; color: #888;">Message from Home: {{ parentTitle }}</p>
                     
-                    <p class="{{ valueClass }}">
-                        Count: {{ count }} (Multiplier step: {{ multiplier }})
-                    </p>
+                    <div class="counter-display" style="text-align: center; margin: 60px 0;">
+                        <span style="display: block; font-size: 1.2rem; text-transform: uppercase; letter-spacing: 3px; color: #888;">Current Value</span>
+                        <p class="value" 
+                           :class="{ positive: count >= 0, negative: count < 0 }"
+                           :style="displayStyle">
+                            {{ count }}
+                        </p>
+                        <span style="font-size: 1.2rem; color: #aaa;">(Multiplier step: {{ multiplier }})</span>
+                    </div>
                     <p class="derived">double: {{ double }}</p>
                     
                     <div class="actions">

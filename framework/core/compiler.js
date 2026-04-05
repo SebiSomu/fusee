@@ -91,15 +91,42 @@ function processAttrBindings(root, context, effects) {
                 el.removeAttribute(attr.name)
 
                 const e = effect(() => {
-                    const resolved = evaluateExpression(expr, context)
+                    let resolved = evaluateExpression(expr, context)
 
-                    if (typeof resolved === 'boolean') {
-                        resolved
-                            ? el.setAttribute(realAttr, '')
-                            : el.removeAttribute(realAttr)
+                    if (realAttr === 'class') {
+                        const staticClass = el.getAttribute('class') || ''
+                        let dynamicClass = ''
+                        if (Array.isArray(resolved)) {
+                            dynamicClass = resolved.filter(Boolean).join(' ')
+                        } else if (resolved !== null && typeof resolved === 'object') {
+                            dynamicClass = Object.entries(resolved)
+                                .filter(([_, value]) => !!value)
+                                .map(([key, _]) => key)
+                                .join(' ')
+                        } else {
+                            dynamicClass = String(resolved ?? '')
+                        }
+                        // Use a data attribute to store the original static class to avoid losing it on updates
+                        if (!el._staticClass) el._staticClass = el.getAttribute('class') || ''
+                        el.className = (el._staticClass + ' ' + dynamicClass).trim()
+                    } else if (realAttr === 'style') {
+                        if (resolved !== null && typeof resolved === 'object') {
+                            for (const key in resolved) {
+                                el.style[key] = resolved[key]
+                            }
+                        } else {
+                            el.style.cssText = String(resolved ?? '')
+                        }
                     } else {
-                        const safeValue = sanitizeAttr(realAttr, String(resolved))
-                        el.setAttribute(realAttr, safeValue)
+                        // Standard attribute behavior
+                        if (typeof resolved === 'boolean') {
+                            resolved
+                                ? el.setAttribute(realAttr, '')
+                                : el.removeAttribute(realAttr)
+                        } else {
+                            const safeValue = sanitizeAttr(realAttr, String(resolved))
+                            el.setAttribute(realAttr, safeValue)
+                        }
                     }
                 })
                 effects.push(e)
