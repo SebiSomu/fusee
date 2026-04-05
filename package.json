@@ -4,13 +4,19 @@
   "description": "Fusée - Signals-first JS Framework | Peak Performance",
   "main": "framework/index.js",
   "types": "framework/types/index.d.ts",
+  "bin": {
+    "create-fusee": "./framework/bin/create-fusee.js"
+  },
+  "type": "module",
   "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
   "license": "MIT",
-  "type": "commonjs",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/SebiSomu/fusee.git"
@@ -19,6 +25,7 @@
     "registry": "https://registry.npmjs.org/"
   },
   "devDependencies": {
-    "typescript": "^6.0.2"
+    "typescript": "^6.0.2",
+    "vite": "^5.0.0"
   }
 }
