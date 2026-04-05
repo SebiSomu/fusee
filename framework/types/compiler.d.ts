@@ -13,13 +13,3 @@ export function compileNode(
     components: Record<string, ComponentFactory>,
     effects: (() => void)[]
 ): void
-
-function processTextNodes(root: HTMLElement, context: ComponentResult, effects: (() => void)[]): void
-function processAttrBindings(root: HTMLElement, context: ComponentResult, effects: (() => void)[]): void
-
-function bindComponents(
-    container: HTMLElement,
-    components: Record<string, ComponentFactory>,
-    context: ComponentResult,
-    effects: (() => void)[]
-): void

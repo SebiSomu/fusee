@@ -6,7 +6,16 @@ import { fileURLToPath } from 'url';
 
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const sourceFramework = path.join(__dirname, '..');
+
+// Find the package root (where package.json lives) to make paths resilient
+let pkgRoot = __dirname;
+while (pkgRoot !== path.dirname(pkgRoot) && !fs.existsSync(path.join(pkgRoot, 'package.json'))) {
+    pkgRoot = path.dirname(pkgRoot);
+}
+
+const sourceFramework = fs.existsSync(path.join(pkgRoot, 'framework'))
+    ? path.join(pkgRoot, 'framework')
+    : pkgRoot;
 
 const projectName = process.argv[2] || 'my-fusee-app';
 const projectPath = path.isAbsolute(projectName) ? projectName : path.join(process.cwd(), projectName);
@@ -130,7 +139,7 @@ export const Counter = defineComponent({
     fs.writeFileSync(path.join(projectPath, `app/components/Counter.${ext}`), counterContent);
 
     const mainContent = `import { mountTemplate } from '../framework/core/compiler.js';
-import { Counter } from './components/Counter.${ext}';
+import { Counter } from './components/Counter';
 
 const root = document.getElementById('app');
 if (root) {

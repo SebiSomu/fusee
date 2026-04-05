@@ -1,4 +1,4 @@
-import { effect, batch } from './signal.js'
+import { signal, effect, batch } from './signal.js'
 import { evaluateExpression } from './evaluator.js'
 import { compileNode } from './compiler.js'
 
@@ -121,19 +121,28 @@ export function processFor(root, context, components, effects) {
                 if (indexName) itemContext[indexName] = index
 
                 const key = keyExpr ? evaluateExpression(keyExpr, itemContext) : item.rawIndex
-                return { item, key, itemContext }
+                return { item, key }
             })
 
             const parentNode = anchor.parentNode
             let currentCursor = anchor.nextSibling
 
-            newItemsWithKeys.forEach(({ item, key, itemContext }, index) => {
+            newItemsWithKeys.forEach(({ item, key }, index) => {
                 let entry = cache.get(key)
 
                 if (entry) {
-                    entry.context[itemName] = item.value
-                    if (keyName) entry.context[keyName] = item.hasOwnProperty('key') ? item.key : item.rawIndex
-                    if (indexName) entry.context[indexName] = index
+                    // Update existing reactive signals for reused items
+                    batch(() => {
+                        if (typeof entry.context[itemName] === 'function' && entry.context[itemName].isSignal) {
+                            entry.context[itemName](item.value)
+                        }
+                        if (keyName && typeof entry.context[keyName] === 'function' && entry.context[keyName].isSignal) {
+                            entry.context[keyName](item.hasOwnProperty('key') ? item.key : item.rawIndex)
+                        }
+                        if (indexName && typeof entry.context[indexName] === 'function' && entry.context[indexName].isSignal) {
+                            entry.context[indexName](index)
+                        }
+                    })
 
                     if (entry.node !== currentCursor) {
                         parentNode.insertBefore(entry.node, currentCursor)
@@ -142,7 +151,12 @@ export function processFor(root, context, components, effects) {
                     }
                     cache.delete(key)
                 } else {
-                    // Create new node
+                    // Create new item context with signals for local state
+                    const itemContext = Object.create(context)
+                    itemContext[itemName] = signal(item.value)
+                    if (keyName) itemContext[keyName] = signal(item.hasOwnProperty('key') ? item.key : item.rawIndex)
+                    if (indexName) itemContext[indexName] = signal(index)
+
                     const clone = templateNode.cloneNode(true)
                     const childEffects = []
                     compileNode(clone, itemContext, components, childEffects)
@@ -155,7 +169,8 @@ export function processFor(root, context, components, effects) {
                 nextOrder.push(entry.node)
             })
 
-            for (const [key, entry] of cache.entries()) {
+            // Cleanup removed nodes
+            for (const [_, entry] of cache.entries()) {
                 for (const e of entry.effects) if (typeof e === 'function') e()
                 entry.node.parentNode?.removeChild(entry.node)
             }
