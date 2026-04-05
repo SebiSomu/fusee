@@ -27,4 +27,6 @@ export function processIf(
 
 export function processShow(root: HTMLElement, context: ComponentResult, effects: (() => void)[]): void
 export function processHtml(root: HTMLElement, context: ComponentResult, effects: (() => void)[]): void
+export function processText(root: HTMLElement, context: ComponentResult, effects: (() => void)[]): void
 export function processEvents(root: HTMLElement, context: ComponentResult): void
+export function processCloak(root: HTMLElement): void

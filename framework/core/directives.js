@@ -9,7 +9,9 @@ export function processDirectives(root, context, components, effects) {
     processModel(root, context, effects)
     processRefs(root, context)
     processHtml(root, context, effects)
+    processText(root, context, effects)
     processEvents(root, context)
+    processCloak(root)
 }
 
 export function processRefs(root, context) {
@@ -308,5 +310,26 @@ export function processEvents(root, context) {
                 targetNode.addEventListener(eventName, handler, options)
             }
         }
+    }
+}
+
+export function processText(root, context, effects) {
+    const els = root.querySelectorAll('[f-text]')
+    for (const el of els) {
+        if (!el.parentNode) continue
+        const expr = el.getAttribute('f-text')
+        el.removeAttribute('f-text')
+        effects.push(effect(() => {
+            const val = evaluateExpression(expr, context)
+            el.textContent = String(val ?? '')
+        }))
+    }
+}
+
+export function processCloak(root) {
+    const els = root.querySelectorAll('[f-cloak]')
+    const targets = root.hasAttribute && root.hasAttribute('f-cloak') ? [root, ...els] : els
+    for (const el of targets) {
+        el.removeAttribute('f-cloak')
     }
 }

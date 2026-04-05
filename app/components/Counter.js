@@ -8,7 +8,7 @@ export const Counter = defineComponent({
     setup(props) {
         const count = signal(Number(props.initialValue) || 0)
         const multiplier = signal(1)
-        
+
         const double = computed(() => {
             console.log('[Counter] computing double...')
             return count() * 2
@@ -43,7 +43,7 @@ export const Counter = defineComponent({
 
         function increment() { count(count() + 1) }
         function decrement() { count(count() - 1) }
-        function reset()     { count(0) }
+        function reset() { count(0) }
 
         onMount(() => console.log('[Counter] mounted, initial:', count()))
         onUnmount(() => console.log('[Counter] unmounted'))
