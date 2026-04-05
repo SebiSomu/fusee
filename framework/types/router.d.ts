@@ -1,3 +1,5 @@
+// ─── Router Types ─────────────────────────────────────────────────────────────
+
 import type { ComponentApi } from './component'
 
 export type Route = {

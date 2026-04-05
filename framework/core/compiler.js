@@ -42,7 +42,6 @@ export function compileNode(node, context, components, effects) {
     processDirectives(node, context, components, effects)
     processTextNodes(node, context, effects)
     processAttrBindings(node, context, effects)
-    bindEvents(node, context)
     bindComponents(node, components, context, effects)
 }
 
@@ -131,24 +130,7 @@ function processAttrBindings(root, context, effects) {
     }
 }
 
-function bindEvents(container, context) {
-    const all = container.querySelectorAll('*')
-    for (const el of all) {
-        for (const attr of [...el.attributes]) {
-            if (attr.name.startsWith('@')) {
-                const eventName = attr.name.slice(1)
-                const handlerName = attr.value
-                const handler = context[handlerName]
-                if (typeof handler === 'function') {
-                    el.removeAttribute(attr.name)
-                    el.addEventListener(eventName, (e) => {
-                        batch(() => handler(e))
-                    })
-                }
-            }
-        }
-    }
-}
+
 
 function bindComponents(container, components, context, effects) {
     const placeholders = container.querySelectorAll('[data-component]')

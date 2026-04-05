@@ -9,6 +9,7 @@ export function processDirectives(root, context, components, effects) {
     processModel(root, context, effects)
     processRefs(root, context)
     processHtml(root, context, effects)
+    processEvents(root, context)
 }
 
 export function processRefs(root, context) {
@@ -250,5 +251,62 @@ export function processHtml(root, context, effects) {
             const val = evaluateExpression(expr, context)
             el.innerHTML = String(val ?? '')
         }))
+    }
+}
+export function processEvents(root, context) {
+    const els = root.querySelectorAll('*')
+    const targets = root.attributes ? [root, ...els] : els
+
+    for (const el of targets) {
+        if (!el.attributes) continue
+
+        for (const attr of [...el.attributes]) {
+            if (attr.name.startsWith('@')) {
+                const fullEventName = attr.name.slice(1)
+                const parts = fullEventName.split('.')
+                const eventName = parts[0]
+                const modifiers = parts.slice(1)
+                const expr = attr.value
+
+                el.removeAttribute(attr.name)
+
+                const handler = (e) => {
+                    if (modifiers.includes('prevent')) e.preventDefault()
+                    if (modifiers.includes('stop')) e.stopPropagation()
+                    if (modifiers.includes('self') && e.target !== el) return
+
+                    // Specific handling for common modifiers like .enter, .escape etc on keyboard events
+                    if (e instanceof KeyboardEvent) {
+                        const key = e.key.toLowerCase()
+                        const keyModifiers = modifiers.filter(m => ['enter', 'escape', 'tab', 'space', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(m))
+                        if (keyModifiers.length > 0) {
+                            const match = keyModifiers.some(m => {
+                                if (m === 'escape') return key === 'escape' || key === 'esc'
+                                if (m === 'space') return key === ' ' || key === 'spacebar'
+                                return key === m
+                            })
+                            if (!match) return
+                        }
+                    }
+
+                    batch(() => {
+                        const potentialFn = context[expr]
+                        if (typeof potentialFn === 'function' && !potentialFn.isSignal) {
+                            potentialFn(e)
+                        } else {
+                            evaluateExpression(expr, context, { $event: e }, false)
+                        }
+                    })
+                }
+
+                const targetNode = modifiers.includes('window') ? window : (modifiers.includes('document') ? document : el)
+                const options = {
+                    once: modifiers.includes('once'),
+                    capture: modifiers.includes('capture') || modifiers.includes('away')
+                }
+
+                targetNode.addEventListener(eventName, handler, options)
+            }
+        }
     }
 }

@@ -8,7 +8,7 @@ export type InterpolationPart = {
 
 export const MUSTACHE_RE: RegExp
 
-export function evaluateExpression(expr: string, context: ComponentResult): any
+export function evaluateExpression(expr: string, context: Record<string, any>, extraContext?: Record<string, any>): any
 
 export function parseInterpolation(str: string): InterpolationPart[]
 

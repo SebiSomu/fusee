@@ -3,18 +3,29 @@ export const MUSTACHE_RE = /\{\{\s*(.+?)\s*\}\}/
 const SENSITIVE_ATTRS = ['href', 'src', 'srcset', 'formaction', 'xlink:href', 'data']
 const DANGEROUS_SCHEMES = /^(javascript|data|vbscript|file):/i
 
-export function evaluateExpression(expr, context) {
+export function evaluateExpression(expr, context, extraContext = {}, unwrapSignals = true) {
     const keys = []
     const values = []
 
+    // Map global context
     for (const k in context) {
         keys.push(k)
         const val = context[k]
-        values.push(typeof val === 'function' && val.isSignal ? val() : val)
+        values.push(unwrapSignals && typeof val === 'function' && val.isSignal ? val() : val)
+    }
+
+    // Map extra context (like $event)
+    for (const k in extraContext) {
+        if (!keys.includes(k)) {
+            keys.push(k)
+            values.push(extraContext[k])
+        }
     }
 
     try {
-        const fn = new Function(...keys, `return ${expr}`)
+        const isMultiStatement = expr.includes(';') || expr.includes('console.')
+        const body = isMultiStatement ? expr : `return ${expr}`
+        const fn = new Function(...keys, body)
         return fn(...values)
     } catch (e) {
         console.warn(`[framework] Error evaluating "${expr}":`, e)

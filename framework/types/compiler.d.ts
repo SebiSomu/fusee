@@ -16,7 +16,6 @@ export function compileNode(
 
 function processTextNodes(root: HTMLElement, context: ComponentResult, effects: (() => void)[]): void
 function processAttrBindings(root: HTMLElement, context: ComponentResult, effects: (() => void)[]): void
-function bindEvents(container: HTMLElement, context: ComponentResult): void
 
 function bindComponents(
     container: HTMLElement,
