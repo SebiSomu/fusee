@@ -1,7 +1,7 @@
 # Fusée Framework 🚀
 **v1.0.0 — Signals-First JS Framework | Atomic Reactivity | Peak Performance**
 
-Fusée is a custom, high-performance reactive JavaScript framework built for speed and simplicity. It features a recursive, non-greedy compiler, a signals-based reactivity engine, and a comprehensive CLI for instant application scaffolding.
+Fusée is a custom, high-performance fine-grained reactive JavaScript framework built for speed and simplicity. It features a recursive, non-greedy compiler, a signals-based reactivity engine, and a comprehensive CLI for instant application scaffolding.
 
 ---
 
@@ -10,8 +10,8 @@ Fusée is a custom, high-performance reactive JavaScript framework built for spe
 The fastest way to get started with Fusée is via the CLI:
 
 ```bash
-# 1. Install globally (linking the engine)
-npm link
+# 1. Install Fusée globally
+npm install -g fusee-framework
 
 # 2. Scaffold your first project
 create-fusee-app .
@@ -73,4 +73,4 @@ export const Counter = defineComponent({
 - [ ] Keyed `f-for` for list reconciliation
 - [ ] Advanced router transitions support
 
-Built with ❤️ by a forward-thinking JavaScript Architect. 🏎️🔥🏆🥇_
+Built with ❤️ by me, Sebi Somu, a forward-thinking JavaScript Architect.
