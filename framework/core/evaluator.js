@@ -6,12 +6,15 @@ const DANGEROUS_SCHEMES = /^(javascript|data|vbscript|file):/i
 export function evaluateExpression(expr, context, extraContext = {}, unwrapSignals = true) {
     const keys = []
     const values = []
+    const identifiers = new Set(expr.match(/[a-zA-Z_$][a-zA-Z0-9_$]*/g) || [])
 
-    // Map global context
+    // Map global context (only what is used in expression)
     for (const k in context) {
-        keys.push(k)
-        const val = context[k]
-        values.push(unwrapSignals && typeof val === 'function' && val.isSignal ? val() : val)
+        if (identifiers.has(k)) {
+            keys.push(k)
+            const val = context[k]
+            values.push(unwrapSignals && typeof val === 'function' && val.isSignal ? val() : val)
+        }
     }
 
     // Map extra context (like $event)

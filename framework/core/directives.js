@@ -82,6 +82,12 @@ export function processFor(root, context, components, effects) {
         const indexName = match[3]
         const arrayExpr = match[5]
 
+        const keyExpr = el.getAttribute('data-bind-key') || el.getAttribute(':key')
+        if (keyExpr) {
+            el.removeAttribute('data-bind-key')
+            el.removeAttribute(':key')
+        }
+
         const anchor = document.createComment('f-for')
         const parent = el.parentNode
         parent.insertBefore(anchor, el)
@@ -89,45 +95,73 @@ export function processFor(root, context, components, effects) {
         const templateNode = el.cloneNode(true)
         parent.removeChild(el)
 
-        let previousNodes = []
-        let previousEffects = []
+        // Cache of currently rendered items: Map<key, { node, effects, context }>
+        let cache = new Map()
+        let previousOrder = []
 
         effects.push(effect(() => {
             const rawItems = evaluateExpression(arrayExpr, context)
             let items = []
 
             if (Array.isArray(rawItems)) {
-                items = rawItems.map((item, index) => ({ value: item, key: index, index }))
+                items = rawItems.map((item, index) => ({ value: item, rawIndex: index }))
             } else if (typeof rawItems === 'number' && !isNaN(rawItems)) {
-                items = Array.from({ length: Math.max(0, Math.floor(rawItems)) }, (_, i) => ({ value: i + 1, key: i, index: i }))
+                items = Array.from({ length: Math.max(0, Math.floor(rawItems)) }, (_, i) => ({ value: i + 1, rawIndex: i }))
             } else if (rawItems && typeof rawItems === 'object') {
-                items = Object.entries(rawItems).map(([key, value], index) => ({ value, key, index }))
+                items = Object.entries(rawItems).map(([key, value], index) => ({ value, key, rawIndex: index }))
             }
 
-            for (const e of previousEffects) if (typeof e === 'function') e()
-            for (const node of previousNodes) node.parentNode?.removeChild(node)
+            const nextCache = new Map()
+            const nextOrder = []
 
-            previousNodes = []
-            previousEffects = []
+            const newItemsWithKeys = items.map((item, index) => {
+                const itemContext = Object.create(context)
+                itemContext[itemName] = item.value
+                if (keyName) itemContext[keyName] = item.hasOwnProperty('key') ? item.key : item.rawIndex
+                if (indexName) itemContext[indexName] = index
 
-            const fragment = document.createDocumentFragment()
-            items.forEach((item) => {
-                const clone = templateNode.cloneNode(true)
-                const childContext = Object.create(context)
-
-                childContext[itemName] = item.value
-                if (keyName) childContext[keyName] = item.key
-                if (indexName) childContext[indexName] = item.index
-
-                const childEffects = []
-                compileNode(clone, childContext, components, childEffects)
-
-                fragment.appendChild(clone)
-                previousNodes.push(clone)
-                previousEffects.push(...childEffects)
+                const key = keyExpr ? evaluateExpression(keyExpr, itemContext) : item.rawIndex
+                return { item, key, itemContext }
             })
 
-            anchor.parentNode.insertBefore(fragment, anchor)
+            const parentNode = anchor.parentNode
+            let currentCursor = anchor.nextSibling
+
+            newItemsWithKeys.forEach(({ item, key, itemContext }, index) => {
+                let entry = cache.get(key)
+
+                if (entry) {
+                    entry.context[itemName] = item.value
+                    if (keyName) entry.context[keyName] = item.hasOwnProperty('key') ? item.key : item.rawIndex
+                    if (indexName) entry.context[indexName] = index
+
+                    if (entry.node !== currentCursor) {
+                        parentNode.insertBefore(entry.node, currentCursor)
+                    } else {
+                        currentCursor = currentCursor.nextSibling
+                    }
+                    cache.delete(key)
+                } else {
+                    // Create new node
+                    const clone = templateNode.cloneNode(true)
+                    const childEffects = []
+                    compileNode(clone, itemContext, components, childEffects)
+
+                    parentNode.insertBefore(clone, currentCursor)
+                    entry = { node: clone, effects: childEffects, context: itemContext }
+                }
+
+                nextCache.set(key, entry)
+                nextOrder.push(entry.node)
+            })
+
+            for (const [key, entry] of cache.entries()) {
+                for (const e of entry.effects) if (typeof e === 'function') e()
+                entry.node.parentNode?.removeChild(entry.node)
+            }
+
+            cache = nextCache
+            previousOrder = nextOrder
         }))
     }
 }
