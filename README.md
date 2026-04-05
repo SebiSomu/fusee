@@ -1,15 +1,76 @@
-# Fusée Framework
-**v0.2.0-alpha — Peak Performance JS Framework**
+# Fusée Framework 🚀
+**v1.0.0 — Signals-First JS Framework | Atomic Reactivity | Peak Performance**
 
-## Run
+Fusée is a custom, high-performance reactive JavaScript framework built for speed and simplicity. It features a recursive, non-greedy compiler, a signals-based reactivity engine, and a comprehensive CLI for instant application scaffolding.
 
-### JavaScript (instant)
+---
+
+## ⚡ Quick Start
+
+The fastest way to get started with Fusée is via the CLI:
+
 ```bash
-npx serve .
+# 1. Install globally (linking the engine)
+npm link
+
+# 2. Scaffold your first project
+create-fusee-app .
+```
+Follow the interactive prompt to choose your template (**JavaScript** or **TypeScript**) and launch your app with `npm run dev`!
+
+---
+
+## 🔥 Key Features
+
+- **Signals-First Reactivity**: Modern atomic updates that ensure only the modified parts of the DOM are touched.
+- **Recursive Hybrid Compiler**: A robust architectural approach to node traversal, eliminating rendering bugs while maintaining "greedy" directive processing for speed.
+- **Strict Component System**: Use `defineComponent` for prop validation, lifecycle hooks (`onMount`, `onUnmount`), and automated cleanup.
+- **Optimized Directives**: Native support for `f-if`, `f-for`, `f-model`, `f-text`, `f-cloak` and more.
+- **Performance Shield (`f-once`)**: Isolate and stabilize static subtrees to prevent unnecessary reactivity.
+- **Vite Integration**: Full support for the fastest development workflow and Hot Module Replacement (HMR).
+
+---
+
+## 🛠 Project Structure
+
+A typical Fusée project looks like this:
+
+- **`framework/`**: The core reactive engine.
+- **`app/`**: Your application logic (routes, components).
+- **`index.html`**: The entry point of your reactive world.
+
+---
+
+## 📝 Example Component
+
+```javascript
+import { defineComponent, signal } from './framework/core/index.js';
+
+export const Counter = defineComponent({
+    setup() {
+        const count = signal(0);
+        return {
+            count,
+            inc: () => count(count() + 1),
+            dec: () => count(count() - 1),
+            template: `
+                <div class="counter-card">
+                    <h2>Counter: {{ count }}</h2>
+                    <button @click="dec">-</button>
+                    <button @click="inc">+</button>
+                </div>
+            `
+        };
+    }
+});
 ```
 
-### TypeScript
-```bash
-npx tsc
-# then change index.html script src to: ./dist/app/main.js
-npx serve .
+---
+
+## 🚀 Future Roadmap
+
+- [ ] Global Store Management
+- [ ] Keyed `f-for` for list reconciliation
+- [ ] Advanced router transitions support
+
+Built with ❤️ by a forward-thinking JavaScript Architect. 🏎️🔥🏆🥇_
