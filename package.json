@@ -5,7 +5,7 @@
   "main": "framework/index.js",
   "types": "framework/types/index.d.ts",
   "bin": {
-    "create-fusee": "./framework/bin/create-fusee.js"
+    "create-fusee-app": "./framework/bin/create-fusee.js"
   },
   "type": "module",
   "scripts": {
