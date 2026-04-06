@@ -2,6 +2,7 @@ export const About = defineComponent({
     props: [],
     setup() {
         const loaded = signal(false)
+        inspect(loaded)
 
         onMount(() => {
             setTimeout(() => loaded(true), 300)

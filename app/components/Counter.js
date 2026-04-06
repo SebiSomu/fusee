@@ -1,4 +1,3 @@
-import { defineComponent, signal, computed, effect, batch, untrack, onMount, onUnmount } from '../../framework/index.js'
 
 export const Counter = defineComponent({
     props: {
@@ -8,6 +7,7 @@ export const Counter = defineComponent({
     setup(props) {
         const count = signal(Number(props.initialValue) || 0)
         const multiplier = signal(1)
+        inspect(count, multiplier)
 
         const double = computed(() => {
             console.log('[Counter] computing double...')
@@ -30,9 +30,7 @@ export const Counter = defineComponent({
             transform: `scale(${1 + (Math.abs(count()) % 3) * 0.1})`
         }))
 
-        effect(() => {
-            console.log(`[Counter Effect] Count: ${count()} | Step ignored in tracking: ${untrack(() => multiplier())}`)
-        })
+        inspect(() => `Count: ${count()} | Step ignored in tracking: ${untrack(() => multiplier())}`)
 
         function updateMultiple() {
             batch(() => {

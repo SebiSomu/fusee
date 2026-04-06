@@ -1,4 +1,4 @@
-import { defineComponent, signal, onMount, type Signal, type EmptyProps } from '../../framework/index.js'
+import type { Signal, EmptyProps } from '../../framework/index.js'
 
 type AboutResult = {
     loaded: Signal<boolean>

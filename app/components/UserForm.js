@@ -2,6 +2,7 @@ export const UserForm = defineComponent({
     setup() {
         const userName = signal('Guest')
         const inputRef = signal(null)
+        inspect(userName)
 
         return {
             userName,

@@ -1,4 +1,3 @@
-import { defineComponent, signal } from '../../framework/index.js'
 import { Counter } from './Counter.js'
 
 export const CounterSection = defineComponent({
@@ -8,6 +7,7 @@ export const CounterSection = defineComponent({
     components: { Counter },
     setup(props) {
         const showCounter = signal(true)
+        inspect(showCounter)
 
         return {
             showCounter,

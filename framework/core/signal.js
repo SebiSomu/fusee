@@ -135,3 +135,23 @@ export function untrack(fn) {
         currentEffect = prevEffect
     }
 }
+
+/**
+ * Reactive log helper similar to Svelte 5's $inspect.
+ * Watches signals or functions and logs their current values on change.
+ * Only active in development mode.
+ */
+export function inspect(...args) {
+    const isDev = typeof import.meta.env !== 'undefined' ? !!import.meta.env.DEV : true
+    if (!isDev) return
+
+    return effect(() => {
+        const values = args.map(arg => {
+            if (typeof arg === 'function') {
+                return arg()
+            }
+            return arg
+        })
+        console.log('[inspect]', ...values)
+    })
+}

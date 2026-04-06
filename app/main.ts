@@ -1,4 +1,4 @@
-import { createRouter, mountOutlet } from '../framework/index.js'
+import { createRouter } from '../framework/index.js'
 import type { Route } from '../framework/types/index.js'
 import { Home } from './routes/Home.js'
 import { About } from './routes/About.js'

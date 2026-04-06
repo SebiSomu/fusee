@@ -1,4 +1,3 @@
-
 type CounterProps = {
     initialValue?: string
     parentTitle?: string
@@ -27,6 +26,7 @@ export const Counter = defineComponent({
     setup(props: CounterProps): CounterResult {
         const count = signal<number>(Number(props.initialValue) || 0)
         const multiplier = signal<number>(1)
+        inspect(count, multiplier)
 
         const double = computed(() => count() * 2)
 
@@ -40,9 +40,7 @@ export const Counter = defineComponent({
             `Counter: ${count()} (×${multiplier()})`
         )
 
-        effect(() => {
-            console.log(`[Counter Effect] Count: ${count()} | Step ignored in tracking: ${untrack(() => multiplier())}`)
-        })
+        inspect(() => `[Counter] Count: ${count()} | Step ignored: ${untrack(() => multiplier())}`)
 
         function updateMultiple(): void {
             batch(() => {

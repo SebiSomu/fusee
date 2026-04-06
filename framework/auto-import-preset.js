@@ -1,7 +1,7 @@
 export const FuseePreset = {
     'fusee-framework': [
         'signal', 'computed', 'effect',
-        'batch', 'untrack',
+        'batch', 'untrack', 'inspect',
         'defineComponent', 'onMount', 'onUnmount',
         'mountOutlet', 'mountTemplate'
     ]

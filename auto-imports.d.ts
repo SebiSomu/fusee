@@ -10,6 +10,7 @@ declare global {
   const computed: typeof import('fusee-framework').computed
   const defineComponent: typeof import('fusee-framework').defineComponent
   const effect: typeof import('fusee-framework').effect
+  const inspect: typeof import('fusee-framework').inspect
   const mountOutlet: typeof import('fusee-framework').mountOutlet
   const mountTemplate: typeof import('fusee-framework').mountTemplate
   const onMount: typeof import('fusee-framework').onMount

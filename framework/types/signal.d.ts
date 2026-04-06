@@ -25,6 +25,7 @@ export declare function effect(fn: () => void): () => void
 export declare function computed<T>(fn: () => T): Computed<T>
 export declare function batch<T>(fn: () => T): T
 export declare function untrack<T>(fn: () => T): T
+export declare function inspect(...args: any[]): (() => void) | void
 
 declare function setEffectHook(fn: (eff: any) => void): void
 

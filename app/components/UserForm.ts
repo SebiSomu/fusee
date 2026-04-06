@@ -1,5 +1,3 @@
-import { defineComponent, signal, type SignalAccessor } from '../../framework/index.js'
-
 type UserFormResult = {
     userName: SignalAccessor<string>
     inputRef: SignalAccessor<HTMLInputElement | null>

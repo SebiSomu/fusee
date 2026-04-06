@@ -5,6 +5,7 @@ export const TestFor = defineComponent({
             { id: 2, name: 'Item 2' },
             { id: 3, name: 'Item 3' }
         ])
+        inspect(items)
 
         return {
             items,
