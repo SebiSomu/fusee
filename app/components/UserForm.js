@@ -1,5 +1,3 @@
-import { defineComponent, signal } from '../../framework/index.js'
-
 export const UserForm = defineComponent({
     setup() {
         const userName = signal('Guest')

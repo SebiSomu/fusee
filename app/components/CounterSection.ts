@@ -1,4 +1,4 @@
-import { defineComponent, signal, type SignalAccessor } from '../../framework/index.js'
+import type { SignalAccessor } from 'fusee-framework'
 import { Counter } from './Counter.js'
 
 type CounterSectionProps = {
@@ -22,7 +22,7 @@ export const CounterSection = defineComponent({
 
         return {
             showCounter,
-            get title() { return props.pageTitle },
+            get title() { return props.pageTitle || '' },
             toggleCounter: () => showCounter(!showCounter()),
             template: `
                 <div style="margin-top: 30px; border-top: 1px solid #333; padding-top: 20px;">

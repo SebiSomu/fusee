@@ -1,20 +1,28 @@
 import { defineConfig } from 'vite'
 import path from 'path'
+import AutoImport from 'unplugin-auto-import/vite'
+import { FuseePreset } from './framework/auto-import-preset.js'
 
 export default defineConfig({
     root: '.',
+    plugins: [
+        AutoImport({
+            imports: [FuseePreset],
+            dts: true,
+        })
+    ],
 
     resolve: {
         alias: {
-            '@fusee': path.resolve(__dirname, './framework'),
+            'fusee-framework': path.resolve(__dirname, './framework'),
             '@app': path.resolve(__dirname, './app'),
         }
     },
 
     server: {
         port: 3000,
-        open: true,        // Deschide browserul automat
-        hmr: true,         // Hot Module Replacement
+        open: true,
+        hmr: true,
     },
 
     build: {

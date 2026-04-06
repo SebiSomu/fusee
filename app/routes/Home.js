@@ -1,4 +1,3 @@
-import { defineComponent, signal } from '../../framework/index.js'
 import { UserForm } from '../components/UserForm.js'
 import { CounterSection } from '../components/CounterSection.js'
 

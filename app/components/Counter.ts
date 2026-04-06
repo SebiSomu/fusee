@@ -1,4 +1,4 @@
-import { defineComponent, signal, computed, effect, batch, untrack, onMount, onUnmount, type Signal, type Computed } from '../../framework/index.js'
+import type { Signal, Computed } from 'fusee-framework'
 
 type CounterProps = {
     initialValue?: string
@@ -96,4 +96,3 @@ export const Counter = defineComponent({
         }
     }
 })
-

@@ -7,7 +7,7 @@ import { fileURLToPath } from 'url';
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Find the package root (where package.json lives) to make paths resilient
+// Find the package root
 let pkgRoot = __dirname;
 while (pkgRoot !== path.dirname(pkgRoot) && !fs.existsSync(path.join(pkgRoot, 'package.json'))) {
     pkgRoot = path.dirname(pkgRoot);
@@ -33,9 +33,8 @@ async function scaffold() {
     function copyDir(src, dest, skipTypes = false) {
         if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
         fs.readdirSync(src).forEach(item => {
-            // Sărim folderul types SAU orice fișier .d.ts rătăcit
             if (skipTypes && (item === 'types' || item.endsWith('.d.ts'))) return;
-            if (item === 'bin' || item === 'node_modules' || item === '.git') return;
+            if (item === 'bin' || item === 'node_modules' || item === '.git' || item === 'dist') return;
 
             const s = path.join(src, item);
             const d = path.join(dest, item);
@@ -44,81 +43,127 @@ async function scaffold() {
         });
     }
 
-    const coreFolders = ['app', 'app/components'];
+    const coreFolders = ['app', 'app/components', 'app/routes'];
     coreFolders.forEach(f => {
         const dir = path.join(projectPath, f);
         if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     });
 
-    console.log('📦 Injecting Fusée Core Engine (Strict Mode)...');
+    console.log('📦 Injecting Fusée Core Engine...');
     copyDir(sourceFramework, path.join(projectPath, 'framework'), choice === 'js');
 
+    const ext = choice === 'ts' ? 'ts' : 'js';
+
+    // 1. package.json
     const packageJson = {
         name: projectName === '.' ? 'fusee-project' : projectName,
         version: '1.0.0',
         type: 'module',
         scripts: { "dev": "vite", "build": "vite build" },
-        devDependencies: { "vite": "^5.0.0" }
+        devDependencies: {
+            "vite": "^5.0.0",
+            "unplugin-auto-import": "^0.17.0"
+        }
     };
     if (choice === 'ts') packageJson.devDependencies["typescript"] = "^5.0.0";
     fs.writeFileSync(path.join(projectPath, 'package.json'), JSON.stringify(packageJson, null, 2));
 
+    // 2. vite.config.js
+    const viteConfig = `import { defineConfig } from 'vite';
+import path from 'path';
+import AutoImport from 'unplugin-auto-import/vite';
+import { FuseePreset } from './framework/auto-import-preset.js';
+
+export default defineConfig({
+  resolve: {
+    alias: {
+      'fusee-framework': path.resolve(__dirname, './framework')
+    }
+  },
+  plugins: [
+    AutoImport({
+      imports: [FuseePreset],
+      dts: true // Generates auto-imports.d.ts
+    })
+  ]
+});`;
+    fs.writeFileSync(path.join(projectPath, 'vite.config.js'), viteConfig);
+
+    // 3. tsconfig.json (if TS)
     if (choice === 'ts') {
-        const tsConfig = { compilerOptions: { "target": "ESNext", "module": "ESNext", "moduleResolution": "node", "strict": true, "esModuleInterop": true, "skipLibCheck": true } };
+        const tsConfig = {
+            compilerOptions: {
+                "target": "ESNext",
+                "module": "ESNext",
+                "moduleResolution": "bundler",
+                "strict": true,
+                "esModuleInterop": true,
+                "skipLibCheck": true,
+                "paths": {
+                    "fusee-framework": ["./framework/types/index.d.ts"]
+                }
+            },
+            "include": ["app/**/*", "framework/**/*", "auto-imports.d.ts"]
+        };
         fs.writeFileSync(path.join(projectPath, 'tsconfig.json'), JSON.stringify(tsConfig, null, 2));
     }
 
-    const ext = choice === 'ts' ? 'ts' : 'js';
-    const indexHtml = `
-<!DOCTYPE html>
+    // 4. index.html
+    const indexHtml = `<!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Strict Fusée App</title>
+    <title>Fusée App</title>
     <style>
-        body { background: #050505; color: white; font-family: system-ui; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-        #app { text-align: center; background: #111; padding: 3rem; border-radius: 20px; border: 1px solid #222; box-shadow: 0 10px 40px rgba(255, 51, 51, 0.1); }
-        h1 { color: #ff3333; text-shadow: 0 0 20px rgba(255, 51, 51, 0.3); margin: 0; font-size: 2.5rem; }
+        body { background: #050505; color: white; font-family: system-ui; margin: 0; }
+        #app { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .hero { text-align: center; margin-bottom: 2rem; }
+        h1 { color: #ff3333; font-size: 3rem; margin: 0; }
     </style>
 </head>
 <body>
     <div id="app">
-        <h1>Fusée 🚀</h1>
-        <p style="color: #ff9999; opacity: 0.8; margin-bottom: 2rem;">A reactive framework built with passion.</p>
+        <div class="hero">
+            <h1>Fusée 🚀</h1>
+            <p style="opacity: 0.6;">Modern Reactive Framework</p>
+        </div>
         {{ Counter }}
     </div>
     <script type="module" src="/app/main.${ext}"></script>
 </body>
-</html>
-    `;
+</html>`;
     fs.writeFileSync(path.join(projectPath, 'index.html'), indexHtml);
 
-    const btnStyle = "background:#ff3333; color:white; border:none; width:45px; height:45px; border-radius:12px; cursor:pointer; font-size:1.6rem; font-weight:bold; transition: 0.3s; box-shadow: 0 4px 15px rgba(255, 51, 51, 0.2);";
+    // 5. Counter component
+    const btnStyle = "background:#ff3333; color:white; border:none; width:50px; height:50px; border-radius:15px; cursor:pointer; font-size:1.5rem; transition: 0.2s;";
     const counterContent = choice === 'ts'
-        ? `import { signal } from '../../framework/core/signal.js';
-import { defineComponent } from '../../framework/core/component.js';
+        ? `import type { Signal } from 'fusee-framework'
+
+interface CounterResult {
+    count: Signal<number>
+    inc: () => void
+    dec: () => void
+    template: string
+}
 
 export const Counter = defineComponent({
-    setup() {
+    setup(): CounterResult {
         const count = signal<number>(0);
         return {
             count,
             inc: () => count(count() + 1),
             dec: () => count(count() - 1),
             template: \`
-                <div style="display:flex; align-items:center; justify-content:center; gap:2.5rem;">
+                <div style="display:flex; align-items:center; gap:2rem; background:#111; padding:2rem; border-radius:20px; border:1px solid #222;">
                     <button @click="dec" style="${btnStyle}">-</button>
-                    <span style="font-size:2.8rem; font-weight:bold; min-width:70px;">{{ count }}</span>
+                    <span style="font-size:3rem; font-weight:bold; min-width:60px; text-align:center;">{{ count }}</span>
                     <button @click="inc" style="${btnStyle}">+</button>
                 </div>
             \`
         };
     }
 });`
-        : `import { signal } from '../../framework/core/signal.js';
-import { defineComponent } from '../../framework/core/component.js';
-
-export const Counter = defineComponent({
+        : `export const Counter = defineComponent({
     setup() {
         const count = signal(0);
         return {
@@ -126,23 +171,23 @@ export const Counter = defineComponent({
             inc: () => count(count() + 1),
             dec: () => count(count() - 1),
             template: \`
-                <div style="display:flex; align-items:center; justify-content:center; gap:2.5rem;">
+                <div style="display:flex; align-items:center; gap:2rem; background:#111; padding:2rem; border-radius:20px; border:1px solid #222;">
                     <button @click="dec" style="${btnStyle}">-</button>
-                    <span style="font-size:2.8rem; font-weight:bold; min-width:70px;">{{ count }}</span>
+                    <span style="font-size:3rem; font-weight:bold; min-width:60px; text-align:center;">{{ count }}</span>
                     <button @click="inc" style="${btnStyle}">+</button>
                 </div>
             \`
         };
     }
 });`;
-
     fs.writeFileSync(path.join(projectPath, `app/components/Counter.${ext}`), counterContent);
 
-    const mainContent = `import { mountTemplate } from '../framework/core/compiler.js';
-import { Counter } from './components/Counter';
+    // 6. main.js
+    const mainContent = `import { Counter } from './components/Counter';
 
 const root = document.getElementById('app');
 if (root) {
+    // mountTemplate is now auto-imported via Fusée!
     mountTemplate(root.innerHTML, root, {}, { Counter });
 }
 `;

@@ -1,6 +1,20 @@
+import type { Signal } from 'fusee-framework'
+
+type Item = {
+    id: number
+    name: string
+}
+
+type TestForResult = {
+    items: Signal<Item[]>
+    addItem: () => void
+    shuffleItems: () => void
+    template: string
+}
+
 export const TestFor = defineComponent({
-    setup() {
-        const items = signal([
+    setup(): TestForResult {
+        const items = signal<Item[]>([
             { id: 1, name: 'Item 1' },
             { id: 2, name: 'Item 2' },
             { id: 3, name: 'Item 3' }
@@ -9,7 +23,8 @@ export const TestFor = defineComponent({
         return {
             items,
             addItem: () => {
-                const nextId = Math.max(0, ...items().map(i => i.id)) + 1
+                const nextIds = items().map(i => i.id)
+                const nextId = nextIds.length > 0 ? Math.max(...nextIds) + 1 : 1
                 items([...items(), { id: nextId, name: `Item ${nextId}` }])
             },
             shuffleItems: () => {
@@ -18,7 +33,7 @@ export const TestFor = defineComponent({
             },
             template: `
                 <div class="page">
-                    <h1>Keyed f-for Test</h1>
+                    <h1>Keyed f-for Test (TypeScript)</h1>
                     <p>Focus an input below, then click "Shuffle" or "Add". The focus should stay!</p>
                     
                     <div style="margin-bottom: 20px; display: flex; gap: 10px;">

@@ -23,11 +23,16 @@
     "declaration": true,
     "declarationDir": "./dist/types",
     
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "paths": {
+      "fusee-framework": ["./framework/types/index.d.ts"],
+      "fusee-framework/*": ["./framework/*"]
+    }
   },
   "include": [
     "app/**/*",
-    "framework/**/*"
+    "framework/**/*",
+    "auto-imports.d.ts"
   ],
   "exclude": [
     "node_modules",

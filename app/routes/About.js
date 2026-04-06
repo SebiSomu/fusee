@@ -1,5 +1,3 @@
-import { defineComponent, signal, onMount } from '../../framework/index.js'
-
 export const About = defineComponent({
     props: [],
     setup() {
