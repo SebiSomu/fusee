@@ -1,4 +1,3 @@
-import type { SignalAccessor } from 'fusee-framework'
 import { Counter } from './Counter.js'
 
 type CounterSectionProps = {

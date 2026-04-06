@@ -1,5 +1,3 @@
-import type { Signal } from 'fusee-framework'
-
 type Item = {
     id: number
     name: string

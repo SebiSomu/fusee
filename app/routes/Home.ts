@@ -1,4 +1,3 @@
-import type { Signal } from 'fusee-framework'
 import { UserForm } from '../components/UserForm.js'
 import { CounterSection } from '../components/CounterSection.js'
 

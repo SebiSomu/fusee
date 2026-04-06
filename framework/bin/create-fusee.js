@@ -137,9 +137,7 @@ export default defineConfig({
     // 5. Counter component
     const btnStyle = "background:#ff3333; color:white; border:none; width:50px; height:50px; border-radius:15px; cursor:pointer; font-size:1.5rem; transition: 0.2s;";
     const counterContent = choice === 'ts'
-        ? `import type { Signal } from 'fusee-framework'
-
-interface CounterResult {
+        ? `interface CounterResult {
     count: Signal<number>
     inc: () => void
     dec: () => void

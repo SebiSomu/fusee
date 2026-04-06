@@ -1,4 +1,3 @@
-import type { Signal, Computed } from 'fusee-framework'
 
 type CounterProps = {
     initialValue?: string
