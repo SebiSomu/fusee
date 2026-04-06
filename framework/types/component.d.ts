@@ -12,6 +12,21 @@ export type PropConfig = {
     required?: boolean
 }
 
+// ── Emit ──────────────────────────────────────────────────────────────────────
+// emit('change', value) — calls parent listener registered with @change="handler"
+export type EmitFn = (eventName: string, ...args: any[]) => void
+
+// ── Slots ─────────────────────────────────────────────────────────────────────
+// slots.default — default slot HTML string
+// slots.header  — named slot HTML string
+export type Slots = Record<string, string>
+
+// ── Setup context ─────────────────────────────────────────────────────────────
+export type SetupContext = {
+    emit: EmitFn
+    slots: Slots
+}
+
 export type ComponentInstance = {
     props: ComponentProps
     _mountHooks: (() => void)[]
@@ -28,10 +43,13 @@ export type ComponentResult = {
 export type ComponentOptions<TProps = ComponentProps> = {
     props?: PropSchema
     components?: Record<string, ComponentFactory<any>>
-    setup: (props: TProps) => ComponentResult
+    setup: (props: TProps, ctx: SetupContext) => ComponentResult
 }
 
-export type ComponentFactory<TProps = ComponentProps> = (props?: TProps) => ComponentApi
+export type ComponentFactory<TProps = ComponentProps> = (
+    props?: TProps,
+    options?: { listeners?: Record<string, Function>, slots?: Slots }
+) => ComponentApi
 
 export type ComponentApi = {
     render: (container: HTMLElement) => ComponentInstance
@@ -41,4 +59,7 @@ export type ComponentApi = {
 
 export declare function onMount(fn: () => void): void
 export declare function onUnmount(fn: () => void): void
-export declare function defineComponent<TProps = EmptyProps>(options: ComponentOptions<TProps>): ComponentFactory<TProps>
+export declare function parseSlots(slotHTML: string): Slots
+export declare function defineComponent<TProps = EmptyProps>(
+    options: ComponentOptions<TProps>
+): ComponentFactory<TProps>

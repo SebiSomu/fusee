@@ -68,6 +68,60 @@ function resolveProps(schema, received) {
     return resolved
 }
 
+// ── Emit ──────────────────────────────────────────────────────────────────────
+// listeners: { change: fn, submit: fn, ... }
+// emit('change', 42) → calls listeners.change(42)
+function createEmit(listeners) {
+    return function emit(eventName, ...args) {
+        const handler = listeners[eventName]
+        if (typeof handler === 'function') {
+            batch(() => handler(...args))
+        } else if (handler !== undefined) {
+            console.warn(`[framework] emit("${eventName}"): listener is not a function`)
+        }
+    }
+}
+
+// ── Slots ─────────────────────────────────────────────────────────────────────
+// Parses slot content from parent HTML string.
+// Named slots: <template slot="header">...</template>
+// Default slot: everything else
+export function parseSlots(slotHTML) {
+    const slots = { default: '' }
+    if (!slotHTML || !slotHTML.trim()) return slots
+
+    const namedSlotRe = /<template\s+slot="([^"]+)"[^>]*>([\s\S]*?)<\/template>/gi
+    let remaining = slotHTML
+    let match
+
+    while ((match = namedSlotRe.exec(slotHTML)) !== null) {
+        slots[match[1]] = match[2].trim()
+        remaining = remaining.replace(match[0], '')
+    }
+
+    const defaultContent = remaining.trim()
+    if (defaultContent) slots.default = defaultContent
+
+    return slots
+}
+
+// Replaces <slot> and <slot name="x"> in template with actual slot content
+function resolveSlots(template, slots) {
+    // Handle named slots with any content between tags (including default content)
+    let result = template.replace(/<slot\s+name="([^"]+)"\s*>[\s\S]*?<\/slot>/gi, (match, name) => {
+        return slots[name] ?? ''
+    })
+    // Handle default slots with any content between tags
+    result = result.replace(/<slot\s*>[\s\S]*?<\/slot>/gi, () => {
+        return slots.default ?? ''
+    })
+    // Handle self-closing named slots
+    result = result.replace(/<slot\s+name="([^"]+)"\s*\/>/gi, (_, name) => slots[name] ?? '')
+    // Handle self-closing default slots
+    result = result.replace(/<slot\s*\/>/gi, () => slots.default ?? '')
+    return result
+}
+
 export function onMount(fn) {
     if (currentInstance) currentInstance._mountHooks.push(fn)
 }
@@ -77,7 +131,10 @@ export function onUnmount(fn) {
 }
 
 export function defineComponent(options) {
-    return function ComponentFactory(props = {}) {
+    // ComponentFactory now accepts props + optional { listeners, slots }
+    // listeners: event handlers from parent @eventName="handler"
+    // slots: parsed slot HTML from parent
+    return function ComponentFactory(props = {}, { listeners = {}, slots = {} } = {}) {
         const instance = {
             props: options.props ? resolveProps(options.props, props) : props,
             _mountHooks: [],
@@ -86,15 +143,21 @@ export function defineComponent(options) {
             _element: null,
         }
 
+        const emit = createEmit(listeners)
+
         currentInstance = instance
-        const result = options.setup(instance.props)
+        // setup() receives (props, { emit, slots })
+        const result = options.setup(instance.props, { emit, slots })
         currentInstance = null
 
         function render(container) {
             instance._element = container
 
+            // Resolve slot placeholders before mounting
+            const resolvedTemplate = resolveSlots(result.template, slots)
+
             const { effects } = mountTemplate(
-                result.template,
+                resolvedTemplate,
                 container,
                 result,
                 options.components || {}

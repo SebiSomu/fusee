@@ -6,7 +6,10 @@ const DANGEROUS_SCHEMES = /^(javascript|data|vbscript|file):/i
 export function evaluateExpression(expr, context, extraContext = {}, unwrapSignals = true) {
     const keys = []
     const values = []
-    const identifiers = new Set(expr.match(/[a-zA-Z_$][a-zA-Z0-9_$]*/g) || [])
+    
+    // Remove string literals before extracting identifiers to avoid matching words inside strings
+    const exprWithoutStrings = expr.replace(/'[^']*'|"[^"]*"/g, ' ')
+    const identifiers = new Set(exprWithoutStrings.match(/[a-zA-Z_$][a-zA-Z0-9_$]*/g) || [])
 
     // Map global context (only what is used in expression)
     for (const k in context) {

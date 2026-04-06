@@ -3,6 +3,6 @@ export const FuseePreset = {
         'signal', 'computed', 'effect',
         'batch', 'untrack', 'inspect',
         'defineComponent', 'onMount', 'onUnmount',
-        'mountOutlet', 'mountTemplate'
+        'mountOutlet', 'mountTemplate', 'emit'
     ]
 }

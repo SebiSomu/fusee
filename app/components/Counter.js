@@ -4,7 +4,7 @@ export const Counter = defineComponent({
         initialValue: { type: String, default: '0' },
         parentTitle: { type: String, default: '' }
     },
-    setup(props) {
+    setup(props, { emit }) {
         const count = signal(Number(props.initialValue) || 0)
         const multiplier = signal(1)
         inspect(count, multiplier)
@@ -58,6 +58,7 @@ export const Counter = defineComponent({
             updateMultiple,
             get parentTitle() { return props.parentTitle },
             displayStyle,
+            emit,
             template: `
                 <div class="counter" :title="counterTitle" @keydown.arrowup.window="increment" @keydown.arrowdown.window="decrement">
                     <h2>Counter</h2>

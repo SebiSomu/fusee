@@ -1,5 +1,6 @@
 import { effect, batch } from './signal.js'
 import { processDirectives } from './directives.js'
+import { parseSlots } from './component.js'
 import {
     evaluateExpression,
     parseInterpolation,
@@ -12,24 +13,21 @@ export function mountTemplate(template, container, context, components) {
     let processed = template.replace(/(<[a-zA-Z0-9-]+\s[^>]*?)\s:([a-zA-Z][a-zA-Z0-9-]*)=/g, '$1 data-bind-$2=')
 
     for (const name of Object.keys(components)) {
-        const re = new RegExp(`\\{\\{\\s*${name}(\\s+.*?|\\s*)\\}\\}`, 'g')
-        processed = processed.replace(re, (match, propsStr) => {
-            let attrs = ''
-            if (propsStr && propsStr.trim()) {
-                const attrRegex = /(:?[a-zA-Z0-9-]+)="([^"]*)"/g
-                let attrMatch
-                while ((attrMatch = attrRegex.exec(propsStr)) !== null) {
-                    const attrName = attrMatch[1]
-                    const attrValue = attrMatch[2]
+        const reWithSlot = new RegExp(
+            `\\{\\{\\s*${name}(\\s[^}]*?|\\s*)\\}\\}([\\s\\S]*?)\\{\\{\\s*\\/${name}\\s*\\}\\}`,
+            'g'
+        )
+        const reNoSlot = new RegExp(`\\{\\{\\s*${name}(\\s+.*?|\\s*)\\}\\}`, 'g')
 
-                    if (attrName.startsWith(':')) {
-                        attrs += ` data-bind-prop-${attrName.slice(1).toLowerCase()}="${attrValue}"`
-                    } else {
-                        attrs += ` data-prop-${attrName.toLowerCase()}="${attrValue}"`
-                    }
-                }
-            }
-            return `<div data-component="${name}"${attrs}></div>`
+        processed = processed.replace(reWithSlot, (match, propsStr, slotContent) => {
+            const attrs = parseComponentAttrs(propsStr || '')
+            const encodedSlot = encodeURIComponent(slotContent.trim())
+            return `<div data-component="${name}"${attrs} data-slot="${encodedSlot}"></div>` 
+        })
+
+        processed = processed.replace(reNoSlot, (match, propsStr) => {
+            const attrs = parseComponentAttrs(propsStr || '')
+            return `<div data-component="${name}"${attrs}></div>` 
         })
     }
 
@@ -39,26 +37,47 @@ export function mountTemplate(template, container, context, components) {
     return { effects }
 }
 
+// Parses props string from component mustache into HTML attr string
+function parseComponentAttrs(propsStr) {
+    let attrs = ''
+    if (!propsStr || !propsStr.trim()) return attrs
+
+    const attrRegex = /(@?:?[a-zA-Z0-9-]+)="([^"]*)"/g
+    let attrMatch
+    while ((attrMatch = attrRegex.exec(propsStr)) !== null) {
+        const attrName = attrMatch[1]
+        const attrValue = attrMatch[2]
+
+        if (attrName.startsWith('@')) {
+            // Event listener: @change="handler" → data-on-change="handler"
+            attrs += ` data-on-${attrName.slice(1).toLowerCase()}="${attrValue}"` 
+        } else if (attrName.startsWith(':')) {
+            // Dynamic prop
+            attrs += ` data-bind-prop-${attrName.slice(1).toLowerCase()}="${attrValue}"` 
+        } else {
+            // Static prop
+            attrs += ` data-prop-${attrName.toLowerCase()}="${attrValue}"` 
+        }
+    }
+    return attrs
+}
+
 export function compileNode(node, context, components, effects) {
-    // Handle f-once (render once and discard reactive tracking for this subtree)
     if (node.nodeType === 1 && node.hasAttribute('f-once')) {
         node.removeAttribute('f-once')
         const temporaryEffects = []
 
-        // Process ONLY this node and its children ONCE
         processDirectives(node, context, components, temporaryEffects)
         processBindingAttrs(node, context, temporaryEffects)
         processMustaches(node, context, temporaryEffects)
         bindComponents(node, components, context, temporaryEffects)
 
-        // Recurse children but with temporary effects
         let child = node.firstChild
         while (child) {
             compileOnce(child, context, components, temporaryEffects)
             child = child.nextSibling
         }
 
-        // Cleanup immediately
         for (const cleanup of temporaryEffects) if (typeof cleanup === 'function') cleanup()
         return
     }
@@ -172,46 +191,71 @@ function bindComponents(el, components, context, effects) {
     const name = el.getAttribute('data-component')
     if (!name) return
 
-    // Remove the attribute immediately to prevent recursive compilers from 
-    // re-identifying this element as a component placeholder.
     el.removeAttribute('data-component')
 
     const ComponentFn = components[name]
-    if (ComponentFn) {
-        const props = {}
-        for (const attr of [...el.attributes]) {
-            const attrName = attr.name.toLowerCase()
+    if (!ComponentFn) return
 
-            if (attrName.startsWith('data-prop-')) {
-                props[attrName.slice(10)] = attr.value
-            } else if (attrName.startsWith('data-bind-prop-')) {
-                const propName = attrName.slice(15)
-                const expression = attr.value.trim()
+    // ── Props ────────────────────────────────────────────────────────────────
+    const props = {}
+    const listeners = {}
 
-                if (expression in context) {
-                    Object.defineProperty(props, propName, {
-                        get() {
-                            const val = context[expression]
-                            return typeof val === 'function' && val.isSignal ? val() : val
-                        },
-                        enumerable: true,
-                        configurable: true
-                    })
+    for (const attr of [...el.attributes]) {
+        const attrName = attr.name.toLowerCase()
+
+        if (attrName.startsWith('data-prop-')) {
+            props[attrName.slice(10)] = attr.value
+
+        } else if (attrName.startsWith('data-bind-prop-')) {
+            const propName = attrName.slice(15)
+            const expression = attr.value.trim()
+
+            if (expression in context) {
+                Object.defineProperty(props, propName, {
+                    get() {
+                        const val = context[expression]
+                        return typeof val === 'function' && val.isSignal ? val() : val
+                    },
+                    enumerable: true,
+                    configurable: true
+                })
+            } else {
+                Object.defineProperty(props, propName, {
+                    get() { return evaluateExpression(expression, context) },
+                    enumerable: true,
+                    configurable: true
+                })
+            }
+
+        } else if (attrName.startsWith('data-on-')) {
+            // ── Emit listeners ───────────────────────────────────────────────
+            // @change="handler" → data-on-change="handler"
+            // When child emits 'change', calls context.handler(value)
+            const eventName = attrName.slice(8)  // "data-on-" → eventName
+            const handlerExpr = attr.value.trim()
+
+            listeners[eventName] = (...args) => {
+                const handler = context[handlerExpr]
+                if (typeof handler === 'function') {
+                    handler(...args)
                 } else {
-                    Object.defineProperty(props, propName, {
-                        get() {
-                            return evaluateExpression(expression, context)
-                        },
-                        enumerable: true,
-                        configurable: true
-                    })
+                    // Support inline expressions: @change="count(count() + 1)"
+                    evaluateExpression(handlerExpr, context)
                 }
             }
         }
-        const childComponent = ComponentFn(props)
-        childComponent.render(el)
-        if (effects) {
-            effects.push(() => childComponent.unmount())
-        }
+    }
+
+    // ── Slots ────────────────────────────────────────────────────────────────
+    // data-slot attribute contains URI-encoded slot HTML from parent
+    const rawSlot = el.getAttribute('data-slot')
+    const slots = rawSlot ? parseSlots(decodeURIComponent(rawSlot)) : {}
+    el.removeAttribute('data-slot')
+
+    const childComponent = ComponentFn(props, { listeners, slots })
+    childComponent.render(el)
+
+    if (effects) {
+        effects.push(() => childComponent.unmount())
     }
 }
