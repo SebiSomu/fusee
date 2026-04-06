@@ -9,9 +9,11 @@ export function createRouter(routes) {
     window.addEventListener('hashchange', handler)
 
     if (document.readyState === 'loading') {
-        window.addEventListener('DOMContentLoaded', handler)
+        window.addEventListener('DOMContentLoaded', handler, { once: true })
     } else {
-        _resolve()
+        setTimeout(() => {
+            if (!_currentInstance) _resolve()
+        }, 0)
     }
 
     return {
@@ -41,7 +43,7 @@ export function mountOutlet(el) {
 }
 
 function _resolve() {
-    if (!_outlet) {
+    if (!_outlet || _routes.length === 0) {
         return
     }
 

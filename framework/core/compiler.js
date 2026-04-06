@@ -64,7 +64,7 @@ export function compileNode(node, context, components, effects) {
     }
 
     if (node.nodeType === 1) {
-        processDirectives(node, context, components, effects)
+        if (processDirectives(node, context, components, effects)) return
         processBindingAttrs(node, context, effects)
         bindComponents(node, components, context, effects)
     } else if (node.nodeType === 3) {
@@ -80,7 +80,7 @@ export function compileNode(node, context, components, effects) {
 
 function compileOnce(node, context, components, effects) {
     if (node.nodeType === 1) {
-        processDirectives(node, context, components, effects)
+        if (processDirectives(node, context, components, effects)) return
         processBindingAttrs(node, context, effects)
         bindComponents(node, components, context, effects)
     } else if (node.nodeType === 3) {
@@ -167,48 +167,51 @@ function processBindingAttrs(el, context, effects) {
     }
 }
 
-function bindComponents(container, components, context, effects) {
-    const placeholders = container.querySelectorAll('[data-component]')
-    const els = container.matches && container.matches('[data-component]') ? [container, ...placeholders] : placeholders
-    for (const placeholder of els) {
-        const name = placeholder.dataset.component
-        const ComponentFn = components[name]
-        if (ComponentFn) {
-            const props = {}
-            for (const attr of [...placeholder.attributes]) {
-                const attrName = attr.name.toLowerCase()
+function bindComponents(el, components, context, effects) {
+    if (el.nodeType !== 1) return
+    const name = el.getAttribute('data-component')
+    if (!name) return
 
-                if (attrName.startsWith('data-prop-')) {
-                    props[attrName.slice(10)] = attr.value
-                } else if (attrName.startsWith('data-bind-prop-')) {
-                    const propName = attrName.slice(15)
-                    const expression = attr.value.trim()
+    // Remove the attribute immediately to prevent recursive compilers from 
+    // re-identifying this element as a component placeholder.
+    el.removeAttribute('data-component')
 
-                    if (expression in context) {
-                        Object.defineProperty(props, propName, {
-                            get() {
-                                const val = context[expression]
-                                return typeof val === 'function' && val.isSignal ? val() : val
-                            },
-                            enumerable: true,
-                            configurable: true
-                        })
-                    } else {
-                        Object.defineProperty(props, propName, {
-                            get() {
-                                return evaluateExpression(expression, context)
-                            },
-                            enumerable: true,
-                            configurable: true
-                        })
-                    }
+    const ComponentFn = components[name]
+    if (ComponentFn) {
+        const props = {}
+        for (const attr of [...el.attributes]) {
+            const attrName = attr.name.toLowerCase()
+
+            if (attrName.startsWith('data-prop-')) {
+                props[attrName.slice(10)] = attr.value
+            } else if (attrName.startsWith('data-bind-prop-')) {
+                const propName = attrName.slice(15)
+                const expression = attr.value.trim()
+
+                if (expression in context) {
+                    Object.defineProperty(props, propName, {
+                        get() {
+                            const val = context[expression]
+                            return typeof val === 'function' && val.isSignal ? val() : val
+                        },
+                        enumerable: true,
+                        configurable: true
+                    })
+                } else {
+                    Object.defineProperty(props, propName, {
+                        get() {
+                            return evaluateExpression(expression, context)
+                        },
+                        enumerable: true,
+                        configurable: true
+                    })
                 }
             }
-            const childComponent = ComponentFn(props)
-            childComponent.render(placeholder)
-            if (effects) {
-                effects.push(() => childComponent.unmount())
-            }
+        }
+        const childComponent = ComponentFn(props)
+        childComponent.render(el)
+        if (effects) {
+            effects.push(() => childComponent.unmount())
         }
     }
 }
