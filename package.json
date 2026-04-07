@@ -1,6 +1,6 @@
 {
   "name": "fusee-framework",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Fusée - Signals-first JS Framework | Peak Performance",
   "main": "framework/index.js",
   "types": "framework/types/index.d.ts",

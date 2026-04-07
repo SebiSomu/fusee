@@ -84,6 +84,8 @@ export function computed(fn) {
     const computedNode = () => {
         if (!dirty) {
             dirty = true
+            for (const dep of computedNode.deps) dep.delete(computedNode)
+            computedNode.deps.clear()
             for (const sub of [...subscribers]) scheduleEffect(sub)
         }
     }
