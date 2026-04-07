@@ -1,10 +1,10 @@
-import { inject } from '../../framework/index.js'
+import { inject, provide } from '../../framework/index.js'
 import { GrandchildComponent } from './GrandchildComponent.js'
 
 // ChildComponent - injects values from parent (ParentComponent)
 export const ChildComponent = defineComponent({
     components: { GrandchildComponent },
-    setup(props, { emit }) {
+    setup() {
         // Inject values provided by the parent
         const count = inject('count')
         const message = inject('message')
@@ -12,8 +12,11 @@ export const ChildComponent = defineComponent({
         // These are NOT provided by parent, so they will be undefined
         const nonExistent = inject('nonExistent')
 
-        function updateMessage() {
-            message('Message updated by Child!')
+        function updateMessage(): void {
+            const msg = message as any
+            if (msg) {
+                msg('Message updated by Child!')
+            }
         }
 
         return {

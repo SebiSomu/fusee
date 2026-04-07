@@ -11,11 +11,13 @@ declare global {
   const defineComponent: typeof import('fusee-framework').defineComponent
   const effect: typeof import('fusee-framework').effect
   const emit: typeof import('fusee-framework').emit
+  const inject: typeof import('fusee-framework').inject
   const inspect: typeof import('fusee-framework').inspect
   const mountOutlet: typeof import('fusee-framework').mountOutlet
   const mountTemplate: typeof import('fusee-framework').mountTemplate
   const onMount: typeof import('fusee-framework').onMount
   const onUnmount: typeof import('fusee-framework').onUnmount
+  const provide: typeof import('fusee-framework').provide
   const signal: typeof import('fusee-framework').signal
   const untrack: typeof import('fusee-framework').untrack
 }

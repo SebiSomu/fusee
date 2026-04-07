@@ -2,7 +2,7 @@ import { UserForm } from '../components/UserForm.js'
 import { CounterSection } from '../components/CounterSection.js'
 import { Card } from '../components/Card.js'
 import { EmitTest } from '../components/EmitTest.js'
-import { ParentComponent } from '../providers/ParentComponent.js'
+import { ParentComponent } from '../providers/index.js'
 
 export const Home = defineComponent({
     components: { UserForm, CounterSection, Card, EmitTest, ParentComponent },

@@ -1,8 +1,8 @@
-import { createRouter } from '../framework/index.js'
+import { createRouter, provide, inject } from '../framework/index.js'
 import type { Route } from '../framework/types/index.js'
-import { Home } from './routes/Home'
-import { About } from './routes/About'
-import { TestFor } from './routes/TestFor'
+import { Home } from './routes/Home.js'
+import { About } from './routes/About.js'
+import { TestFor } from './routes/TestFor.js'
 
 const routes: Route[] = [
     { path: '/', component: Home },

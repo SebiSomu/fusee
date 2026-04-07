@@ -1,18 +1,25 @@
-import { inject } from '../../framework/index.js'
+import { inject, provide } from '../../framework/index.js'
+
+interface UserData {
+    name: string
+    age: number
+}
 
 // GrandchildComponent - injects values from grandparent (ParentComponent)
 // This demonstrates that inject() searches the entire ancestor chain
 export const GrandchildComponent = defineComponent({
-    setup(props, { emit }) {
+    setup() {
         // Inject from grandparent (2 levels up)
         const count = inject('count')
         const message = inject('message')
         const userData = inject('userData')
         const appVersion = inject('appVersion')
 
-        function updateMessage() {
-            // message is a signal, so we can update it from grandchild!
-            message('Updated from Grandchild!')
+        function updateMessage(): void {
+            const msg = message as any
+            if (msg) {
+                msg('Updated from Grandchild!')
+            }
         }
 
         return {

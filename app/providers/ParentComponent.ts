@@ -1,13 +1,18 @@
-import { provide } from '../../framework/index.js'
+import { provide, inject } from '../../framework/index.js'
 import { ChildComponent } from './ChildComponent.js'
+
+interface UserData {
+    name: string
+    age: number
+}
 
 // ParentComponent - provides values to child components
 export const ParentComponent = defineComponent({
     components: { ChildComponent },
-    setup(props, { emit }) {
+    setup() {
         const count = signal(42)
         const message = signal('Hello from Parent!')
-        const userData = { name: 'John', age: 30 }
+        const userData: UserData = { name: 'John', age: 30 }
 
         // Provide values to descendant components
         provide('count', count)
@@ -15,7 +20,7 @@ export const ParentComponent = defineComponent({
         provide('userData', userData)
         provide('appVersion', '1.0.0')
 
-        function updateCount() {
+        function updateCount(): void {
             count(count() + 10)
         }
 
