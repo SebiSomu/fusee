@@ -131,16 +131,19 @@ export function onUnmount(fn) {
 }
 
 export function defineComponent(options) {
-    // ComponentFactory now accepts props + optional { listeners, slots }
+    // ComponentFactory now accepts props + optional { listeners, slots, parent }
     // listeners: event handlers from parent @eventName="handler"
     // slots: parsed slot HTML from parent
-    return function ComponentFactory(props = {}, { listeners = {}, slots = {} } = {}) {
+    // parent: parent component instance for provide/inject
+    return function ComponentFactory(props = {}, { listeners = {}, slots = {}, parent = null } = {}) {
         const instance = {
             props: options.props ? resolveProps(options.props, props) : props,
             _mountHooks: [],
             _unmountHooks: [],
             _effects: [],
             _element: null,
+            _provides: {},
+            _parent: parent,
         }
 
         const emit = createEmit(listeners)
@@ -148,6 +151,8 @@ export function defineComponent(options) {
         currentInstance = instance
         // setup() receives (props, { emit, slots })
         const result = options.setup(instance.props, { emit, slots })
+        // Store instance reference on result for child component access
+        result._instance = instance
         currentInstance = null
 
         function render(container) {
@@ -179,4 +184,18 @@ export function defineComponent(options) {
 
         return { render, unmount, instance }
     }
+}
+
+export function provide(key, value) {
+    if(!currentInstance) return
+    currentInstance._provides[key] = value
+}
+
+export function inject(key) {
+    let parent = currentInstance?._parent
+    while(parent) {
+        if (key in parent._provides) return parent._provides[key];
+        parent = parent._parent;
+    }
+    return null;
 }

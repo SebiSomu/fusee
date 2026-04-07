@@ -2,9 +2,10 @@ import { UserForm } from '../components/UserForm.js'
 import { CounterSection } from '../components/CounterSection.js'
 import { Card } from '../components/Card.js'
 import { EmitTest } from '../components/EmitTest.js'
+import { ParentComponent } from '../providers/ParentComponent.js'
 
 export const Home = defineComponent({
-    components: { UserForm, CounterSection, Card, EmitTest },
+    components: { UserForm, CounterSection, Card, EmitTest, ParentComponent },
     setup() {
         const title = signal('Welcome!')
         inspect(title)
@@ -58,6 +59,10 @@ export const Home = defineComponent({
                     {{ Card title="Default Slots Card" }}
                         <p>This card uses only the default slot - no named slots provided.</p>
                     {{ /Card }}
+                    
+                    <!-- 🧪 PROVIDE / INJECT TEST -->
+                    <h3 style="margin-top: 40px; margin-bottom: 20px; color: #4CAF50;">🔗 PROVIDE / INJECT TEST</h3>
+                    {{ ParentComponent }}
                 </div>
             `
         }

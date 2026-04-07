@@ -1,6 +1,6 @@
 // ─── Framework Public API ─────────────────────────────────────────────────────
 export { signal, computed, effect, batch, untrack, inspect } from './core/signal.js'
-export { defineComponent, onMount, onUnmount, parseSlots } from './core/component.js'
+export { defineComponent, onMount, onUnmount, parseSlots, provide, inject } from './core/component.js'
 export { createRouter, navigate, mountOutlet } from './router/router.js'
 export { mountTemplate } from './core/compiler.js'
 

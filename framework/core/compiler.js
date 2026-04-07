@@ -252,7 +252,7 @@ function bindComponents(el, components, context, effects) {
     const slots = rawSlot ? parseSlots(decodeURIComponent(rawSlot)) : {}
     el.removeAttribute('data-slot')
 
-    const childComponent = ComponentFn(props, { listeners, slots })
+    const childComponent = ComponentFn(props, { listeners, slots, parent: context._instance })
     childComponent.render(el)
 
     if (effects) {
