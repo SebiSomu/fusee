@@ -2,14 +2,13 @@ export const EmitTest = defineComponent({
     setup(props, { emit }) {
         const clickCount = signal(0)
         const lastEvent = signal('None')
-        
+
         inspect(clickCount, lastEvent)
-        
+
         return {
             clickCount,
             lastEvent,
-            
-            // Butoane pentru test emit
+
             emitSimple: () => {
                 clickCount(clickCount() + 1)
                 emit('simple-click')
@@ -22,7 +21,7 @@ export const EmitTest = defineComponent({
                 lastEvent(`click-with-data: ${count}`)
             },
             emitObject: () => {
-                const data = { 
+                const data = {
                     timestamp: Date.now(),
                     message: 'Hello from child!',
                     counter: clickCount() + 1
@@ -31,7 +30,7 @@ export const EmitTest = defineComponent({
                 emit('object-event', data)
                 lastEvent(`object-event: ${data.message}`)
             },
-            
+
             template: `
                 <div style="background: linear-gradient(135deg, #1e3a5f 0%, #0d1b2a 100%); border: 2px solid #4da6ff; border-radius: 12px; padding: 24px; margin: 20px 0; color: #fff;">
                     <h3 style="margin: 0 0 16px 0; color: #4da6ff;">🧪 EMIT EVENTS TEST LAB</h3>

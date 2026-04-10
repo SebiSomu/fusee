@@ -304,6 +304,7 @@ export function processHtml(el, context, effects) {
         el.innerHTML = String(val ?? '')
     }))
 }
+
 export function processEvents(el, context, effects) {
     if (el.nodeType !== 1 || !el.attributes) return
 
@@ -316,6 +317,29 @@ export function processEvents(el, context, effects) {
             const expr = attr.value
 
             el.removeAttribute(attr.name)
+
+            let timeoutId
+            let debounceMs = 0
+            const debounceIdx = modifiers.indexOf('debounce')
+            if (debounceIdx > -1) {
+                debounceMs = 250 // default value
+                const nextModifier = modifiers[debounceIdx + 1]
+                if (nextModifier) {
+                    if (nextModifier.endsWith('ms')) debounceMs = parseInt(nextModifier) || 250
+                    else if (nextModifier.endsWith('s')) debounceMs = (parseFloat(nextModifier) || 0.25) * 1000
+                }
+            }
+
+            const executeLogic = (e) => {
+                batch(() => {
+                    const potentialFn = context[expr]
+                    if (typeof potentialFn === 'function' && !potentialFn.isSignal) {
+                        potentialFn(e)
+                    } else {
+                        evaluateExpression(expr, context, { $event: e }, false)
+                    }
+                })
+            }
 
             const handler = (e) => {
                 if (modifiers.includes('prevent')) e.preventDefault()
@@ -336,14 +360,13 @@ export function processEvents(el, context, effects) {
                     }
                 }
 
-                batch(() => {
-                    const potentialFn = context[expr]
-                    if (typeof potentialFn === 'function' && !potentialFn.isSignal) {
-                        potentialFn(e)
-                    } else {
-                        evaluateExpression(expr, context, { $event: e }, false)
-                    }
-                })
+                // Apply debounce only for the framework's "user space" logic
+                if (debounceMs > 0) {
+                    clearTimeout(timeoutId)
+                    timeoutId = setTimeout(() => executeLogic(e), debounceMs)
+                } else {
+                    executeLogic(e)
+                }
             }
 
             const targetNode = modifiers.includes('window') ? window : (modifiers.includes('document') ? document : el)
@@ -356,6 +379,7 @@ export function processEvents(el, context, effects) {
             if (effects) {
                 effects.push(() => {
                     targetNode.removeEventListener(eventName, handler, options)
+                    if (timeoutId) clearTimeout(timeoutId) // Clear pending operations on destroy!
                 })
             }
         }
