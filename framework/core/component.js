@@ -187,15 +187,84 @@ export function defineComponent(options) {
 }
 
 export function provide(key, value) {
-    if(!currentInstance) return
+    if (!currentInstance) return
     currentInstance._provides[key] = value
 }
 
 export function inject(key) {
     let parent = currentInstance?._parent
-    while(parent) {
+    while (parent) {
         if (key in parent._provides) return parent._provides[key];
         parent = parent._parent;
     }
     return null;
+}
+
+export function defineAsyncComponent(loaderOrOptions) {
+    const options = typeof loaderOrOptions === 'function' 
+        ? { loader: loaderOrOptions } 
+        : loaderOrOptions
+
+    return function AsyncComponentFactory(props = {}, { listeners = {}, slots = {}, parent = null } = {}) {
+        const instance = {
+            props,
+            _mountHooks: [],
+            _unmountHooks: [],
+            _effects: [],
+            _element: null,
+            _provides: {},
+            _parent: parent,
+        }
+
+        let childApi = null
+        let loadingApi = null
+        let isUnmounted = false
+
+        function render(container) {
+            instance._element = container
+
+            if (options.loadingComponent) {
+                loadingApi = options.loadingComponent({}, { parent })
+                loadingApi.render(container)
+            } else {
+                container.innerHTML = '<!-- async component boundary -->'
+            }
+
+            Promise.resolve(options.loader())
+                .then(comp => {
+                    if (isUnmounted) return
+                    let ComponentFn = comp.default || comp
+
+                    if (typeof ComponentFn === 'object' && ComponentFn !== null) {
+                        ComponentFn = Object.values(ComponentFn).find(v => typeof v === 'function') || ComponentFn
+                    }
+
+                    if (loadingApi) {
+                        loadingApi.unmount()
+                        loadingApi = null
+                    }
+
+                    childApi = ComponentFn(props, { listeners, slots, parent })
+
+                    container.innerHTML = ''
+                    childApi.render(container)
+                })
+                .catch(err => {
+                    console.error('[framework] Failed to load async component:', err)
+                })
+
+            return instance
+        }
+
+        function unmount() {
+            isUnmounted = true
+            if (loadingApi) loadingApi.unmount()
+            if (childApi) childApi.unmount()
+            if (instance._element && !childApi && !loadingApi) {
+                instance._element.innerHTML = ''
+            }
+        }
+
+        return { render, unmount, instance }
+    }
 }

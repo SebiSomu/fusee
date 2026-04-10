@@ -70,3 +70,14 @@ export declare function inject<T>(key: string): T | null
 export declare function defineComponent<TProps = EmptyProps>(
     options: ComponentOptions<TProps>
 ): ComponentFactory<TProps>
+
+export type AsyncComponentLoader<TProps = ComponentProps> = () => Promise<ComponentFactory<TProps> | { default: ComponentFactory<TProps> }>
+
+export type AsyncComponentOptions<TProps = ComponentProps> = {
+    loader: AsyncComponentLoader<TProps>
+    loadingComponent?: ComponentFactory<any>
+}
+
+export declare function defineAsyncComponent<TProps = ComponentProps>(
+    loaderOrOptions: AsyncComponentLoader<TProps> | AsyncComponentOptions<TProps>
+): ComponentFactory<TProps>
