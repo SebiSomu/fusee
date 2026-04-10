@@ -319,16 +319,26 @@ export function processEvents(el, context, effects) {
             el.removeAttribute(attr.name)
 
             let timeoutId
+            let lastRun = 0
+            let throttleTimeoutId
+
             let debounceMs = 0
-            const debounceIdx = modifiers.indexOf('debounce')
-            if (debounceIdx > -1) {
-                debounceMs = 250 // default value
-                const nextModifier = modifiers[debounceIdx + 1]
-                if (nextModifier) {
-                    if (nextModifier.endsWith('ms')) debounceMs = parseInt(nextModifier) || 250
-                    else if (nextModifier.endsWith('s')) debounceMs = (parseFloat(nextModifier) || 0.25) * 1000
+            let throttleMs = 0
+
+            const parseDuration = (idx) => {
+                const next = modifiers[idx + 1]
+                if (next && /^\d/.test(next)) {
+                    if (next.endsWith('ms')) return parseInt(next) || 250
+                    if (next.endsWith('s')) return (parseFloat(next) || 0.25) * 1000
                 }
+                return 250 // Default
             }
+
+            const debounceIdx = modifiers.indexOf('debounce')
+            if (debounceIdx > -1) debounceMs = parseDuration(debounceIdx)
+
+            const throttleIdx = modifiers.indexOf('throttle')
+            if (throttleIdx > -1) throttleMs = parseDuration(throttleIdx)
 
             const executeLogic = (e) => {
                 batch(() => {
@@ -360,7 +370,27 @@ export function processEvents(el, context, effects) {
                     }
                 }
 
-                // Apply debounce only for the framework's "user space" logic
+                // Throttle logic (ensures execution at most once every X ms)
+                if (throttleMs > 0) {
+                    const now = Date.now()
+                    const remaining = throttleMs - (now - lastRun)
+
+                    if (remaining <= 0) {
+                        clearTimeout(throttleTimeoutId)
+                        lastRun = now
+                        executeLogic(e)
+                    } else {
+                        // Standard throttle with trailing edge support
+                        clearTimeout(throttleTimeoutId)
+                        throttleTimeoutId = setTimeout(() => {
+                            lastRun = Date.now()
+                            executeLogic(e)
+                        }, remaining)
+                    }
+                    return
+                }
+
+                // Debounce logic (waits for X ms of inactivity)
                 if (debounceMs > 0) {
                     clearTimeout(timeoutId)
                     timeoutId = setTimeout(() => executeLogic(e), debounceMs)
@@ -379,7 +409,8 @@ export function processEvents(el, context, effects) {
             if (effects) {
                 effects.push(() => {
                     targetNode.removeEventListener(eventName, handler, options)
-                    if (timeoutId) clearTimeout(timeoutId) // Clear pending operations on destroy!
+                    if (timeoutId) clearTimeout(timeoutId)
+                    if (throttleTimeoutId) clearTimeout(throttleTimeoutId)
                 })
             }
         }
