@@ -1,13 +1,29 @@
-import { createRouter, provide, inject } from '../framework/index.js'
+import { createRouter, mountOutlet, defineAsyncComponent } from '../framework/index.js'
 import type { Route } from '../framework/types/index.js'
-import { Home } from './routes/Home.js'
-import { About } from './routes/About.js'
-import { TestFor } from './routes/TestFor.js'
+import { Loading } from './components/Loading.js'
 
 const routes: Route[] = [
-    { path: '/', component: Home },
-    { path: '/about', component: About },
-    { path: '/test-for', component: TestFor },
+    { 
+        path: '/', 
+        component: defineAsyncComponent({
+            loader: () => import('./routes/Home.js'),
+            loadingComponent: Loading
+        }) 
+    },
+    { 
+        path: '/about', 
+        component: defineAsyncComponent({
+            loader: () => import('./routes/About.js'),
+            loadingComponent: Loading
+        }) 
+    },
+    { 
+        path: '/test-for', 
+        component: defineAsyncComponent({
+            loader: () => import('./routes/TestFor.js'),
+            loadingComponent: Loading
+        }) 
+    },
 ]
 
 createRouter(routes)

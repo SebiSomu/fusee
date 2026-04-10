@@ -71,7 +71,7 @@ export declare function defineComponent<TProps = EmptyProps>(
     options: ComponentOptions<TProps>
 ): ComponentFactory<TProps>
 
-export type AsyncComponentLoader<TProps = ComponentProps> = () => Promise<ComponentFactory<TProps> | { default: ComponentFactory<TProps> }>
+export type AsyncComponentLoader<TProps = ComponentProps> = () => Promise<ComponentFactory<TProps> | { default: ComponentFactory<TProps> } | Record<string, any>>
 
 export type AsyncComponentOptions<TProps = ComponentProps> = {
     loader: AsyncComponentLoader<TProps>
