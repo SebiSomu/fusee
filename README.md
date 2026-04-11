@@ -1,5 +1,5 @@
 # Fusée Framework 🚀
-**v1.2.1 — Signals-First JS Framework | Atomic Reactivity | Peak Performance**
+**v1.3.0 — Signals-First JS Framework | Atomic Reactivity | Peak Performance**
 
 Fusée is a custom, high-performance fine-grained reactive JavaScript framework built for speed and simplicity. It features a recursive, non-greedy compiler, a signals-based reactivity engine, Dependency Injection for components and a comprehensive CLI for instant application scaffolding.
 
@@ -44,20 +44,29 @@ A typical Fusée project looks like this:
 ## 📝 Example Component
 
 ```javascript
-import { defineComponent, signal } from './framework/core/index.js';
-
-export const Counter = defineComponent({
+export const Welcome = defineComponent({
     setup() {
+        const name = signal('World');
         const count = signal(0);
+        const double = computed(() => count() * 2);
+
         return {
+            name,
             count,
+            double,
             inc: () => count(count() + 1),
-            dec: () => count(count() - 1),
             template: `
-                <div class="counter-card">
-                    <h2>Counter: {{ count }}</h2>
-                    <button @click="dec">-</button>
-                    <button @click="inc">+</button>
+                <div class="card">
+                    <h2>Hello, {{ name }}!</h2>
+                    <input f-model="name" placeholder="Name" />
+                    
+                    <button @click.debounce.300ms="inc">
+                        Clicked {{ count }} times
+                    </button>
+                    
+                    <p f-if="count() > 0">
+                        Double: <strong>{{ double }}</strong>
+                    </p>
                 </div>
             `
         };
@@ -71,5 +80,6 @@ export const Counter = defineComponent({
 
 - [ ] Global Store Management
 - [ ] Advanced file-based routing support
+- [ ] Integrated lightweight compiler which transforms declarative HTML into optimized runtime instructions
 
 Built with ❤️ by me, Sebi Somu, a forward-thinking JavaScript Architect.
