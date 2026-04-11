@@ -25,6 +25,13 @@ export function processIf(
     effects: (() => void)[]
 ): void
 
+export function processIs(
+    root: HTMLElement,
+    context: ComponentResult,
+    components: Record<string, ComponentFactory>,
+    effects: (() => void)[]
+): void
+
 export function processShow(root: HTMLElement, context: ComponentResult, effects: (() => void)[]): void
 export function processHtml(root: HTMLElement, context: ComponentResult, effects: (() => void)[]): void
 export function processText(root: HTMLElement, context: ComponentResult, effects: (() => void)[]): void

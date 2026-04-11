@@ -23,6 +23,8 @@ build/
 coverage/
 .nyc_output/
 
+*.pdf
+
 logs/
 *.log
 

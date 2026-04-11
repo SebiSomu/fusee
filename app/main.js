@@ -1,24 +1,39 @@
-import { createRouter, defineAsyncComponent } from '../framework/index.js'
-import { Home } from './routes/Home.js'
+import { createRouter, mountOutlet, defineAsyncComponent } from '../framework/index.js'
 import { Loading } from './components/Loading.js'
 
-createRouter([
-    { path: '/', component: Home },
-    {
-        path: '/about',
+const routes = [
+    { 
+        path: '/', 
+        component: defineAsyncComponent({
+            loader: () => import('./routes/Home.js'),
+            loadingComponent: Loading
+        }) 
+    },
+    { 
+        path: '/about', 
         component: defineAsyncComponent({
             loader: () => import('./routes/About.js'),
             loadingComponent: Loading
-        })
+        }) 
     },
-    {
-        path: '/test-for',
+    { 
+        path: '/test-for', 
         component: defineAsyncComponent({
             loader: () => import('./routes/TestFor.js'),
             loadingComponent: Loading
-        })
+        }) 
     },
-])
+    { 
+        path: '/dynamic', 
+        component: defineAsyncComponent({
+            loader: () => import('./routes/TestDynamic.js'),
+            loadingComponent: Loading
+        }) 
+    },
+]
+
+createRouter(routes)
 
 const outlet = document.getElementById('app')
+if (!outlet) throw new Error('[app] #app element not found in DOM')
 mountOutlet(outlet)

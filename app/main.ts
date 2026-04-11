@@ -24,6 +24,13 @@ const routes: Route[] = [
             loadingComponent: Loading
         }) 
     },
+    { 
+        path: '/dynamic', 
+        component: defineAsyncComponent({
+            loader: () => import('./routes/TestDynamic.js'),
+            loadingComponent: Loading
+        }) 
+    },
 ]
 
 createRouter(routes)

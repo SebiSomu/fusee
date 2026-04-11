@@ -17,6 +17,8 @@ build/
 .DS_Store
 Thumbs.db
 
+*.pdf
+
 playground/
 sandbox/
 

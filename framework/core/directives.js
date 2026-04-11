@@ -5,6 +5,7 @@ import { compileNode } from './compiler.js'
 export function processDirectives(root, context, components, effects) {
     if (processFor(root, context, components, effects)) return true
     if (processIf(root, context, components, effects)) return true
+    if (processIs(root, context, components, effects)) return true
 
     processShow(root, context, effects)
     processModel(root, context, effects)
@@ -273,6 +274,110 @@ export function processIf(el, context, components, effects) {
     })
 
     return true
+}
+
+export function processIs(el, context, components, effects) {
+    if (el.nodeType !== 1 || !el.hasAttribute('f-is')) return false
+
+    // 1. Prepare directive state
+    const expr = el.getAttribute('f-is')
+    const keepAlive = processKeepAlive(el)
+    
+    el.removeAttribute('f-is')
+
+    const anchor = document.createComment('f-keepAlive-anchor')
+    el.parentNode.insertBefore(anchor, el)
+
+    // Keep a clone to reuse attributes (props/@events) for every dynamic instance
+    const templateNode = el.cloneNode(true)
+    el.remove()
+
+    const cache = new Map()
+    let activeKey = null
+    let activeCleanup = []
+
+    // 2. Reactive loop
+    effects.push(effect(() => {
+        const rawValue = evaluateExpression(expr, context)
+
+        // Skip if same component is already active
+        if (rawValue === activeKey) return
+
+        // 3. Handle exiting component
+        if (activeKey !== null) {
+            const currentEntry = cache.get(activeKey)
+            if (currentEntry) {
+                if (keepAlive) {
+                    currentEntry.node.remove()
+                } else {
+                    for (const cleanup of activeCleanup) if (typeof cleanup === 'function') cleanup()
+                    currentEntry.node.remove()
+                    cache.delete(activeKey)
+                    activeCleanup = []
+                }
+            }
+        }
+
+        if (!rawValue) {
+            activeKey = null
+            return
+        }
+
+        // 4. Handle entering component
+        let entry = cache.get(rawValue)
+
+        if (entry && keepAlive) {
+            // Restore from cache
+            anchor.parentNode.insertBefore(entry.node, anchor.nextSibling)
+            activeCleanup = entry.cleanup
+        } else {
+            // Create new instance
+            let ComponentFn = typeof rawValue === 'string' ? components[rawValue] : rawValue
+
+            if (typeof ComponentFn !== 'function') {
+                console.warn(`[framework] f-is: Component "${rawValue}" not found or invalid.`)
+                return
+            }
+
+            const compEl = templateNode.cloneNode(true)
+            compEl._isDynamicComponent = true
+
+            const tempName = '__dynamic_component__'
+            compEl.setAttribute('data-component', tempName)
+
+            anchor.parentNode.insertBefore(compEl, anchor.nextSibling)
+
+            const childCleanup = []
+            const dynamicComponents = { ...components, [tempName]: ComponentFn }
+
+            // Trigger the internal compiler to bind props and events
+            compileNode(compEl, context, dynamicComponents, childCleanup)
+
+            entry = { node: compEl, cleanup: childCleanup }
+            cache.set(rawValue, entry)
+            activeCleanup = childCleanup
+        }
+
+        activeKey = rawValue
+    }))
+
+    // Cleanup all cached components when this directive is destroyed
+    effects.push(() => {
+        for (const entry of cache.values()) {
+            for (const c of entry.cleanup) if (typeof c === 'function') c()
+            entry.node.remove()
+        }
+        cache.clear()
+    })
+
+    return true
+}
+
+function processKeepAlive(el) {
+    if (el.nodeType !== 1) return false
+    const hasKeepAlive = el.hasAttribute('f-keepAlive')
+    if (hasKeepAlive) el.removeAttribute('f-keepAlive')
+    return hasKeepAlive
 }
 
 export function processShow(el, context, effects) {
