@@ -93,43 +93,41 @@ export function computed(fn) {
     let dirty = true
     let active = true
     const subscribers = new Set()
+    const deps = new Set()
 
     const computedNode = () => {
         if (!active || dirty) return
 
-        // If we have no subscribers, we stay lazy.
-        if (subscribers.size === 0) {
+        if (subscribers.size > 0) {
+            if (!runRecompute()) return
+        } else {
             dirty = true
-            // Clear deps to stop receiving updates until next read
-            for (const dep of computedNode.deps) dep.delete(computedNode)
-            computedNode.deps.clear()
+            for (const d of deps) d.delete(computedNode)
+            deps.clear()
             return
         }
 
-        // Suppression logic: if we have subs, we must check if value actually changed
-        const prevValue = value
-        for (const dep of computedNode.deps) dep.delete(computedNode)
-        computedNode.deps.clear()
-
-        const prevEffect = currentEffect
-        currentEffect = computedNode
-        try {
-            const newValue = fn()
-            if (Object.is(newValue, prevValue)) {
-                dirty = false
-                return // Suppress notification
-            }
-            value = newValue
-        } finally {
-            currentEffect = prevEffect
-            dirty = false
-        }
-
-        // Notify downstream if value changed
         for (const sub of [...subscribers]) scheduleEffect(sub)
     }
 
-    computedNode.deps = new Set()
+    computedNode.deps = deps
+
+    function runRecompute() {
+        for (const d of deps) d.delete(computedNode)
+        deps.clear()
+
+        const prevEffect = currentEffect
+        currentEffect = active ? computedNode : null
+        try {
+            const newValue = fn()
+            const changed = !Object.is(newValue, value)
+            value = newValue
+            dirty = false
+            return changed
+        } finally {
+            currentEffect = prevEffect
+        }
+    }
 
     function accessor() {
         if (arguments.length === 0) {
@@ -139,18 +137,7 @@ export function computed(fn) {
             }
 
             if (dirty) {
-                for (const dep of computedNode.deps) dep.delete(computedNode)
-                computedNode.deps.clear()
-
-                const prevEffect = currentEffect
-                currentEffect = active ? computedNode : null
-                try {
-                    const newValue = fn()
-                    value = newValue
-                } finally {
-                    currentEffect = prevEffect
-                    dirty = false
-                }
+                runRecompute()
             }
 
             return value
@@ -162,14 +149,13 @@ export function computed(fn) {
         active = false
         dirty = true
         pendingEffects.delete(computedNode)
-        for (const dep of computedNode.deps) dep.delete(computedNode)
-        computedNode.deps.clear()
+        for (const d of deps) d.delete(computedNode)
+        deps.clear()
         subscribers.clear()
     }
 
     accessor.isSignal = true
     accessor.readonly = true
-
     addReactiveArrayMethods(accessor)
 
     return accessor

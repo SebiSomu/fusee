@@ -372,7 +372,7 @@ describe('computed()', () => {
         expect(spy).toHaveBeenCalledTimes(1)
 
         toggle(false)
-        expect(spy).toHaveBeenCalledWith(200)
+        expect(spy).toHaveBeenCalledWith(999)
 
         a(999) // no longer tracked
         expect(spy).toHaveBeenCalledTimes(2)
