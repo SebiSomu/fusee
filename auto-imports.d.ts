@@ -22,4 +22,6 @@ declare global {
   const provide: typeof import('fusee-framework').provide
   const signal: typeof import('fusee-framework').signal
   const untrack: typeof import('fusee-framework').untrack
+  const watch: typeof import('fusee-framework').watch
+  const watchEffect: typeof import('fusee-framework').watchEffect
 }

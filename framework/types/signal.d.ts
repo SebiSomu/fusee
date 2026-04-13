@@ -54,12 +54,27 @@ type EffectRunner = {
     deps: Set<Set<EffectRunner>>;
 }
 
+export type WatchSource<T = any> = (() => T) | Signal<T> | Computed<T>
+export type WatchCallback<T = any> = (newValue: T, oldValue: T | undefined, onCleanup: (fn: () => void) => void) => void
+
+export interface WatchOptions {
+    immediate?: boolean;
+    equals?: (a: any, b: any) => boolean;
+}
+
 export declare function signal<T extends any[]>(initialValue: T): ArraySignalAccessor<T>
 export declare function signal<T>(initialValue: T): SignalAccessor<T>
 export declare function effect(fn: () => void): () => void
 export declare function computed<T>(fn: () => T): Computed<T>
 export declare function batch<T>(fn: () => T): T
 export declare function untrack<T>(fn: () => T): T
+export declare function watch<T>(source: WatchSource<T>, callback: WatchCallback<T>, options?: WatchOptions): () => void
+export declare function watch<T extends any[]>(
+    sources: [...{ [K in keyof T]: WatchSource<T[K]> }],
+    callback: (newValue: T, oldValue: T | undefined, onCleanup: (fn: () => void) => void) => void,
+    options?: WatchOptions
+): () => void
+export declare function watchEffect(fn: (onCleanup: (fn: () => void) => void) => void): () => void
 export declare function inspect(...args: any[]): (() => void) | void
 
 declare function setEffectHook(fn: (eff: any) => void): void

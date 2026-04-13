@@ -59,17 +59,25 @@ export function signal(initialValue) {
 }
 
 export function effect(fn) {
+    let active = true
+
     const run = () => {
+        if (!active) return
+
         for (const dep of run.deps) dep.delete(run)
         run.deps.clear()
 
+        const prevEffect = currentEffect
         currentEffect = run
         try { fn() }
-        finally { currentEffect = null }
+        finally { currentEffect = prevEffect }
     }
 
     run.deps = new Set()
+
     const cleanup = () => {
+        active = false
+        pendingEffects.delete(run)
         for (const dep of run.deps) dep.delete(run)
         run.deps.clear()
     }
@@ -83,45 +91,77 @@ export function effect(fn) {
 export function computed(fn) {
     let value
     let dirty = true
+    let active = true
     const subscribers = new Set()
 
     const computedNode = () => {
-        if (!dirty) {
+        if (!active || dirty) return
+
+        // If we have no subscribers, we stay lazy.
+        if (subscribers.size === 0) {
             dirty = true
+            // Clear deps to stop receiving updates until next read
             for (const dep of computedNode.deps) dep.delete(computedNode)
             computedNode.deps.clear()
-            for (const sub of [...subscribers]) scheduleEffect(sub)
+            return
         }
+
+        // Suppression logic: if we have subs, we must check if value actually changed
+        const prevValue = value
+        for (const dep of computedNode.deps) dep.delete(computedNode)
+        computedNode.deps.clear()
+
+        const prevEffect = currentEffect
+        currentEffect = computedNode
+        try {
+            const newValue = fn()
+            if (Object.is(newValue, prevValue)) {
+                dirty = false
+                return // Suppress notification
+            }
+            value = newValue
+        } finally {
+            currentEffect = prevEffect
+            dirty = false
+        }
+
+        // Notify downstream if value changed
+        for (const sub of [...subscribers]) scheduleEffect(sub)
     }
 
     computedNode.deps = new Set()
 
     function accessor() {
         if (arguments.length === 0) {
-            if (currentEffect) {
+            if (active && currentEffect) {
                 subscribers.add(currentEffect)
                 currentEffect.deps.add(subscribers)
             }
+
             if (dirty) {
                 for (const dep of computedNode.deps) dep.delete(computedNode)
                 computedNode.deps.clear()
 
                 const prevEffect = currentEffect
-                currentEffect = computedNode
+                currentEffect = active ? computedNode : null
                 try {
                     const newValue = fn()
-                    if (newValue !== value) value = newValue
+                    value = newValue
                 } finally {
                     currentEffect = prevEffect
                     dirty = false
                 }
             }
+
             return value
         }
         console.warn('[framework] computed() is read-only')
     }
 
     accessor.dispose = () => {
+        active = false
+        dirty = true
+        pendingEffects.delete(computedNode)
         for (const dep of computedNode.deps) dep.delete(computedNode)
         computedNode.deps.clear()
         subscribers.clear()
@@ -142,6 +182,82 @@ export function untrack(fn) {
         return fn()
     } finally {
         currentEffect = prevEffect
+    }
+}
+
+export function watch(source, callback, options = {}) {
+    if (typeof callback !== 'function') {
+        console.warn('[framework] watch() callback must be a function')
+        return () => { }
+    }
+
+    const { immediate = false, equals = Object.is } = options
+    const { getter, isMultiSource } = normalizeWatchSource(source)
+
+    let initialized = false
+    let oldValue
+    const cleanupRef = { fn: null }
+
+    const onCleanup = (fn) => {
+        if (typeof fn !== 'function') {
+            console.warn('[framework] onCleanup() expects a function')
+            return
+        }
+        cleanupRef.fn = fn
+    }
+
+    const stopEffect = effect(() => {
+        const newValue = getter()
+
+        if (!initialized) {
+            initialized = true
+            oldValue = cloneWatchValue(newValue, isMultiSource)
+            if (immediate) {
+                untrack(() => callback(newValue, undefined, onCleanup))
+            }
+            return
+        }
+
+        if (!hasWatchChanged(newValue, oldValue, isMultiSource, equals)) {
+            return
+        }
+
+        const previousValue = oldValue
+        oldValue = cloneWatchValue(newValue, isMultiSource)
+
+        runWatchCleanup(cleanupRef)
+        untrack(() => callback(newValue, previousValue, onCleanup))
+    })
+
+    return () => {
+        stopEffect()
+        runWatchCleanup(cleanupRef)
+    }
+}
+
+export function watchEffect(fn) {
+    if (typeof fn !== 'function') {
+        console.warn('[framework] watchEffect() expects a function')
+        return () => { }
+    }
+
+    const cleanupRef = { fn: null }
+    const onCleanup = (cleanup) => {
+        if (typeof cleanup !== 'function') {
+            console.warn('[framework] onCleanup() expects a function')
+            return
+        }
+        cleanupRef.fn = cleanup
+    }
+
+    const stopEffect = effect(() => {
+        runWatchCleanup(cleanupRef)
+        fn(onCleanup)
+    })
+
+    return () => {
+        stopEffect()
+        runWatchCleanup(cleanupRef)
     }
 }
 
@@ -242,5 +358,50 @@ function addMutatingArrayMethods(accessor) {
         const next = [...accessor()].reverse()
         accessor(next)
         return accessor
+    }
+}
+
+// Helpers for watch/watchEffect
+function normalizeWatchSource(source) {
+    if (Array.isArray(source)) {
+        const getters = source.map(normalizeSingleWatchSource)
+        return {
+            getter: () => getters.map(get => get()),
+            isMultiSource: true
+        }
+    }
+    return {
+        getter: normalizeSingleWatchSource(source),
+        isMultiSource: false
+    }
+}
+
+function normalizeSingleWatchSource(source) {
+    if (typeof source === 'function') return source
+    console.warn('[framework] watch() source should be a signal, getter, or an array of those')
+    return () => source
+}
+
+function cloneWatchValue(value, isMultiSource) {
+    if (isMultiSource && Array.isArray(value)) return value.slice()
+    return value
+}
+
+function hasWatchChanged(newValue, oldValue, isMultiSource, equals) {
+    if (isMultiSource) {
+        if (!Array.isArray(oldValue) || newValue.length !== oldValue.length) return true
+        for (let i = 0; i < newValue.length; i++) {
+            if (!equals(newValue[i], oldValue[i])) return true
+        }
+        return false
+    }
+    return !equals(newValue, oldValue)
+}
+
+function runWatchCleanup(cleanupRef) {
+    if (typeof cleanupRef.fn === 'function') {
+        const fn = cleanupRef.fn
+        cleanupRef.fn = null
+        untrack(() => fn())
     }
 }
