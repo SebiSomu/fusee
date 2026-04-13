@@ -51,6 +51,64 @@ export function signal(initialValue) {
     }
 
     accessor.isSignal = true
+
+    if (Array.isArray(initialValue)) {
+        accessor.push = (...items) => {
+            const next = [...accessor(), ...items]
+            accessor(next)
+            return next.length
+        }
+
+        accessor.pop = () => {
+            const arr = accessor()
+            if (arr.length === 0) return undefined
+            const item = arr[arr.length - 1]
+            accessor(arr.slice(0, -1))
+            return item
+        }
+
+        accessor.shift = () => {
+            const arr = accessor()
+            if (arr.length === 0) return undefined
+            const item = arr[0]
+            accessor(arr.slice(1))
+            return item
+        }
+
+        accessor.unshift = (...items) => {
+            const next = [...items, ...accessor()]
+            accessor(next)
+            return next.length
+        }
+
+        accessor.splice = (start, deleteCount, ...items) => {
+            const arr = [...accessor()]
+            const removed = arr.splice(start, deleteCount, ...items)
+            accessor(arr)
+            return removed
+        }
+
+        accessor.remove = (predicate) => {
+            accessor(accessor().filter((item, i) => !predicate(item, i)))
+        }
+
+        accessor.clear = () => {
+            accessor([])
+        }
+
+        accessor.sort = (compareFn) => {
+            const next = [...accessor()].sort(compareFn)
+            accessor(next)
+            return accessor
+        }
+
+        accessor.reverse = () => {
+            const next = [...accessor()].reverse()
+            accessor(next)
+            return accessor
+        }
+    }
+
     return accessor
 }
 

@@ -23,11 +23,10 @@ export const TestFor = defineComponent({
             addItem: () => {
                 const nextIds = items().map(i => i.id)
                 const nextId = nextIds.length > 0 ? Math.max(...nextIds) + 1 : 1
-                items([...items(), { id: nextId, name: `Item ${nextId}` }])
+                items.push({ id: nextId, name: `Item ${nextId}` })
             },
             shuffleItems: () => {
-                const shuffled = [...items()].sort(() => Math.random() - 0.5)
-                items(shuffled)
+                items.sort(() => Math.random() - 0.5)
             },
             template: `
                 <div class="page">
