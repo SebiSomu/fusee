@@ -21,8 +21,16 @@ export const TestComposables = defineComponent({
         const { data: posts, loading, error } = useFetch(
             'https://jsonplaceholder.typicode.com/posts?_limit=3'
         )
+        // ── 5. Custom Directives Test ────────────────────────────────────────
+        const hColor = signal('#8b8bff33')
+        const colors = ['#8b8bff33', '#10b98133', '#f59e0b33', '#ef444433']
+        let colorIdx = 0
+        const nextColor = () => hColor(colors[++colorIdx % colors.length])
 
         return {
+            hColor,
+            nextColor,
+
             // counter
             count: counter.count,
             doubled: counter.doubled,
@@ -132,7 +140,17 @@ export const TestComposables = defineComponent({
                         </div>
                     </section>
 
-
+                    <!-- ── 6. Custom Directives ────────────────────────────────────── -->
+                    <section class="demo-card">
+                        <h2>🛠️ Custom Directives</h2>
+                        <p class="demo-desc">Testing <code>f-focus</code> and <code>f-highlight</code>.</p>
+                        
+                        <div f-highlight="hColor" style="padding: 15px; border-radius: 8px; margin-bottom: 10px;">
+                            <input f-focus class="cmp-input" placeholder="I have f-focus!" />
+                        </div>
+                        
+                        <button @click="nextColor" class="cmp-btn plus">Change Highlight Color</button>
+                    </section>
                 </div>
             `
         }

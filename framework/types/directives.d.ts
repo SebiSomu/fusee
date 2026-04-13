@@ -37,3 +37,18 @@ export function processHtml(root: HTMLElement, context: ComponentResult, effects
 export function processText(root: HTMLElement, context: ComponentResult, effects: (() => void)[]): void
 export function processEvents(root: HTMLElement, context: ComponentResult): void
 export function processCloak(root: HTMLElement): void
+
+export interface DirectiveBinding<V = any> {
+    value: V
+    expression: string
+    arg: string | null
+    modifiers: string[]
+}
+
+export interface DirectiveHooks<V = any> {
+    mounted?: (el: HTMLElement, binding: DirectiveBinding<V>) => void
+    updated?: (el: HTMLElement, binding: DirectiveBinding<V>) => void
+    unmounted?: (el: HTMLElement, binding: DirectiveBinding<V>) => void
+}
+
+export function directive<V = any>(name: string, hooks: DirectiveHooks<V>): void

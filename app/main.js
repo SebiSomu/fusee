@@ -1,6 +1,22 @@
 import { createRouter, mountOutlet, defineAsyncComponent } from '../framework/index.js'
 import { Loading } from './components/Loading.js'
 
+directive('focus', {
+    mounted(el) {
+        el.focus()
+    }
+})
+
+directive('highlight', {
+    mounted(el, binding) {
+        el.style.backgroundColor = binding.value || '#ffff0033'
+        el.style.transition = 'background-color 0.3s'
+    },
+    updated(el, binding) {
+        el.style.backgroundColor = binding.value || '#ffff0033'
+    }
+})
+
 const routes = [
     { 
         path: '/', 

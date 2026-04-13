@@ -9,6 +9,7 @@ declare global {
   const batch: typeof import('fusee-framework').batch
   const computed: typeof import('fusee-framework').computed
   const defineComponent: typeof import('fusee-framework').defineComponent
+  const directive: typeof import('fusee-framework').directive
   const effect: typeof import('fusee-framework').effect
   const emit: typeof import('fusee-framework').emit
   const inject: typeof import('fusee-framework').inject

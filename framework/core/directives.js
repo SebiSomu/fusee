@@ -2,6 +2,73 @@ import { signal, effect, batch } from './signal.js'
 import { evaluateExpression } from './evaluator.js'
 import { compileNode } from './compiler.js'
 
+const customDirectives = new Map()
+
+export function directive(name, definition) {
+    if (typeof name !== 'string' || !name.trim()) {
+        console.error('[framework] directive() requires a non-empty name')
+        return
+    }
+    if (!definition || typeof definition !== 'object') {
+        console.error(`[framework] directive("${name}") requires a definition object`)
+        return
+    }
+    customDirectives.set(name, definition)
+}
+
+export function processCustomDirectives(el, context, effects) {
+    if (el.nodeType !== 1 || !el.hasAttribute || !el.attributes) return
+
+    for (const attr of [...el.attributes]) {
+        const match = attr.name.match(/^f-([a-zA-Z0-9-]+)(?::([a-zA-Z0-9-]+))?(?:\.(.+))?$/)
+
+        if (!match) continue
+
+        const directiveName = match[1]
+        const arg = match[2] || null
+        const modifiersStr = match[3]
+        const modifiers = modifiersStr ? modifiersStr.split('.') : []
+
+        const definition = customDirectives.get(directiveName)
+        if (!definition) {
+            continue
+        }
+
+        el.removeAttribute(attr.name)
+
+        const value = evaluateExpression(attr.value, context)
+        const expression = attr.value
+
+        const binding = {
+            value,
+            expression,
+            arg,
+            modifiers
+        }
+
+        if (typeof definition.mounted === 'function') {
+            definition.mounted(el, binding)
+        }
+
+        if (typeof definition.updated === 'function') {
+            effects.push(effect(() => {
+                const newValue = evaluateExpression(expression, context)
+
+                if (!Object.is(binding.value, newValue)) {
+                    binding.value = newValue
+                    definition.updated(el, binding)
+                }
+            }))
+        }
+
+        if (typeof definition.unmounted === 'function') {
+            effects.push(() => {
+                definition.unmounted(el, binding)
+            })
+        }
+    }
+}
+
 export function processDirectives(root, context, components, effects) {
     if (processFor(root, context, components, effects)) return true
     if (processIf(root, context, components, effects)) return true
@@ -13,6 +80,7 @@ export function processDirectives(root, context, components, effects) {
     processHtml(root, context, effects)
     processText(root, context, effects)
     processEvents(root, context, effects)
+    processCustomDirectives(root, context, effects)
     processCloak(root)
 
     return false
