@@ -4,6 +4,7 @@ export * from './composable'
 export * from './router'
 export * from './compiler'
 export * from './directives'
+export * from './store'
 
 declare global {
     type Signal<T = any> = import('./signal').Signal<T>
@@ -12,6 +13,7 @@ declare global {
     type Composable<T extends (...args: any[]) => any> = import('./composable').Composable<T>
     type DirectiveBinding<V = any> = import('./directives').DirectiveBinding<V>
     type DirectiveHooks<V = any> = import('./directives').DirectiveHooks<V>
+    const defineStore: typeof import('./store').defineStore
 }
 
 export as namespace Fusee

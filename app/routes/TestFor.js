@@ -6,10 +6,8 @@ export const TestFor = defineComponent({
             { id: 3, name: 'Item 3' }
         ])
         const search = signal('')
-        
-        // ✨ NEW: Using the reactive .filter() method on the signal!
-        // This returns a Computed signal that updates automatically.
-        const filteredItems = items.filter(item => 
+
+        const filteredItems = items.filter(item =>
             item.name.toLowerCase().includes(search().toLowerCase())
         )
 
@@ -19,11 +17,9 @@ export const TestFor = defineComponent({
             items,
             search,
             filteredItems,
-            // 🔗 Chaining test: filter -> map -> join
             namesSummary: filteredItems.map(i => i.name).join(', '),
 
             updateItem: (id, newName) => {
-                // We update the SOURCE signal so the .filter() can see the new values!
                 items(items().map(i => i.id === id ? { ...i, name: newName } : i))
             },
             addItem: () => {

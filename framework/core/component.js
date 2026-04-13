@@ -11,6 +11,10 @@ export function getCurrentInstance() {
     return currentInstance
 }
 
+export function setCurrentInstance(instance) {
+    currentInstance = instance
+}
+
 function resolveProps(schema, received) {
     const isArray = Array.isArray(schema)
     const resolved = {}

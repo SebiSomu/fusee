@@ -5,6 +5,7 @@ export { createRouter, navigate, mountOutlet } from './router/router.js'
 export { mountTemplate } from './core/compiler.js'
 
 export { defineComposable, assertSetupContext } from './core/composable.js'
+export { defineStore, resetStore, clearStores, registerStorePlugin } from './core/store.js'
 export { directive } from './core/directives.js'
 
 export const emit = () => console.warn('[framework] emit() can only be used inside component setup()')
