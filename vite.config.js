@@ -34,5 +34,10 @@ export default defineConfig({
                 main: path.resolve(__dirname, 'index.html'),
             }
         }
+    },
+
+    test: {
+        environment: 'jsdom',
+        globals: true
     }
 })

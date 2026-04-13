@@ -7,7 +7,7 @@ import {
     untrack,
     watch,
     watchEffect
-} from './signal.js'
+} from '../core/signal.js'
 
 // ─────────────────────────────────────────────
 // EFFECT

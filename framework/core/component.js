@@ -143,6 +143,7 @@ export function defineComponent(options) {
 
         currentInstance = instance
         const result = options.setup(instance.props, { emit, slots })
+        instance.state = result
         result._instance = instance
         currentInstance = null
 

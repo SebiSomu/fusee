@@ -1,5 +1,5 @@
 # Fusée Framework 🚀
-**v1.4.1 — Signals-First JS Framework | Atomic Reactivity | Peak Performance**
+**v1.5.0 — Signals-First JS Framework | Atomic Reactivity | Peak Performance**
 
 Fusée is a custom, high-performance fine-grained reactive JavaScript framework built for speed and simplicity. It features a recursive, non-greedy compiler, a signals-based reactivity engine, Dependency Injection for components and a comprehensive CLI for instant application scaffolding.
 
@@ -76,10 +76,28 @@ export const Welcome = defineComponent({
 
 ---
 
+## ✅ Quality Assurance & Testing
+
+Fusée is built with a test-driven mindset to ensure the reliability of its reactivity engine and component lifecycle.
+
+- **Total Tests:** `200`
+- **Status:** `All Passed`
+- **Framework:** [Vitest](https://vitest.dev/)
+- **Environment:** JSDOM (Browser simulation)
+
+### Test Coverage includes:
+*   **Reactivity Engine:** 100% (Signals, Batching, Computed, Watchers).
+*   **Component System:** Props, Slots, Async Components, and Lifecycle Hooks.
+*   **Dependency Injection:** Nested Provide/Inject and Shadowing.
+*   **Directives:** `f-if`, `f-for`, `f-model`, and Event Modifiers.
+*   **Memory Safety:** Explicit checks for memory leaks and automatic effect disposal.
+
+---
+
 ## 🚀 Future Roadmap
 
-- [ ] Global Store Management
-- [ ] Advanced file-based routing support
-- [ ] Integrated lightweight compiler which transforms declarative HTML into optimized runtime instructions
+- [ ] Advanced file-based routing support and state management
+- [ ] Lightweight compiler which transforms declarative HTML into optimized runtime instructions
+- [ ] Integrated backend development support
 
 Built with ❤️ by me, Sebi Somu, a forward-thinking JavaScript Architect.

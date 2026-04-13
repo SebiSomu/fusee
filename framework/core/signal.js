@@ -60,17 +60,25 @@ export function signal(initialValue) {
 
 export function effect(fn) {
     let active = true
+    let running = false
 
     const run = () => {
-        if (!active) return
+        if (!active || running) {
+            if (running) console.warn('[framework] Recursive effect detected')
+            return
+        }
 
+        running = true
         for (const dep of run.deps) dep.delete(run)
         run.deps.clear()
 
         const prevEffect = currentEffect
         currentEffect = run
         try { fn() }
-        finally { currentEffect = prevEffect }
+        finally {
+            currentEffect = prevEffect
+            running = false
+        }
     }
 
     run.deps = new Set()
@@ -112,7 +120,15 @@ export function computed(fn) {
 
     computedNode.deps = deps
 
+    let computing = false
+
     function runRecompute() {
+        if (computing) {
+            console.warn('[framework] Circular dependency detected in computed()')
+            return false
+        }
+        
+        computing = true
         for (const d of deps) d.delete(computedNode)
         deps.clear()
 
@@ -126,6 +142,7 @@ export function computed(fn) {
             return changed
         } finally {
             currentEffect = prevEffect
+            computing = false
         }
     }
 
