@@ -22,9 +22,9 @@ export function createRouter(routes) {
             window.removeEventListener('hashchange', handler)
             window.removeEventListener('DOMContentLoaded', handler)
             if (_currentInstance) {
-                try { 
-                    _currentInstance.unmount() 
-                } catch {}
+                try {
+                    _currentInstance.unmount()
+                } catch { }
             }
             _routes = []
             _outlet = null
@@ -58,7 +58,7 @@ function _resolve() {
     }
 
     if (_currentInstance) {
-        try { _currentInstance.unmount() } catch {}
+        try { _currentInstance.unmount() } catch { }
     }
 
     _outlet.innerHTML = ''

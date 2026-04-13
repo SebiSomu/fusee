@@ -18,33 +18,33 @@ directive('highlight', {
 })
 
 const routes = [
-    { 
-        path: '/', 
+    {
+        path: '/',
         component: defineAsyncComponent({
             loader: () => import('./routes/Home.js'),
             loadingComponent: Loading
-        }) 
+        })
     },
-    { 
-        path: '/about', 
+    {
+        path: '/about',
         component: defineAsyncComponent({
             loader: () => import('./routes/About.js'),
             loadingComponent: Loading
-        }) 
+        })
     },
-    { 
-        path: '/test-for', 
+    {
+        path: '/test-for',
         component: defineAsyncComponent({
             loader: () => import('./routes/TestFor.js'),
             loadingComponent: Loading
-        }) 
+        })
     },
-    { 
-        path: '/dynamic', 
+    {
+        path: '/dynamic',
         component: defineAsyncComponent({
             loader: () => import('./routes/TestDynamic.js'),
             loadingComponent: Loading
-        }) 
+        })
     },
     {
         path: '/composables',

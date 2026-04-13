@@ -52,62 +52,8 @@ export function signal(initialValue) {
 
     accessor.isSignal = true
 
-    if (Array.isArray(initialValue)) {
-        accessor.push = (...items) => {
-            const next = [...accessor(), ...items]
-            accessor(next)
-            return next.length
-        }
-
-        accessor.pop = () => {
-            const arr = accessor()
-            if (arr.length === 0) return undefined
-            const item = arr[arr.length - 1]
-            accessor(arr.slice(0, -1))
-            return item
-        }
-
-        accessor.shift = () => {
-            const arr = accessor()
-            if (arr.length === 0) return undefined
-            const item = arr[0]
-            accessor(arr.slice(1))
-            return item
-        }
-
-        accessor.unshift = (...items) => {
-            const next = [...items, ...accessor()]
-            accessor(next)
-            return next.length
-        }
-
-        accessor.splice = (start, deleteCount, ...items) => {
-            const arr = [...accessor()]
-            const removed = arr.splice(start, deleteCount, ...items)
-            accessor(arr)
-            return removed
-        }
-
-        accessor.remove = (predicate) => {
-            accessor(accessor().filter((item, i) => !predicate(item, i)))
-        }
-
-        accessor.clear = () => {
-            accessor([])
-        }
-
-        accessor.sort = (compareFn) => {
-            const next = [...accessor()].sort(compareFn)
-            accessor(next)
-            return accessor
-        }
-
-        accessor.reverse = () => {
-            const next = [...accessor()].reverse()
-            accessor(next)
-            return accessor
-        }
-    }
+    if (Array.isArray(initialValue)) addMutatingArrayMethods(accessor)
+    addReactiveArrayMethods(accessor)
 
     return accessor
 }
@@ -183,6 +129,9 @@ export function computed(fn) {
 
     accessor.isSignal = true
     accessor.readonly = true
+
+    addReactiveArrayMethods(accessor)
+
     return accessor
 }
 
@@ -196,11 +145,6 @@ export function untrack(fn) {
     }
 }
 
-/**
- * Reactive log helper similar to Svelte 5's $inspect.
- * Watches signals or functions and logs their current values on change.
- * Only active in development mode.
- */
 export function inspect(...args) {
     const isDev = typeof import.meta.env !== 'undefined' ? !!import.meta.env.DEV : true
     if (!isDev) return
@@ -214,4 +158,89 @@ export function inspect(...args) {
         })
         console.log('[inspect]', ...values)
     })
+}
+
+function addReactiveArrayMethods(accessor) {
+    // Transformations
+    accessor.map = (fn) => computed(() => accessor()?.map?.(fn) ?? [])
+    accessor.filter = (fn) => computed(() => accessor()?.filter?.(fn) ?? [])
+    accessor.slice = (...args) => computed(() => accessor()?.slice?.(...args) ?? [])
+    accessor.concat = (...args) => computed(() => accessor()?.concat?.(...args) ?? [])
+    accessor.flat = (depth) => computed(() => accessor()?.flat?.(depth) ?? [])
+    accessor.flatMap = (fn) => computed(() => accessor()?.flatMap?.(fn) ?? [])
+
+    // Searches
+    accessor.find = (fn) => computed(() => accessor()?.find?.(fn))
+    accessor.findLast = (fn) => computed(() => accessor()?.findLast?.(fn))
+    accessor.findIndex = (fn) => computed(() => accessor()?.findIndex?.(fn))
+    accessor.findLastIndex = (fn) => computed(() => accessor()?.findLastIndex?.(fn))
+    accessor.indexOf = (searchElement, fromIdx) => computed(() => accessor()?.indexOf?.(searchElement, fromIdx))
+    accessor.lastIndexOf = (searchElement, fromIdx) => computed(() => accessor()?.lastIndexOf?.(searchElement, fromIdx))
+    accessor.includes = (searchElement, fromIdx) => computed(() => accessor()?.includes?.(searchElement, fromIdx))
+
+    // Validations
+    accessor.every = (fn) => computed(() => accessor()?.every?.(fn))
+    accessor.some = (fn) => computed(() => accessor()?.some?.(fn))
+
+    // Accumulators & Access
+    accessor.reduce = (...args) => computed(() => accessor()?.reduce?.(...args))
+    accessor.at = (index) => computed(() => accessor()?.at?.(index))
+    accessor.join = (separator) => computed(() => accessor()?.join?.(separator) ?? '')
+}
+
+function addMutatingArrayMethods(accessor) {
+    accessor.push = (...items) => {
+        const next = [...accessor(), ...items]
+        accessor(next)
+        return next.length
+    }
+
+    accessor.pop = () => {
+        const arr = accessor()
+        if (arr.length === 0) return undefined
+        const item = arr[arr.length - 1]
+        accessor(arr.slice(0, -1))
+        return item
+    }
+
+    accessor.shift = () => {
+        const arr = accessor()
+        if (arr.length === 0) return undefined
+        const item = arr[0]
+        accessor(arr.slice(1))
+        return item
+    }
+
+    accessor.unshift = (...items) => {
+        const next = [...items, ...accessor()]
+        accessor(next)
+        return next.length
+    }
+
+    accessor.splice = (start, deleteCount, ...items) => {
+        const arr = [...accessor()]
+        const removed = arr.splice(start, deleteCount, ...items)
+        accessor(arr)
+        return removed
+    }
+
+    accessor.remove = (predicate) => {
+        accessor(accessor().filter((item, i) => !predicate(item, i)))
+    }
+
+    accessor.clear = () => {
+        accessor([])
+    }
+
+    accessor.sort = (compareFn) => {
+        const next = [...accessor()].sort(compareFn)
+        accessor(next)
+        return accessor
+    }
+
+    accessor.reverse = () => {
+        const next = [...accessor()].reverse()
+        accessor(next)
+        return accessor
+    }
 }

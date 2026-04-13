@@ -6,7 +6,29 @@ export type SignalAccessor<T> = {
     isSignal: boolean;
 }
 
-export type ArraySignalAccessor<T extends any[]> = SignalAccessor<T> & {
+export interface ReactiveArrayMethods<T> {
+    map<U>(callbackfn: (value: T, index: number, array: T[]) => U): Computed<U[]>;
+    filter(predicate: (value: T, index: number, array: T[]) => boolean): Computed<T[]>;
+    slice(start?: number, end?: number): Computed<T[]>;
+    reduce<U>(callbackfn: (previousValue: U, currentValue: T, currentIndex: number, array: T[]) => U, initialValue: U): Computed<U>;
+    reduce(callbackfn: (previousValue: T, currentValue: T, currentIndex: number, array: T[]) => T): Computed<T>;
+    find(predicate: (value: T, index: number, obj: T[]) => boolean): Computed<T | undefined>;
+    findLast(predicate: (value: T, index: number, obj: T[]) => boolean): Computed<T | undefined>;
+    findIndex(predicate: (value: T, index: number, obj: T[]) => boolean): Computed<number>;
+    findLastIndex(predicate: (value: T, index: number, obj: T[]) => boolean): Computed<number>;
+    every(predicate: (value: T, index: number, array: T[]) => boolean): Computed<boolean>;
+    some(predicate: (value: T, index: number, array: T[]) => boolean): Computed<boolean>;
+    includes(searchElement: T, fromIndex?: number): Computed<boolean>;
+    indexOf(searchElement: T, fromIndex?: number): Computed<number>;
+    lastIndexOf(searchElement: T, fromIndex?: number): Computed<number>;
+    at(index: number): Computed<T | undefined>;
+    concat(...items: (T | T[])[]): Computed<T[]>;
+    flat<depth extends number = 1>(depth?: depth): Computed<any[]>;
+    flatMap<U>(callback: (value: T, index: number, array: T[]) => U | U[]): Computed<U[]>;
+    join(separator?: string): Computed<string>;
+}
+
+export type ArraySignalAccessor<T extends any[]> = SignalAccessor<T> & ReactiveArrayMethods<T[number]> & {
     push(...items: T[number][]): number;
     pop(): T[number] | undefined;
     shift(): T[number] | undefined;
@@ -22,7 +44,7 @@ export type ComputedAccessor<T> = {
     (): T;
     isSignal: boolean;
     readonly: true;
-}
+} & (T extends any[] ? ReactiveArrayMethods<T[number]> : {})
 
 export type Signal<T = any> = T extends any[] ? ArraySignalAccessor<T> : SignalAccessor<T>
 export type Computed<T = any> = ComputedAccessor<T>
