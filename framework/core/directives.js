@@ -282,7 +282,7 @@ export function processIs(el, context, components, effects) {
     // 1. Prepare directive state
     const expr = el.getAttribute('f-is')
     const keepAlive = processKeepAlive(el)
-    
+
     el.removeAttribute('f-is')
 
     const anchor = document.createComment('f-keepAlive-anchor')

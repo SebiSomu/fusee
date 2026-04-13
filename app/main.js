@@ -30,6 +30,13 @@ const routes = [
             loadingComponent: Loading
         }) 
     },
+    {
+        path: '/composables',
+        component: defineAsyncComponent({
+            loader: () => import('./routes/TestComposables.js'),
+            loadingComponent: Loading
+        })
+    },
 ]
 
 createRouter(routes)

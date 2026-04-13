@@ -7,6 +7,10 @@ setEffectHook(eff => {
     if (currentInstance) currentInstance._effects.push(eff)
 })
 
+export function getCurrentInstance() {
+    return currentInstance
+}
+
 function resolveProps(schema, received) {
     const isArray = Array.isArray(schema)
     const resolved = {}
@@ -201,8 +205,8 @@ export function inject(key) {
 }
 
 export function defineAsyncComponent(loaderOrOptions) {
-    const options = typeof loaderOrOptions === 'function' 
-        ? { loader: loaderOrOptions } 
+    const options = typeof loaderOrOptions === 'function'
+        ? { loader: loaderOrOptions }
         : loaderOrOptions
 
     return function AsyncComponentFactory(props = {}, { listeners = {}, slots = {}, parent = null } = {}) {

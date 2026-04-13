@@ -160,6 +160,139 @@
       opacity: 0.3;
       cursor: not-allowed;
     }
+
+    /* ── Composables demo ──────────────────────────────────────────── */
+    .demo-card {
+      background: #13131d;
+      border: 1px solid #2a2a3a;
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .demo-card h2 {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #e8e8f0;
+      margin-bottom: 0.35rem;
+    }
+
+    .demo-desc {
+      font-size: 0.8rem;
+      color: #555 !important;
+      margin-bottom: 1rem !important;
+    }
+
+    .counter-display {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+
+    .big-num {
+      font-size: 3.5rem;
+      font-weight: 700;
+      line-height: 1;
+      transition: color 0.2s;
+    }
+
+    .big-num.even {
+      color: #8b8bff;
+    }
+
+    .big-num.odd {
+      color: #ff3333;
+    }
+
+    .derived-label {
+      font-size: 0.8rem;
+      color: #555;
+      margin-top: 0.25rem;
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: center;
+      margin-bottom: 0.75rem;
+    }
+
+    .cmp-btn {
+      padding: 0.45rem 1.1rem;
+      border-radius: 6px;
+      border: 1px solid #2a2a3a;
+      background: #0f0f1a;
+      color: #e8e8f0;
+      cursor: pointer;
+      font-size: 1rem;
+      transition: background 0.15s;
+    }
+
+    .cmp-btn:hover {
+      background: #1f1f30;
+    }
+
+    .cmp-btn.plus {
+      border-color: #8b8bff;
+      color: #8b8bff;
+    }
+
+    .cmp-btn.minus {
+      border-color: #ff3333;
+      color: #ff3333;
+    }
+
+    .cmp-btn.reset {
+      border-color: #555;
+      color: #888;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 0.2rem 0.65rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .badge-blue {
+      background: rgba(139, 139, 255, 0.15);
+      color: #8b8bff;
+    }
+
+    .badge-red {
+      background: rgba(255, 51, 51, 0.12);
+      color: #ff3333;
+    }
+
+    .mouse-display {
+      display: flex;
+      gap: 2rem;
+      font-size: 1.1rem;
+      color: #aaa;
+      margin-bottom: 0.5rem;
+    }
+
+    .mouse-display strong {
+      color: #e8e8f0;
+    }
+
+    .cmp-input {
+      width: 100%;
+      padding: 0.5rem 0.75rem;
+      background: #0f0f1a;
+      border: 1px solid #2a2a3a;
+      border-radius: 6px;
+      color: #e8e8f0;
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .cmp-input:focus {
+      border-color: #8b8bff;
+    }
   </style>
 </head>
 
@@ -169,6 +302,7 @@
     <a href="#/about">About</a>
     <a href="#/test-for">Loops Test</a>
     <a href="#/dynamic" style="color: #ec4899;">Dynamic Components</a>
+    <a href="#/composables" style="color: #34d399;">Composables</a>
   </nav>
   <div id="app"></div>
   <script type="module" src="./app/main.js"></script>

@@ -6,30 +6,37 @@ const routes: Route[] = [
     { 
         path: '/', 
         component: defineAsyncComponent({
-            loader: () => import('./routes/Home.js'),
+            loader: () => import('./routes/Home.ts'),
             loadingComponent: Loading
         }) 
     },
     { 
         path: '/about', 
         component: defineAsyncComponent({
-            loader: () => import('./routes/About.js'),
+            loader: () => import('./routes/About.ts'),
             loadingComponent: Loading
         }) 
     },
     { 
         path: '/test-for', 
         component: defineAsyncComponent({
-            loader: () => import('./routes/TestFor.js'),
+            loader: () => import('./routes/TestFor.ts'),
             loadingComponent: Loading
         }) 
     },
     { 
         path: '/dynamic', 
         component: defineAsyncComponent({
-            loader: () => import('./routes/TestDynamic.js'),
+            loader: () => import('./routes/TestDynamic.ts'),
             loadingComponent: Loading
         }) 
+    },
+    {
+        path: '/composables',
+        component: defineAsyncComponent({
+            loader: () => import('./routes/TestComposables.ts'),
+            loadingComponent: Loading
+        })
     },
 ]
 
