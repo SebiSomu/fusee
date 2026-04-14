@@ -6,7 +6,6 @@ import {
     batch,
     untrack,
     watch,
-    watchEffect,
     inspect,
     setEffectHook
 } from '../core/signal.js'
@@ -627,129 +626,6 @@ describe('watch()', () => {
 
         expect(spy).toHaveBeenCalledTimes(1)
         expect(spy).toHaveBeenCalledWith([1, 2], undefined, expect.any(Function))
-    })
-
-})
-
-// ─────────────────────────────────────────────
-// WATCHEFFECT
-// ─────────────────────────────────────────────
-
-describe('watchEffect()', () => {
-
-    it('runs immediately', () => {
-        const count = signal(0)
-        const spy = vi.fn()
-
-        watchEffect(() => { spy(count()) })
-        expect(spy).toHaveBeenCalledTimes(1)
-        expect(spy).toHaveBeenCalledWith(0)
-    })
-
-    it('reruns when dependency changes', () => {
-        const count = signal(0)
-        const spy = vi.fn()
-
-        watchEffect(() => spy(count()))
-
-        count(1)
-        count(2)
-
-        expect(spy).toHaveBeenCalledTimes(3)
-    })
-
-    it('stops after stop() is called', () => {
-        const count = signal(0)
-        const spy = vi.fn()
-
-        const stop = watchEffect(() => spy(count()))
-        stop()
-
-        count(1)
-        expect(spy).toHaveBeenCalledTimes(1)
-    })
-
-    it('onCleanup runs before each rerun', () => {
-        const count = signal(0)
-        const cleanupSpy = vi.fn()
-
-        watchEffect((onCleanup) => {
-            count()
-            onCleanup(() => cleanupSpy())
-        })
-
-        count(1)
-        expect(cleanupSpy).toHaveBeenCalledTimes(1)
-
-        count(2)
-        expect(cleanupSpy).toHaveBeenCalledTimes(2)
-    })
-
-    it('onCleanup runs on stop()', () => {
-        const count = signal(0)
-        const cleanupSpy = vi.fn()
-
-        const stop = watchEffect((onCleanup) => {
-            count()
-            onCleanup(() => cleanupSpy())
-        })
-
-        stop()
-        expect(cleanupSpy).toHaveBeenCalledTimes(1)
-    })
-
-    it('tracks multiple signals', () => {
-        const a = signal(1)
-        const b = signal(2)
-        const spy = vi.fn()
-
-        watchEffect(() => spy(a() + b()))
-
-        a(10)
-        expect(spy).toHaveBeenLastCalledWith(12)
-
-        b(20)
-        expect(spy).toHaveBeenLastCalledWith(30)
-    })
-
-    it('warns if argument is not a function', () => {
-        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-
-        watchEffect('not a function')
-        expect(warn).toHaveBeenCalledWith('[framework] watchEffect() expects a function')
-
-        warn.mockRestore()
-    })
-
-    it('onCleanup warns if cleanup is not a function', () => {
-        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-        const count = signal(0)
-
-        watchEffect((onCleanup) => {
-            count()
-            onCleanup('not a function')
-        })
-
-        expect(warn).toHaveBeenCalledWith('[framework] onCleanup() expects a function')
-        warn.mockRestore()
-    })
-
-    it('does not track signals read inside untrack()', () => {
-        const a = signal(1)
-        const b = signal(100)
-        const spy = vi.fn()
-
-        watchEffect(() => {
-            a()
-            untrack(() => b())
-            spy()
-        })
-
-        b(999)
-        expect(spy).toHaveBeenCalledTimes(1)
-
-        a(2)
-        expect(spy).toHaveBeenCalledTimes(2)
     })
 
 })

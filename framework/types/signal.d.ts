@@ -72,7 +72,6 @@ export declare function watch<T extends any[]>(
     callback: (newValue: T, oldValue: T | undefined, onCleanup: (fn: () => void) => void) => void,
     options?: WatchOptions
 ): () => void
-export declare function watchEffect(fn: (onCleanup: (fn: () => void) => void) => void): () => void
 export declare function inspect(...args: any[]): (() => void) | void
 
 declare function setEffectHook(fn: (eff: any) => void): void

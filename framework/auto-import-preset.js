@@ -1,6 +1,6 @@
 export const FuseePreset = {
     'fusee-framework': [
-        'signal', 'computed', 'effect', 'watch', 'watchEffect',
+        'signal', 'computed', 'effect', 'watch',
         'batch', 'untrack', 'inspect',
         'defineComponent', 'onMount', 'onUnmount',
         'directive',

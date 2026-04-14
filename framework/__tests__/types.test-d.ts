@@ -12,7 +12,6 @@ import {
     onUnmount,
     provide,
     inject,
-    watchEffect,
     inspect,
     defineComposable,
     assertSetupContext,
@@ -435,14 +434,6 @@ test('watch: options presence (immediate)', () => {
 
 test('watch: options presence (equals)', () => {
     expectTypeOf(watch(signal(1), () => {}, { equals: (a, b) => a === b })).toBeFunction()
-})
-
-test('watchEffect: basic tracking', () => {
-    expectTypeOf(watchEffect(() => {})).toBeFunction()
-})
-
-test('watchEffect: cleanup arg passing', () => {
-    watchEffect((onCleanup) => expectTypeOf(onCleanup).toBeFunction())
 })
 
 // ─── 7. COMPONENTS ────────────────────────────────────────────────────────────

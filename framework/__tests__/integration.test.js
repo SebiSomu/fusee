@@ -1146,4 +1146,204 @@ describe('Integration Tests', () => {
             expect(watchCount).toBe(1)
         })
     })
+
+    // ─── EFFECT + CLEANUP ───────────────────────────────────────────────────────────
+    describe('Effect + Cleanup', () => {
+        it('effect runs immediately', () => {
+            const count = signal(0)
+            const spy = vi.fn()
+
+            effect(() => spy(count()))
+            expect(spy).toHaveBeenCalledTimes(1)
+            expect(spy).toHaveBeenCalledWith(0)
+        })
+
+        it('effect reruns when dependency changes', () => {
+            const count = signal(0)
+            const spy = vi.fn()
+
+            effect(() => spy(count()))
+
+            count(1)
+            count(2)
+
+            expect(spy).toHaveBeenCalledTimes(3)
+        })
+
+        it('effect stops after stop() is called', () => {
+            const count = signal(0)
+            const spy = vi.fn()
+
+            const stop = effect(() => spy(count()))
+            stop()
+
+            count(1)
+            expect(spy).toHaveBeenCalledTimes(1)
+        })
+    })
+
+    // ─── EFFECT + MULTIPLE SIGNALS ───────────────────────────────────────────────────
+    describe('Effect + Multiple Signals', () => {
+        it('effect tracks multiple signals', () => {
+            const a = signal(1)
+            const b = signal(2)
+            const spy = vi.fn()
+
+            effect(() => spy(a() + b()))
+
+            a(10)
+            expect(spy).toHaveBeenLastCalledWith(12)
+
+            b(20)
+            expect(spy).toHaveBeenLastCalledWith(30)
+        })
+
+        it('effect does not track signals inside untrack', () => {
+            const a = signal(1)
+            const b = signal(100)
+            const spy = vi.fn()
+
+            effect(() => {
+                a()
+                untrack(() => b())
+                spy()
+            })
+
+            b(999)
+            expect(spy).toHaveBeenCalledTimes(1)
+
+            a(2)
+            expect(spy).toHaveBeenCalledTimes(2)
+        })
+    })
+
+    // ─── COMPONENT + EFFECT ────────────────────────────────────────────────────────
+    describe('Component + Effect', () => {
+        it('component effect tracks signals', () => {
+            const count = signal(0)
+            const spy = vi.fn()
+
+            const Comp = defineComponent({
+                setup() {
+                    effect(() => spy(count()))
+                    return { template: '<div></div>' }
+                }
+            })
+
+            const container = document.createElement('div')
+            Comp().render(container)
+
+            count(1)
+            expect(spy).toHaveBeenCalledTimes(2)
+        })
+    })
+
+    // ─── STORE + EFFECT ──────────────────────────────────────────────────────
+    describe('Store + Effect', () => {
+        it('store effect tracks state changes', () => {
+            const useCounter = defineStore('store-effect', () => ({
+                count: signal(0)
+            }))
+
+            const counter = useCounter()
+            const spy = vi.fn()
+
+            effect(() => spy(counter.count()))
+
+            counter.count(1)
+            counter.count(2)
+            expect(spy).toHaveBeenCalledTimes(3)
+        })
+    })
+
+    // ─── WATCH + IMMEDIATE ───────────────────────────────────────────────────────────
+    describe('Watch + Immediate', () => {
+        it('watch with immediate runs callback immediately', () => {
+            const count = signal(0)
+            const spy = vi.fn()
+
+            watch(count, spy, { immediate: true })
+            expect(spy).toHaveBeenCalledWith(0, undefined, expect.any(Function))
+        })
+    })
+
+    // ─── WATCH + EQUALS CUSTOM ───────────────────────────────────────────────────────
+    describe('Watch + Custom Equals', () => {
+        it('watch with custom equals function', () => {
+            const count = signal(0)
+            const spy = vi.fn()
+
+            watch(count, spy, {
+                equals: (a, b) => a === b
+            })
+
+            count(1)
+            count(1)
+            expect(spy).toHaveBeenCalledTimes(1)
+        })
+    })
+
+    // ─── SIGNAL + UNTRACK ───────────────────────────────────────────────────────────
+    describe('Signal + Untrack', () => {
+        it('untrack prevents effect from tracking signal', () => {
+            const a = signal(1)
+            const b = signal(100)
+            const spy = vi.fn()
+
+            effect(() => {
+                untrack(() => b())
+                spy(a())
+            })
+
+            b(999)
+            expect(spy).toHaveBeenCalledTimes(1)
+
+            a(2)
+            expect(spy).toHaveBeenCalledTimes(2)
+        })
+    })
+
+    // ─── COMPUTED + UNTRACK ──────────────────────────────────────────────────────────
+    describe('Computed + Untrack', () => {
+        it('untrack inside computed does not affect dependency tracking', () => {
+            const a = signal(1)
+            const b = signal(100)
+            const spy = vi.fn()
+
+            const result = computed(() => {
+                untrack(() => b())
+                return a() * 2
+            })
+
+            effect(() => spy(result()))
+
+            b(999)
+            expect(spy).toHaveBeenCalledTimes(1)
+
+            a(2)
+            expect(spy).toHaveBeenCalledTimes(2)
+        })
+    })
+
+    // ─── BATCH + EFFECT ─────────────────────────────────────────────────────
+    describe('Batch + Effect', () => {
+        it('batch updates with effect tracking', () => {
+            const a = signal(0)
+            const b = signal(0)
+            const effectSpy = vi.fn()
+
+            effect(() => {
+                a()
+                b()
+                effectSpy()
+            })
+
+            batch(() => {
+                a(1)
+                b(2)
+            })
+
+            expect(effectSpy).toHaveBeenCalledTimes(2)
+        })
+    })
 })

@@ -238,32 +238,6 @@ export function watch(source, callback, options = {}) {
     }
 }
 
-export function watchEffect(fn) {
-    if (typeof fn !== 'function') {
-        console.warn('[framework] watchEffect() expects a function')
-        return () => { }
-    }
-
-    const cleanupRef = { fn: null }
-    const onCleanup = (cleanup) => {
-        if (typeof cleanup !== 'function') {
-            console.warn('[framework] onCleanup() expects a function')
-            return
-        }
-        cleanupRef.fn = cleanup
-    }
-
-    const stopEffect = effect(() => {
-        runWatchCleanup(cleanupRef)
-        fn(onCleanup)
-    })
-
-    return () => {
-        stopEffect()
-        runWatchCleanup(cleanupRef)
-    }
-}
-
 export function inspect(...args) {
     const isDev = typeof import.meta.env !== 'undefined' ? !!import.meta.env.DEV : true
     if (!isDev) return

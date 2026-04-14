@@ -5,8 +5,7 @@ import {
     computed,
     batch,
     untrack,
-    watch,
-    watchEffect
+    watch
 } from '../core/signal.js'
 
 // ─────────────────────────────────────────────
@@ -506,25 +505,6 @@ describe('effect() + computed() combined', () => {
         a(2) // should trigger
         expect(spy).toHaveBeenCalledTimes(2)
         expect(spy).toHaveBeenLastCalledWith(2 + 999)
-    })
-
-    it('effect cleanup runs before next execution', () => {
-        const count = signal(0)
-        const cleanupSpy = vi.fn()
-        const effectSpy = vi.fn()
-
-        // Testam cu watchEffect care suporta onCleanup
-        watchEffect((onCleanup) => {
-            effectSpy(count())
-            onCleanup(() => cleanupSpy())
-        })
-
-        count(1)
-        expect(cleanupSpy).toHaveBeenCalledTimes(1) // cleanup before rerun
-
-        count(2)
-        expect(cleanupSpy).toHaveBeenCalledTimes(2)
-        expect(effectSpy).toHaveBeenCalledTimes(3) // initial + 2 reruns
     })
 
 })
