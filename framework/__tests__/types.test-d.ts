@@ -26,6 +26,7 @@ import {
     defineAsyncComponent,
     parseSlots
 } from '../index'
+import type { ComponentResult } from '../types/component'
 
 // ─── 1. PRIMITIVE SIGNALS ─────────────────────────────────────────────────────
 
@@ -691,6 +692,21 @@ test('compiler: mountTemplate return type', () => {
 
 test('directive: directive return type', () => {
     expectTypeOf(directive('test', {})).toBeVoid()
+})
+
+test('directive: f-classList computed object values are booleans', () => {
+    const isActive = signal(false)
+    const isDisabled = signal(true)
+
+    const classList = computed(() => ({
+        active: isActive(),
+        disabled: isDisabled(),
+        'theme-dark': false
+    }))
+
+    expectTypeOf(classList().active).toBeBoolean()
+    expectTypeOf(classList().disabled).toBeBoolean()
+    expectTypeOf(classList()['theme-dark']).toBeBoolean()
 })
 
 // ─── 14. COMPONENT UTILS ────────────────────────────────────────────────────────

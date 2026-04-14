@@ -36,6 +36,7 @@ export function processShow(root: HTMLElement, context: ComponentResult, effects
 export function processHtml(root: HTMLElement, context: ComponentResult, effects: (() => void)[]): void
 export function processText(root: HTMLElement, context: ComponentResult, effects: (() => void)[]): void
 export function processEvents(root: HTMLElement, context: ComponentResult): void
+export function processClassList(root: HTMLElement, context: ComponentResult, effects: (() => void)[]): void
 export function processCloak(root: HTMLElement): void
 
 export interface DirectiveBinding<V = any> {

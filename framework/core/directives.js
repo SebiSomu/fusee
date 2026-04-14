@@ -81,6 +81,7 @@ export function processDirectives(root, context, components, effects) {
     processText(root, context, effects)
     processEvents(root, context, effects)
     processCustomDirectives(root, context, effects)
+    processClassList(root, context, effects)
     processCloak(root)
 
     return false
@@ -588,4 +589,44 @@ export function processCloak(el) {
 
     const els = el.querySelectorAll('[f-cloak]')
     for (const e of els) e.removeAttribute('f-cloak')
+}
+
+export function processClassList(el, context, effects) {
+    if (el.nodeType !== 1 || !el.hasAttribute('f-classList')) return
+
+    const expr = el.getAttribute('f-classList')
+    el.removeAttribute('f-classList')
+
+    const appliedClasses = new Set()
+
+    const e = effect(() => {
+        const result = evaluateExpression(expr, context)
+
+        if (!result || typeof result !== 'object') {
+            console.warn(`[framework] f-classList must evaluate to an object, got: ${typeof result}`)
+            return
+        }
+
+        for (const [className, shouldApply] of Object.entries(result)) {
+            const isApplied = appliedClasses.has(className)
+
+            if (shouldApply && !isApplied) {
+                el.classList.add(className)
+                appliedClasses.add(className)
+            } else if (!shouldApply && isApplied) {
+                el.classList.remove(className)
+                appliedClasses.delete(className)
+            }
+        }
+
+        const currentClasses = new Set(Object.keys(result))
+        for (const className of [...appliedClasses]) {
+            if (!currentClasses.has(className)) {
+                el.classList.remove(className)
+                appliedClasses.delete(className)
+            }
+        }
+    })
+
+    effects.push(e)
 }

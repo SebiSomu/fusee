@@ -10,8 +10,9 @@ import {
     processEvents,
     processRefs,
     processCloak,
+    processClassList,
 } from '../core/directives.js'
-import { signal, effect, batch } from '../core/signal.js'
+import { signal, effect, batch, computed } from '../core/signal.js'
 import {
     evaluateExpression,
     parseInterpolation,
@@ -388,4 +389,115 @@ describe('Composable', () => {
         expect(warn).toHaveBeenCalledWith(expect.stringContaining('outside of setup'))
         warn.mockRestore()
     })
+})
+
+// ─────────────────────────────────────────────
+// PROCESSCLASSLIST
+// ─────────────────────────────────────────────
+
+describe('processClassList()', () => {
+
+    it('adds classes when values are true', () => {
+        const isActive = signal(true)
+        const isDisabled = signal(false)
+        const classList = computed(() => ({
+            active: isActive(),
+            disabled: isDisabled()
+        }))
+
+        const node = el('div', { 'f-classList': 'classList' })
+        const effects = []
+
+        processClassList(node, { classList }, effects)
+
+        expect(node.classList.contains('active')).toBe(true)
+        expect(node.classList.contains('disabled')).toBe(false)
+
+        for (const e of effects) if (typeof e === 'function') e()
+    })
+
+    it('removes classes when values become false', () => {
+        const isActive = signal(true)
+        const classList = computed(() => ({
+            active: isActive()
+        }))
+
+        const node = el('div', { 'f-classList': 'classList' })
+        const effects = []
+
+        processClassList(node, { classList }, effects)
+
+        expect(node.classList.contains('active')).toBe(true)
+
+        isActive(false)
+
+        expect(node.classList.contains('active')).toBe(false)
+
+        for (const e of effects) if (typeof e === 'function') e()
+    })
+
+    it('reacts to signal changes', () => {
+        const theme = signal('light')
+        const classList = computed(() => ({
+            'theme-dark': theme() === 'dark',
+            'theme-light': theme() === 'light'
+        }))
+
+        const node = el('div', { 'f-classList': 'classList' })
+        const effects = []
+
+        processClassList(node, { classList }, effects)
+
+        expect(node.classList.contains('theme-light')).toBe(true)
+        expect(node.classList.contains('theme-dark')).toBe(false)
+
+        theme('dark')
+
+        expect(node.classList.contains('theme-light')).toBe(false)
+        expect(node.classList.contains('theme-dark')).toBe(true)
+
+        for (const e of effects) if (typeof e === 'function') e()
+    })
+
+    it('cleans up classes no longer in object', () => {
+        const showActive = signal(true)
+        const showDisabled = signal(true)
+        const classList = computed(() => ({
+            active: showActive(),
+            disabled: showDisabled()
+        }))
+
+        const node = el('div', { 'f-classList': 'classList' })
+        const effects = []
+
+        processClassList(node, { classList }, effects)
+
+        expect(node.classList.contains('active')).toBe(true)
+        expect(node.classList.contains('disabled')).toBe(true)
+
+        showDisabled(false)
+
+        expect(node.classList.contains('active')).toBe(true)
+        expect(node.classList.contains('disabled')).toBe(false)
+
+        for (const e of effects) if (typeof e === 'function') e()
+    })
+
+    it('preserves static class attribute', () => {
+        const isActive = signal(true)
+        const classList = computed(() => ({
+            active: isActive()
+        }))
+
+        const node = el('div', { class: 'base-class', 'f-classList': 'classList' })
+        const effects = []
+
+        processClassList(node, { classList }, effects)
+
+        expect(node.classList.contains('base-class')).toBe(true)
+        expect(node.classList.contains('active')).toBe(true)
+
+        for (const e of effects) if (typeof e === 'function') e()
+    })
+
 })
