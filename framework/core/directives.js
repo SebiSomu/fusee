@@ -161,7 +161,6 @@ export function processFor(el, context, components, effects) {
     const templateNode = el.cloneNode(true)
     parent.removeChild(el)
 
-    // Cache of currently rendered items: Map<key, { node, effects, context }>
     let cache = new Map()
     let previousOrder = []
 
@@ -197,7 +196,6 @@ export function processFor(el, context, components, effects) {
             let entry = cache.get(key)
 
             if (entry) {
-                // Update existing reactive signals for reused items
                 batch(() => {
                     if (typeof entry.context[itemName] === 'function' && entry.context[itemName].isSignal) {
                         entry.context[itemName](item.value)
@@ -217,7 +215,6 @@ export function processFor(el, context, components, effects) {
                 }
                 cache.delete(key)
             } else {
-                // Create new item context with signals for local state
                 const itemContext = Object.create(context)
                 itemContext[itemName] = signal(item.value)
                 if (keyName) itemContext[keyName] = signal(item.hasOwnProperty('key') ? item.key : item.rawIndex)
@@ -347,7 +344,6 @@ export function processIf(el, context, components, effects) {
 export function processIs(el, context, components, effects) {
     if (el.nodeType !== 1 || !el.hasAttribute('f-is')) return false
 
-    // 1. Prepare directive state
     const expr = el.getAttribute('f-is')
     const keepAlive = processKeepAlive(el)
 
@@ -355,8 +351,6 @@ export function processIs(el, context, components, effects) {
 
     const anchor = document.createComment('f-keepAlive-anchor')
     el.parentNode.insertBefore(anchor, el)
-
-    // Keep a clone to reuse attributes (props/@events) for every dynamic instance
     const templateNode = el.cloneNode(true)
     el.remove()
 
@@ -364,14 +358,11 @@ export function processIs(el, context, components, effects) {
     let activeKey = null
     let activeCleanup = []
 
-    // 2. Reactive loop
     effects.push(effect(() => {
         const rawValue = evaluateExpression(expr, context)
 
-        // Skip if same component is already active
         if (rawValue === activeKey) return
 
-        // 3. Handle exiting component
         if (activeKey !== null) {
             const currentEntry = cache.get(activeKey)
             if (currentEntry) {
@@ -391,15 +382,12 @@ export function processIs(el, context, components, effects) {
             return
         }
 
-        // 4. Handle entering component
         let entry = cache.get(rawValue)
 
         if (entry && keepAlive) {
-            // Restore from cache
             anchor.parentNode.insertBefore(entry.node, anchor.nextSibling)
             activeCleanup = entry.cleanup
         } else {
-            // Create new instance
             let ComponentFn = typeof rawValue === 'string' ? components[rawValue] : rawValue
 
             if (typeof ComponentFn !== 'function') {
@@ -418,7 +406,6 @@ export function processIs(el, context, components, effects) {
             const childCleanup = []
             const dynamicComponents = { ...components, [tempName]: ComponentFn }
 
-            // Trigger the internal compiler to bind props and events
             compileNode(compEl, context, dynamicComponents, childCleanup)
 
             entry = { node: compEl, cleanup: childCleanup }
@@ -429,7 +416,6 @@ export function processIs(el, context, components, effects) {
         activeKey = rawValue
     }))
 
-    // Cleanup all cached components when this directive is destroyed
     effects.push(() => {
         for (const entry of cache.values()) {
             for (const c of entry.cleanup) if (typeof c === 'function') c()
@@ -504,7 +490,7 @@ export function processEvents(el, context, effects) {
                     if (next.endsWith('ms')) return parseInt(next) || 250
                     if (next.endsWith('s')) return (parseFloat(next) || 0.25) * 1000
                 }
-                return 250 // Default
+                return 250 
             }
 
             const debounceIdx = modifiers.indexOf('debounce')
@@ -529,7 +515,6 @@ export function processEvents(el, context, effects) {
                 if (modifiers.includes('stop')) e.stopPropagation()
                 if (modifiers.includes('self') && e.target !== el) return
 
-                // Specific handling for common modifiers like .enter, .escape etc on keyboard events
                 if (e instanceof KeyboardEvent) {
                     const key = e.key.toLowerCase()
                     const keyModifiers = modifiers.filter(m => ['enter', 'escape', 'tab', 'space', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(m))
@@ -543,7 +528,6 @@ export function processEvents(el, context, effects) {
                     }
                 }
 
-                // Throttle logic (ensures execution at most once every X ms)
                 if (throttleMs > 0) {
                     const now = Date.now()
                     const remaining = throttleMs - (now - lastRun)
@@ -553,7 +537,6 @@ export function processEvents(el, context, effects) {
                         lastRun = now
                         executeLogic(e)
                     } else {
-                        // Standard throttle with trailing edge support
                         clearTimeout(throttleTimeoutId)
                         throttleTimeoutId = setTimeout(() => {
                             lastRun = Date.now()
@@ -563,7 +546,6 @@ export function processEvents(el, context, effects) {
                     return
                 }
 
-                // Debounce logic (waits for X ms of inactivity)
                 if (debounceMs > 0) {
                     clearTimeout(timeoutId)
                     timeoutId = setTimeout(() => executeLogic(e), debounceMs)

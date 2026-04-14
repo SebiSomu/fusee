@@ -364,7 +364,6 @@ function addMutatingArrayMethods(accessor) {
     }
 }
 
-// Helpers for watch/watchEffect
 function normalizeWatchSource(source) {
     if (Array.isArray(source)) {
         const getters = source.map(normalizeSingleWatchSource)

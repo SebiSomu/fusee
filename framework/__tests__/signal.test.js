@@ -202,6 +202,25 @@ describe('effect()', () => {
         expect(spy).toHaveBeenCalledTimes(1) // only initial run
     })
 
+    it('should only run fine-grained effects on signal update', () => {
+        const count = signal(0)
+        let effectRuns = 0
+
+        // This logic simulates what the compiler does inside mountTemplate
+        // It creates an effect that depends on the signal
+        effect(() => {
+            count()
+            effectRuns++
+        })
+
+        expect(effectRuns).toBe(1) // initial run
+
+        count(10)
+        count(20)
+
+        expect(effectRuns).toBe(3) // initial + 2 updates
+    })
+
 })
 
 // ─────────────────────────────────────────────

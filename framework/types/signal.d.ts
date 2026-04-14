@@ -1,5 +1,3 @@
-// ─── Signal Types ────────────────────────────────────────────────────────────
-
 export type SignalAccessor<T> = {
     (): T;
     (newValue: T): void;
@@ -46,8 +44,8 @@ export type ComputedAccessor<T> = {
     readonly: true;
 } & (T extends any[] ? ReactiveArrayMethods<T[number]> : {})
 
-export type Signal<T = any> = T extends any[] ? ArraySignalAccessor<T> : SignalAccessor<T>
-export type Computed<T = any> = ComputedAccessor<T>
+export type Signal<T = any> = SignalAccessor<T> & (T extends any[] ? ReactiveArrayMethods<T[number]> : {})
+export type Computed<T = any> = ComputedAccessor<T> & (T extends any[] ? ReactiveArrayMethods<T[number]> : {})
 
 type EffectRunner = {
     (): void;

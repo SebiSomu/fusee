@@ -37,7 +37,6 @@ export function mountTemplate(template, container, context, components) {
     return { effects }
 }
 
-// Parses props string from component mustache into HTML attr string
 function parseComponentAttrs(propsStr) {
     let attrs = ''
     if (!propsStr || !propsStr.trim()) return attrs
@@ -49,13 +48,10 @@ function parseComponentAttrs(propsStr) {
         const attrValue = attrMatch[2]
 
         if (attrName.startsWith('@')) {
-            // Event listener: @change="handler" → data-on-change="handler"
             attrs += ` data-on-${attrName.slice(1).toLowerCase()}="${attrValue}"` 
         } else if (attrName.startsWith(':')) {
-            // Dynamic prop
             attrs += ` data-bind-prop-${attrName.slice(1).toLowerCase()}="${attrValue}"` 
         } else {
-            // Static prop
             attrs += ` data-prop-${attrName.toLowerCase()}="${attrValue}"` 
         }
     }
@@ -196,7 +192,6 @@ function bindComponents(el, components, context, effects) {
     const ComponentFn = components[name]
     if (!ComponentFn) return
 
-    // ── Props ────────────────────────────────────────────────────────────────
     const props = {}
     const listeners = {}
 
@@ -228,10 +223,7 @@ function bindComponents(el, components, context, effects) {
             }
 
         } else if (attrName.startsWith('data-on-')) {
-            // ── Emit listeners ───────────────────────────────────────────────
-            // @change="handler" → data-on-change="handler"
-            // When child emits 'change', calls context.handler(value)
-            const eventName = attrName.slice(8)  // "data-on-" → eventName
+            const eventName = attrName.slice(8)  
             const handlerExpr = attr.value.trim()
 
             listeners[eventName] = (...args) => {
@@ -239,15 +231,12 @@ function bindComponents(el, components, context, effects) {
                 if (typeof handler === 'function') {
                     handler(...args)
                 } else {
-                    // Support inline expressions: @change="count(count() + 1)"
                     evaluateExpression(handlerExpr, context)
                 }
             }
         }
     }
 
-    // ── Slots ────────────────────────────────────────────────────────────────
-    // data-slot attribute contains URI-encoded slot HTML from parent
     const rawSlot = el.getAttribute('data-slot')
     const slots = rawSlot ? parseSlots(decodeURIComponent(rawSlot)) : {}
     el.removeAttribute('data-slot')

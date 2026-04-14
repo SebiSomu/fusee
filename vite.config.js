@@ -38,6 +38,10 @@ export default defineConfig({
 
     test: {
         environment: 'jsdom',
-        globals: true
+        globals: true,
+        typecheck: {
+            enabled: true,
+            include: ['**/*.test-d.ts'],
+        }
     }
 })

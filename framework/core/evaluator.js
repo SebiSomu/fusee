@@ -7,11 +7,9 @@ export function evaluateExpression(expr, context, extraContext = {}, unwrapSigna
     const keys = []
     const values = []
     
-    // Remove string literals before extracting identifiers to avoid matching words inside strings
     const exprWithoutStrings = expr.replace(/'[^']*'|"[^"]*"/g, ' ')
     const identifiers = new Set(exprWithoutStrings.match(/[a-zA-Z_$][a-zA-Z0-9_$]*/g) || [])
 
-    // Map global context (only what is used in expression)
     for (const k in context) {
         if (identifiers.has(k)) {
             keys.push(k)
@@ -20,7 +18,6 @@ export function evaluateExpression(expr, context, extraContext = {}, unwrapSigna
         }
     }
 
-    // Map extra context (like $event)
     for (const k in extraContext) {
         if (!keys.includes(k)) {
             keys.push(k)

@@ -466,6 +466,72 @@ describe('defineComponent()', () => {
         expect(receivedSlots.header).toBe('<h1>Hi</h1>')
     })
 
+    // ── Reactivity Model Checks ──
+
+    it('should run setup() EXACTLY ONCE for the entire lifecycle', () => {
+        const { signal } = require('../core/signal.js')
+        const count = signal(0)
+        let setupCalls = 0
+
+        const Comp = defineComponent({
+            setup() {
+                setupCalls++
+                return {
+                    template: '<div>{{ count() }}</div>',
+                    count
+                }
+            }
+        })
+
+        const container = { innerHTML: '' }
+        const { render } = Comp()
+
+        // 1. Initial Render
+        render(container)
+        expect(setupCalls).toBe(1)
+
+        // 2. Simulate data changes
+        count(1)
+        count(2)
+
+        // Setup calls must remain 1 (Solid-style fine-grained reactivity)
+        expect(setupCalls).toBe(1, 'setup() was called more than once! (React-style detected)')
+    })
+
+    it('should not re-run setup when props change (via getters)', () => {
+        const { signal } = require('../core/signal.js')
+        let setupCalls = 0
+        const parentSignal = signal('initial')
+
+        const Child = defineComponent({
+            props: ['label'],
+            setup(props) {
+                setupCalls++
+                return {
+                    template: '<div>{{ props.label }}</div>'
+                }
+            }
+        })
+
+        // Simulate how the framework passes props (as getters)
+        const propsWithGetter = {}
+        Object.defineProperty(propsWithGetter, 'label', {
+            get: () => parentSignal(),
+            enumerable: true
+        })
+
+        const { render } = Child(propsWithGetter)
+        render({ innerHTML: '' })
+
+        expect(setupCalls).toBe(1)
+
+        // Change value in parent
+        parentSignal('updated')
+
+        // setup() should not run again
+        expect(setupCalls).toBe(1, 'setup() re-ran on prop change! (React-style detected)')
+    })
+
 })
 
 // ─────────────────────────────────────────────

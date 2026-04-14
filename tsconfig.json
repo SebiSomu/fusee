@@ -24,6 +24,8 @@
     "declarationDir": "./dist/types",
     
     "resolveJsonModule": true,
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
     "paths": {
       "fusee-framework": ["./framework/types/index.d.ts"],
       "fusee-framework/*": ["./framework/*"]

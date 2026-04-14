@@ -10,5 +10,5 @@ declare global {
     }
 }
 
-export function defineComposable<T>(fn: (...args: any[]) => T): Composable<T>
-export function assertSetupContext(name?: string): any
+export declare function defineComposable<T extends (...args: any[]) => any>(fn: T): T;
+export declare function assertSetupContext(name?: string): void;

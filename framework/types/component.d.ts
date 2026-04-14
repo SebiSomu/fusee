@@ -12,16 +12,10 @@ export type PropConfig = {
     required?: boolean
 }
 
-// ── Emit ──────────────────────────────────────────────────────────────────────
-// emit('change', value) — calls parent listener registered with @change="handler"
 export type EmitFn = (eventName: string, ...args: any[]) => void
 
-// ── Slots ─────────────────────────────────────────────────────────────────────
-// slots.default — default slot HTML string
-// slots.header  — named slot HTML string
 export type Slots = Record<string, string>
 
-// ── Setup context ─────────────────────────────────────────────────────────────
 export type SetupContext = {
     emit: EmitFn
     slots: Slots
@@ -42,8 +36,8 @@ export type ComponentResult = {
     [key: string]: any
 }
 
-export type ComponentOptions<TProps = ComponentProps> = {
-    props?: PropSchema
+export type ComponentOptions<TProps = ComponentProps, P = PropSchema> = {
+    props?: P
     components?: Record<string, ComponentFactory<any>>
     setup: (props: TProps, ctx: SetupContext) => ComponentResult
 }
@@ -62,13 +56,28 @@ export type ComponentApi = {
 export declare function onMount(fn: () => void): void
 export declare function onUnmount(fn: () => void): void
 export declare function parseSlots(slotHTML: string): Slots
+export declare function getCurrentInstance(): ComponentInstance | null
 
-// ── Provide / Inject ───────────────────────────────────────────────────────────
 export declare function provide<T>(key: string, value: T): void
 export declare function inject<T>(key: string): T | null
 
-export declare function defineComponent<TProps = EmptyProps>(
-    options: ComponentOptions<TProps>
+type InferPropType<T> = T extends StringConstructor ? string :
+    T extends NumberConstructor ? number :
+    T extends BooleanConstructor ? boolean :
+    any;
+
+type InferProps<P> = P extends string[]
+    ? Record<P[number], any>
+    : P extends Record<string, PropConfig>
+    ? {
+        [K in keyof P]: P[K]['required'] extends true
+        ? InferPropType<P[K]['type']>
+        : InferPropType<P[K]['type']> | (P[K] extends { default: any } ? never : undefined)
+    }
+    : Record<string, any>;
+
+export declare function defineComponent<P extends PropSchema = any, TProps = InferProps<P>>(
+    options: ComponentOptions<TProps, P>
 ): ComponentFactory<TProps>
 
 export type AsyncComponentLoader<TProps = ComponentProps> = () => Promise<ComponentFactory<TProps> | { default: ComponentFactory<TProps> } | Record<string, any>>
