@@ -128,6 +128,54 @@ describe('effect()', () => {
         expect(outerSpy).toHaveBeenCalledTimes(2)
     })
 
+    it('cleans up nested effects when outer effect stops', () => {
+        const outer = signal(0)
+        const inner = signal(0)
+        const innerSpy = vi.fn()
+
+        const stopOuter = effect(() => {
+            effect(() => {
+                innerSpy(inner())
+            })
+        })
+
+        // inner effect should run initially
+        expect(innerSpy).toHaveBeenCalledTimes(1)
+
+        // change inner, inner effect should run
+        inner(1)
+        expect(innerSpy).toHaveBeenCalledTimes(2)
+
+        // stop outer effect, which should stop inner effect
+        stopOuter()
+
+        // change inner again, inner effect should NOT run (it was cleaned up)
+        inner(2)
+        expect(innerSpy).toHaveBeenCalledTimes(2)
+    })
+
+    it('does not accumulate duplicate nested effects on rerun', () => {
+        const outer = signal(0)
+        const inner = signal(0)
+        const innerSpy = vi.fn()
+
+        effect(() => {
+            effect(() => {
+                innerSpy(inner())
+            })
+        })
+
+        // initial run
+        expect(innerSpy).toHaveBeenCalledTimes(1)
+
+        // rerun outer effect (which creates new inner effect)
+        outer(1)
+
+        // change inner - should only run once, not multiple times
+        inner(1)
+        expect(innerSpy).toHaveBeenCalledTimes(2) // initial + after inner change
+    })
+
     it('does not track signals read inside untrack()', () => {
         const a = signal(1)
         const b = signal(10)

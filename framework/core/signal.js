@@ -61,6 +61,7 @@ export function signal(initialValue) {
 export function effect(fn) {
     let active = true
     let running = false
+    const nestedEffects = new Set()
 
     const run = () => {
         if (!active || running) {
@@ -69,14 +70,28 @@ export function effect(fn) {
         }
 
         running = true
+
+        for (const childCleanup of nestedEffects) {
+            childCleanup()
+        }
+        nestedEffects.clear()
+
         for (const dep of run.deps) dep.delete(run)
         run.deps.clear()
 
         const prevEffect = currentEffect
+        const prevOnEffectCreated = onEffectCreated
+
+        onEffectCreated = (childCleanup) => {
+            nestedEffects.add(childCleanup)
+            if (prevOnEffectCreated) prevOnEffectCreated(childCleanup)
+        }
+
         currentEffect = run
         try { fn() }
         finally {
             currentEffect = prevEffect
+            onEffectCreated = prevOnEffectCreated
             running = false
         }
     }
@@ -88,6 +103,12 @@ export function effect(fn) {
         pendingEffects.delete(run)
         for (const dep of run.deps) dep.delete(run)
         run.deps.clear()
+
+        // Cleanup all nested effects when parent stops
+        for (const childCleanup of nestedEffects) {
+            childCleanup()
+        }
+        nestedEffects.clear()
     }
 
     if (onEffectCreated) onEffectCreated(cleanup)
