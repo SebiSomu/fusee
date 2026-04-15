@@ -11,6 +11,7 @@ import {
     inject,
     parseSlots,
 } from '../core/component.js'
+import { signal } from '../core/signal.js'
 
 // ─────────────────────────────────────────────
 // MOCK mountTemplate
@@ -196,6 +197,29 @@ describe('onMount() / onUnmount()', () => {
 
         expect(spy1).toHaveBeenCalledTimes(1)
         expect(spy2).toHaveBeenCalledTimes(1)
+    })
+
+    it('onMount does not rerun on signal changes', () => {
+        const mountSpy = vi.fn()
+        const count = signal(0)
+
+        const Comp = defineComponent({
+            setup() {
+                onMount(mountSpy)
+                return { template: `<div>${count()}</div>` }
+            }
+        })
+
+        const { render } = Comp({}, {})
+        render(makeContainer())
+
+        expect(mountSpy).toHaveBeenCalledTimes(1)
+
+        // Change signal - onMount should NOT run again
+        count(1)
+        count(2)
+
+        expect(mountSpy).toHaveBeenCalledTimes(1)
     })
 
 })
