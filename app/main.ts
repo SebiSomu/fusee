@@ -33,19 +33,19 @@ const routes: Route[] = [
             loadingComponent: Loading
         }) 
     },
-    { 
-        path: '/test-for', 
+    {
+        path: '/test-for',
         component: defineAsyncComponent({
             loader: () => import('./routes/TestFor.ts'),
             loadingComponent: Loading
-        }) 
+        })
     },
-    { 
-        path: '/dynamic', 
+    {
+        path: '/dynamic',
         component: defineAsyncComponent({
             loader: () => import('./routes/TestDynamic.ts'),
             loadingComponent: Loading
-        }) 
+        })
     },
     {
         path: '/composables',

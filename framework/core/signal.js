@@ -104,7 +104,6 @@ export function effect(fn) {
         for (const dep of run.deps) dep.delete(run)
         run.deps.clear()
 
-        // Cleanup all nested effects when parent stops
         for (const childCleanup of nestedEffects) {
             childCleanup()
         }

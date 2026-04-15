@@ -1,9 +1,5 @@
-// ─── Component Types ─────────────────────────────────────────────────────────
-
 export type ComponentProps = Record<string, any>
-
 export type EmptyProps = Record<string, never>
-
 export type PropSchema = string[] | Record<string, PropConfig>
 
 export type PropConfig = {

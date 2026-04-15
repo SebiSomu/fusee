@@ -27,6 +27,7 @@ import {
     parseSlots
 } from '../index'
 import type { ComponentResult } from '../types/component'
+import type { DelegatedEventOptions, EventHandlerSyntax } from '../types/event-delegation'
 
 // ─── 1. PRIMITIVE SIGNALS ─────────────────────────────────────────────────────
 
@@ -727,4 +728,33 @@ test('component: defineAsyncComponent with options', () => {
 test('component: parseSlots return type', () => {
     const slots = parseSlots('<div>content</div>')
     expectTypeOf(slots).toEqualTypeOf<import('../types/component').Slots>()
+})
+
+// ─── 15. EVENT DELEGATION ─────────────────────────────────────────────────────────
+
+test('event-delegation: isDelegatedEvent function type', () => {
+    expectTypeOf(isDelegatedEvent).toBeFunction()
+    expectTypeOf(isDelegatedEvent).parameters.toEqualTypeOf<[eventName: string]>()
+    expectTypeOf(isDelegatedEvent).returns.toBeBoolean()
+})
+
+test('event-delegation: DelegatedEventOptions interface', () => {
+    const options: DelegatedEventOptions = {
+        modifiers: ['prevent', 'stop'],
+        context: { value: 123 },
+        expr: 'handler'
+    }
+    expectTypeOf(options.modifiers).toEqualTypeOf<string[] | undefined>()
+    expectTypeOf(options.context).toEqualTypeOf<Record<string, any> | undefined>()
+    expectTypeOf(options.expr).toEqualTypeOf<string | undefined>()
+})
+
+test('event-delegation: EventHandlerSyntax delegated type', () => {
+    const delegated: EventHandlerSyntax['delegated'] = '@click'
+    expectTypeOf(delegated).toEqualTypeOf<`@${string}`>()
+})
+
+test('event-delegation: EventHandlerSyntax native type', () => {
+    const native: EventHandlerSyntax['native'] = 'on:click'
+    expectTypeOf(native).toEqualTypeOf<`on:${string}`>()
 })

@@ -10,7 +10,7 @@ describe('Fusée Communication: Emit & DI', () => {
     describe('emit()', () => {
         it('should call the parent listener when child emits', () => {
             const handler = vi.fn()
-            
+
             // Define child component that emits an event
             const Child = defineComponent({
                 setup(props, { emit }) {
@@ -23,7 +23,7 @@ describe('Fusée Communication: Emit & DI', () => {
 
             // Container for mounting
             const container = document.createElement('div')
-            
+
             // Simulate what the compiler does when it sees @custom-event="handler"
             const listeners = {
                 'custom-event': handler
@@ -32,10 +32,15 @@ describe('Fusée Communication: Emit & DI', () => {
             const childApi = Child({}, { listeners })
             childApi.render(container)
 
+            // Attach to document body for delegated events to work
+            document.body.appendChild(container)
+
             const btn = container.querySelector('button')
             btn.click()
 
             expect(handler).toHaveBeenCalledWith('hello from below')
+
+            container.remove()
         })
 
         it('should execute inline expressions in parent context via emit', () => {

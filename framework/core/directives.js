@@ -1,6 +1,7 @@
 import { signal, effect, batch } from './signal.js'
 import { evaluateExpression } from './evaluator.js'
 import { compileNode } from './compiler.js'
+import { registerDelegatedEvent, createEventHandler, isDelegatedEvent } from './event-delegation.js'
 
 const customDirectives = new Map()
 
@@ -469,8 +470,9 @@ export function processEvents(el, context, effects) {
     if (el.nodeType !== 1 || !el.attributes) return
 
     for (const attr of [...el.attributes]) {
-        if (attr.name.startsWith('@')) {
-            const fullEventName = attr.name.slice(1)
+        // Handle native events: on:click, on:scroll, on:custom-event
+        if (attr.name.startsWith('on:')) {
+            const fullEventName = attr.name.slice(3) // Remove 'on:' prefix
             const parts = fullEventName.split('.')
             const eventName = parts[0]
             const modifiers = parts.slice(1)
@@ -491,7 +493,7 @@ export function processEvents(el, context, effects) {
                     if (next.endsWith('ms')) return parseInt(next) || 250
                     if (next.endsWith('s')) return (parseFloat(next) || 0.25) * 1000
                 }
-                return 250 
+                return 250
             }
 
             const debounceIdx = modifiers.indexOf('debounce')
@@ -568,6 +570,158 @@ export function processEvents(el, context, effects) {
                     if (timeoutId) clearTimeout(timeoutId)
                     if (throttleTimeoutId) clearTimeout(throttleTimeoutId)
                 })
+            }
+            continue
+        }
+
+        // Handle delegated events: @click, @input, etc.
+        if (attr.name.startsWith('@')) {
+            const fullEventName = attr.name.slice(1) // Remove '@' prefix
+            const parts = fullEventName.split('.')
+            const eventName = parts[0]
+            const modifiers = parts.slice(1)
+            const expr = attr.value
+
+            el.removeAttribute(attr.name)
+
+            const targetNode = modifiers.includes('window') ? window : (modifiers.includes('document') ? document : null)
+
+            // Window/document events are always native (can't delegate to window/document from document)
+            if (targetNode) {
+                // Native handler for window/document events
+                const handler = createEventHandler(
+                    typeof context[expr] === 'function' && !context[expr].isSignal
+                        ? context[expr]
+                        : expr,
+                    modifiers,
+                    context,
+                    expr
+                )
+
+                const options = {
+                    once: modifiers.includes('once'),
+                    capture: modifiers.includes('capture') || modifiers.includes('away')
+                }
+
+                targetNode.addEventListener(eventName, handler, options)
+                if (effects) {
+                    effects.push(() => {
+                        targetNode.removeEventListener(eventName, handler, options)
+                    })
+                }
+            } else if (isDelegatedEvent(eventName) && !modifiers.includes('capture') && !modifiers.includes('away')) {
+                // Use event delegation for supported events
+                const potentialFn = context[expr]
+                const isFunction = typeof potentialFn === 'function' && !potentialFn.isSignal
+
+                const wrappedHandler = createEventHandler(
+                    isFunction ? potentialFn : expr,
+                    modifiers,
+                    context,
+                    expr
+                )
+
+                const cleanup = registerDelegatedEvent(el, eventName, wrappedHandler, {
+                    modifiers,
+                    context,
+                    expr
+                })
+
+                if (effects) {
+                    effects.push(cleanup)
+                }
+            } else {
+                // Fallback to native for non-delegated events or when capture/away modifiers are used
+                let timeoutId
+                let lastRun = 0
+                let throttleTimeoutId
+
+                let debounceMs = 0
+                let throttleMs = 0
+
+                const parseDuration = (idx) => {
+                    const next = modifiers[idx + 1]
+                    if (next && /^\d/.test(next)) {
+                        if (next.endsWith('ms')) return parseInt(next) || 250
+                        if (next.endsWith('s')) return (parseFloat(next) || 0.25) * 1000
+                    }
+                    return 250
+                }
+
+                const debounceIdx = modifiers.indexOf('debounce')
+                if (debounceIdx > -1) debounceMs = parseDuration(debounceIdx)
+
+                const throttleIdx = modifiers.indexOf('throttle')
+                if (throttleIdx > -1) throttleMs = parseDuration(throttleIdx)
+
+                const executeLogic = (e) => {
+                    batch(() => {
+                        const potentialFn = context[expr]
+                        if (typeof potentialFn === 'function' && !potentialFn.isSignal) {
+                            potentialFn(e)
+                        } else {
+                            evaluateExpression(expr, context, { $event: e }, false)
+                        }
+                    })
+                }
+
+                const handler = (e) => {
+                    if (modifiers.includes('prevent')) e.preventDefault()
+                    if (modifiers.includes('stop')) e.stopPropagation()
+                    if (modifiers.includes('self') && e.target !== el) return
+
+                    if (e instanceof KeyboardEvent) {
+                        const key = e.key.toLowerCase()
+                        const keyModifiers = modifiers.filter(m => ['enter', 'escape', 'tab', 'space', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(m))
+                        if (keyModifiers.length > 0) {
+                            const match = keyModifiers.some(m => {
+                                if (m === 'escape') return key === 'escape' || key === 'esc'
+                                if (m === 'space') return key === ' ' || key === 'spacebar'
+                                return key === m
+                            })
+                            if (!match) return
+                        }
+                    }
+
+                    if (throttleMs > 0) {
+                        const now = Date.now()
+                        const remaining = throttleMs - (now - lastRun)
+
+                        if (remaining <= 0) {
+                            clearTimeout(throttleTimeoutId)
+                            lastRun = now
+                            executeLogic(e)
+                        } else {
+                            clearTimeout(throttleTimeoutId)
+                            throttleTimeoutId = setTimeout(() => {
+                                lastRun = Date.now()
+                                executeLogic(e)
+                            }, remaining)
+                        }
+                        return
+                    }
+
+                    if (debounceMs > 0) {
+                        clearTimeout(timeoutId)
+                        timeoutId = setTimeout(() => executeLogic(e), debounceMs)
+                    } else {
+                        executeLogic(e)
+                    }
+                }
+
+                const options = {
+                    once: modifiers.includes('once'),
+                    capture: modifiers.includes('capture') || modifiers.includes('away')
+                }
+
+                el.addEventListener(eventName, handler, options)
+                if (effects) {
+                    effects.push(() => {
+                        el.removeEventListener(eventName, handler, options)
+                        if (timeoutId) clearTimeout(timeoutId)
+                        if (throttleTimeoutId) clearTimeout(throttleTimeoutId)
+                    })
+                }
             }
         }
     }

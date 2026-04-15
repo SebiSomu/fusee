@@ -546,6 +546,69 @@
       margin: 0;
       overflow-x: auto;
     }
+
+    /* ── Event Delegation Demo Styles ───────────────────────────────── */
+    .test-events h1 {
+      color: #ff3333;
+      text-shadow: 0 0 20px rgba(255, 51, 51, 0.4);
+    }
+
+    .test-events .subtitle {
+      color: #aaa;
+      font-size: 0.9rem;
+      margin-bottom: 2rem;
+    }
+
+    .button-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    .demo-btn {
+      padding: 0.75rem 1rem;
+      border: 2px solid #3a3a5a;
+      background: #0f0f1a;
+      color: #e8e8f0;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.15s;
+    }
+
+    .demo-btn:hover {
+      background: #2a2a3a;
+      transform: translateY(-2px);
+    }
+
+    .demo-btn.native {
+      border-color: #34d399;
+      color: #34d399;
+    }
+
+    .demo-btn.native:hover {
+      background: rgba(52, 211, 153, 0.1);
+    }
+
+    .counter-display {
+      font-size: 1.1rem;
+      color: #aaa;
+    }
+
+    .counter-display strong {
+      color: #e8e8f0;
+      font-size: 1.3rem;
+    }
+
+    .stop-demo {
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .stop-demo:hover {
+      background: #252535;
+    }
   </style>
 </head>
 

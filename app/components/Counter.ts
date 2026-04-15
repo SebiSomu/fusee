@@ -23,7 +23,7 @@ export const Counter = defineComponent({
         initialValue: { type: String, default: '0' },
         parentTitle: { type: String, default: '' }
     },
-    setup(props: CounterProps): CounterResult {
+    setup(props: CounterProps, { emit }: { emit: (eventName: string, ...args: any[]) => void }): CounterResult {
         const count = signal<number>(Number(props.initialValue) || 0)
         const multiplier = signal<number>(1)
         inspect(count, multiplier)
