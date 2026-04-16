@@ -61,7 +61,6 @@ export function signal(initialValue) {
 export function effect(fn) {
     let active = true
     let running = false
-    const nestedEffects = new Set()
 
     const run = () => {
         if (!active || running) {
@@ -71,27 +70,14 @@ export function effect(fn) {
 
         running = true
 
-        for (const childCleanup of nestedEffects) {
-            childCleanup()
-        }
-        nestedEffects.clear()
-
         for (const dep of run.deps) dep.delete(run)
         run.deps.clear()
 
         const prevEffect = currentEffect
-        const prevOnEffectCreated = onEffectCreated
-
-        onEffectCreated = (childCleanup) => {
-            nestedEffects.add(childCleanup)
-            if (prevOnEffectCreated) prevOnEffectCreated(childCleanup)
-        }
-
         currentEffect = run
         try { fn() }
         finally {
             currentEffect = prevEffect
-            onEffectCreated = prevOnEffectCreated
             running = false
         }
     }
@@ -103,11 +89,6 @@ export function effect(fn) {
         pendingEffects.delete(run)
         for (const dep of run.deps) dep.delete(run)
         run.deps.clear()
-
-        for (const childCleanup of nestedEffects) {
-            childCleanup()
-        }
-        nestedEffects.clear()
     }
 
     if (onEffectCreated) onEffectCreated(cleanup)
@@ -123,19 +104,20 @@ export function computed(fn) {
     const subscribers = new Set()
     const deps = new Set()
 
+    // This is called when a dependency changes
     const computedNode = () => {
-        if (!active || dirty) return
+        if (!active) return
 
-        if (subscribers.size > 0) {
-            if (!runRecompute()) return
-        } else {
-            dirty = true
-            for (const d of deps) d.delete(computedNode)
-            deps.clear()
-            return
+        // Already dirty means subscribers are already scheduled to re-read
+        if (dirty) return
+
+        // Recompute synchronously to check if value changed
+        const changed = runRecompute()
+
+        // Only notify subscribers if value actually changed
+        if (changed) {
+            for (const sub of [...subscribers]) scheduleEffect(sub)
         }
-
-        for (const sub of [...subscribers]) scheduleEffect(sub)
     }
 
     computedNode.deps = deps
@@ -147,7 +129,7 @@ export function computed(fn) {
             console.warn('[framework] Circular dependency detected in computed()')
             return false
         }
-        
+
         computing = true
         for (const d of deps) d.delete(computedNode)
         deps.clear()

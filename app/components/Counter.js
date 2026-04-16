@@ -39,9 +39,19 @@ export const Counter = defineComponent({
             })
         }
 
-        function increment() { count(count() + 1) }
-        function decrement() { count(count() - 1) }
-        function reset() { count(0) }
+        function increment() {
+            console.log('[Counter] increment called, current:', count())
+            count(count() + 1)
+            console.log('[Counter] after increment:', count())
+        }
+        function decrement() {
+            console.log('[Counter] decrement called')
+            count(count() - 1)
+        }
+        function reset() {
+            console.log('[Counter] reset called')
+            count(0)
+        }
 
         onMount(() => console.log('[Counter] mounted, initial:', count()))
         onUnmount(() => console.log('[Counter] unmounted'))
@@ -76,10 +86,10 @@ export const Counter = defineComponent({
                     <p class="derived">double: {{ double }}</p>
                     
                     <div class="actions">
-                        <button @click.prevent="decrement">−</button>
-                        <button @click.once="reset" :disabled="isZero">Reset (Once only demo)</button>
-                        <button @click="increment">+</button>
-                        <button @click="updateMultiple">+5 & Step (Batched)</button>
+                        <button on:click.prevent="decrement">−</button>
+                        <button on:click.once="reset" :disabled="isZero">Reset (Once only demo)</button>
+                        <button on:click="increment">+</button>
+                        <button on:click="updateMultiple">+5 & Step (Batched)</button>
                     </div>
 
                     <div class="extras" style="margin-top: 24px; border-top: 1px solid rgba(0,0,0,0.08); padding-top: 20px;">

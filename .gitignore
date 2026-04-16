@@ -42,6 +42,7 @@ docs/
 examples/
 playground/
 sandbox/
+benchmark/
 .npmrc
 
 vite.config.js.timestamp-*

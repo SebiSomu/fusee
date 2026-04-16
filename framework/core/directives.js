@@ -511,7 +511,7 @@ export function processEvents(el, context, effects) {
 
     for (const attr of [...el.attributes]) {
         if (attr.name.startsWith('on:')) {
-            const fullEventName = attr.name.slice(3) 
+            const fullEventName = attr.name.slice(3)
             const parts = fullEventName.split('.')
             const eventName = parts[0]
             const modifiers = parts.slice(1)
@@ -614,7 +614,7 @@ export function processEvents(el, context, effects) {
         }
 
         if (attr.name.startsWith('@')) {
-            const fullEventName = attr.name.slice(1) 
+            const fullEventName = attr.name.slice(1)
             const parts = fullEventName.split('.')
             const eventName = parts[0]
             const modifiers = parts.slice(1)

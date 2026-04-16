@@ -1,3 +1,4 @@
+import { Counter } from '../components/Counter.js'
 import { UserForm } from '../components/UserForm.js'
 import { CounterSection } from '../components/CounterSection.js'
 import { Card } from '../components/Card.js'

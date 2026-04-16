@@ -22,12 +22,12 @@ export function mountTemplate(template, container, context, components) {
         processed = processed.replace(reWithSlot, (match, propsStr, slotContent) => {
             const attrs = parseComponentAttrs(propsStr || '')
             const encodedSlot = encodeURIComponent(slotContent.trim())
-            return `<div data-component="${name}"${attrs} data-slot="${encodedSlot}"></div>` 
+            return `<div data-component="${name}"${attrs} data-slot="${encodedSlot}"></div>`
         })
 
         processed = processed.replace(reNoSlot, (match, propsStr) => {
             const attrs = parseComponentAttrs(propsStr || '')
-            return `<div data-component="${name}"${attrs}></div>` 
+            return `<div data-component="${name}"${attrs}></div>`
         })
     }
 
@@ -48,11 +48,11 @@ function parseComponentAttrs(propsStr) {
         const attrValue = attrMatch[2]
 
         if (attrName.startsWith('@')) {
-            attrs += ` data-on-${attrName.slice(1).toLowerCase()}="${attrValue}"` 
+            attrs += ` data-on-${attrName.slice(1).toLowerCase()}="${attrValue}"`
         } else if (attrName.startsWith(':')) {
-            attrs += ` data-bind-prop-${attrName.slice(1).toLowerCase()}="${attrValue}"` 
+            attrs += ` data-bind-prop-${attrName.slice(1).toLowerCase()}="${attrValue}"`
         } else {
-            attrs += ` data-prop-${attrName.toLowerCase()}="${attrValue}"` 
+            attrs += ` data-prop-${attrName.toLowerCase()}="${attrValue}"`
         }
     }
     return attrs
@@ -223,7 +223,7 @@ function bindComponents(el, components, context, effects) {
             }
 
         } else if (attrName.startsWith('data-on-')) {
-            const eventName = attrName.slice(8)  
+            const eventName = attrName.slice(8)
             const handlerExpr = attr.value.trim()
 
             listeners[eventName] = (...args) => {

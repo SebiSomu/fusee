@@ -6,7 +6,7 @@ const DANGEROUS_SCHEMES = /^(javascript|data|vbscript|file):/i
 export function evaluateExpression(expr, context, extraContext = {}, unwrapSignals = true) {
     const keys = []
     const values = []
-    
+
     const exprWithoutStrings = expr.replace(/'[^']*'|"[^"]*"/g, ' ')
     const identifiers = new Set(exprWithoutStrings.match(/[a-zA-Z_$][a-zA-Z0-9_$]*/g) || [])
 
@@ -14,7 +14,9 @@ export function evaluateExpression(expr, context, extraContext = {}, unwrapSigna
         if (identifiers.has(k)) {
             keys.push(k)
             const val = context[k]
-            values.push(unwrapSignals && typeof val === 'function' && val.isSignal ? val() : val)
+            // Pass signal functions directly (not unwrapped) so they're called inside the effect
+            // This ensures proper reactive tracking when currentEffect is set
+            values.push(val)
         }
     }
 
@@ -27,7 +29,25 @@ export function evaluateExpression(expr, context, extraContext = {}, unwrapSigna
 
     try {
         const isMultiStatement = expr.includes(';') || expr.includes('console.')
-        const body = isMultiStatement ? expr : `return ${expr}`
+        // Build unwrapping code for signals - this runs INSIDE the created function
+        // so currentEffect is properly set when signal accessors are called
+        let body
+        if (isMultiStatement) {
+            // For multi-statement, we can't easily unwrap - pass values as-is
+            body = expr
+        } else {
+            // Only unwrap identifiers that are actually in keys (i.e., found in context)
+            const keysToUnwrap = unwrapSignals ? keys : []
+            const unwrapStatements = keysToUnwrap.map(id =>
+                `const __${id} = typeof ${id} === 'function' && ${id}.isSignal ? ${id}() : ${id};`
+            ).join('\n')
+            // Replace identifiers with their unwrapped versions
+            let wrappedExpr = expr
+            for (const id of keysToUnwrap) {
+                wrappedExpr = wrappedExpr.replace(new RegExp('\\b' + id + '\\b', 'g'), '__' + id)
+            }
+            body = (unwrapStatements ? unwrapStatements + '\n' : '') + `return ${wrappedExpr}`
+        }
         const fn = new Function(...keys, body)
         return fn(...values)
     } catch (e) {
