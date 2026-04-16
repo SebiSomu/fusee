@@ -104,21 +104,20 @@ export function computed(fn) {
     const subscribers = new Set()
     const deps = new Set()
 
-    // This is called when a dependency changes
     const computedNode = () => {
-        if (!active) return
+    if (!active || dirty) return
 
-        // Already dirty means subscribers are already scheduled to re-read
-        if (dirty) return
-
-        // Recompute synchronously to check if value changed
-        const changed = runRecompute()
-
-        // Only notify subscribers if value actually changed
-        if (changed) {
-            for (const sub of [...subscribers]) scheduleEffect(sub)
-        }
+    if (subscribers.size > 0) {
+        if (!runRecompute()) return
+    } else {
+        dirty = true
+        for (const d of deps) d.delete(computedNode)
+        deps.clear()
+        return
     }
+
+    for (const sub of [...subscribers]) scheduleEffect(sub)
+}
 
     computedNode.deps = deps
 
