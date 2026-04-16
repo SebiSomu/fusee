@@ -194,6 +194,30 @@ export function processFor(el, context, components, effects) {
         const parentNode = anchor.parentNode
         let currentCursor = anchor.nextSibling
 
+        const isClear = items.length === 0 && previousOrder.length > 0
+        if (isClear) {
+            const nodesToRemove = []
+            let node = anchor.nextSibling
+            while (node) {
+                const next = node.nextSibling
+                nodesToRemove.push(node)
+                node = next
+            }
+            if (nodesToRemove.length > 0) {
+                const fragment = document.createDocumentFragment()
+                nodesToRemove.forEach(n => fragment.appendChild(n))
+            }
+            for (const [_, entry] of cache.entries()) {
+                for (const e of entry.effects) if (typeof e === 'function') e()
+            }
+            cache.clear()
+            previousOrder = []
+            return
+        }
+
+        const fragment = document.createDocumentFragment()
+        const nodesToInsert = []
+
         newItemsWithKeys.forEach(({ item, key }, index) => {
             let entry = cache.get(key)
 
@@ -226,18 +250,34 @@ export function processFor(el, context, components, effects) {
                 const childEffects = []
                 compileNode(clone, itemContext, components, childEffects)
 
-                parentNode.insertBefore(clone, currentCursor)
+                fragment.appendChild(clone)
                 entry = { node: clone, effects: childEffects, context: itemContext }
+                nodesToInsert.push({ node: clone, effects: childEffects, context: itemContext, key })
             }
 
             nextCache.set(key, entry)
             nextOrder.push(entry.node)
         })
 
-        // Cleanup removed nodes
+        if (fragment.childNodes.length > 0) {
+            parentNode.insertBefore(fragment, currentCursor)
+            nodesToInsert.forEach(({ node, effects, context, key }) => {
+                nextCache.set(key, { node, effects, context })
+            })
+        }
+
+        const removedEntries = []
         for (const [_, entry] of cache.entries()) {
-            for (const e of entry.effects) if (typeof e === 'function') e()
-            entry.node.parentNode?.removeChild(entry.node)
+            removedEntries.push(entry)
+        }
+        if (removedEntries.length > 0) {
+            const removeFragment = document.createDocumentFragment()
+            removedEntries.forEach(entry => {
+                for (const e of entry.effects) if (typeof e === 'function') e()
+                if (entry.node.parentNode) {
+                    removeFragment.appendChild(entry.node)
+                }
+            })
         }
 
         cache = nextCache
@@ -470,9 +510,8 @@ export function processEvents(el, context, effects) {
     if (el.nodeType !== 1 || !el.attributes) return
 
     for (const attr of [...el.attributes]) {
-        // Handle native events: on:click, on:scroll, on:custom-event
         if (attr.name.startsWith('on:')) {
-            const fullEventName = attr.name.slice(3) // Remove 'on:' prefix
+            const fullEventName = attr.name.slice(3) 
             const parts = fullEventName.split('.')
             const eventName = parts[0]
             const modifiers = parts.slice(1)
@@ -574,9 +613,8 @@ export function processEvents(el, context, effects) {
             continue
         }
 
-        // Handle delegated events: @click, @input, etc.
         if (attr.name.startsWith('@')) {
-            const fullEventName = attr.name.slice(1) // Remove '@' prefix
+            const fullEventName = attr.name.slice(1) 
             const parts = fullEventName.split('.')
             const eventName = parts[0]
             const modifiers = parts.slice(1)
@@ -586,9 +624,7 @@ export function processEvents(el, context, effects) {
 
             const targetNode = modifiers.includes('window') ? window : (modifiers.includes('document') ? document : null)
 
-            // Window/document events are always native (can't delegate to window/document from document)
             if (targetNode) {
-                // Native handler for window/document events
                 const handler = createEventHandler(
                     typeof context[expr] === 'function' && !context[expr].isSignal
                         ? context[expr]
@@ -610,7 +646,6 @@ export function processEvents(el, context, effects) {
                     })
                 }
             } else if (isDelegatedEvent(eventName) && !modifiers.includes('capture') && !modifiers.includes('away')) {
-                // Use event delegation for supported events
                 const potentialFn = context[expr]
                 const isFunction = typeof potentialFn === 'function' && !potentialFn.isSignal
 
@@ -631,7 +666,6 @@ export function processEvents(el, context, effects) {
                     effects.push(cleanup)
                 }
             } else {
-                // Fallback to native for non-delegated events or when capture/away modifiers are used
                 let timeoutId
                 let lastRun = 0
                 let throttleTimeoutId

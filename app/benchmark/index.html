@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fusée Framework Benchmark</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Fusée Framework Benchmark</h1>
+      <p>JS Framework Benchmark style - Reactivity + Rendering</p>
+    </header>
+
+    <div class="controls">
+      <button id="runFusée" class="btn btn-mode active">Fusée Framework</button>
+      <button id="runVanilla" class="btn btn-mode">Vanilla JS</button>
+      <button id="runAll" class="btn btn-primary">Run All Benchmarks</button>
+      <button id="clear" class="btn btn-secondary">Clear Results</button>
+    </div>
+
+    <div class="benchmarks">
+      <div class="benchmark-card" data-benchmark="create">
+        <h3>Create Rows</h3>
+        <p>Create 1,000 rows with f-for rendering</p>
+        <button class="btn btn-small run-benchmark">Run</button>
+        <div class="result"></div>
+      </div>
+
+      <div class="benchmark-card" data-benchmark="replace">
+        <h3>Replace All Rows</h3>
+        <p>Update all 1,000 rows</p>
+        <button class="btn btn-small run-benchmark">Run</button>
+        <div class="result"></div>
+      </div>
+
+      <div class="benchmark-card" data-benchmark="partial">
+        <h3>Partial Update</h3>
+        <p>Update every 10th row (100 rows)</p>
+        <button class="btn btn-small run-benchmark">Run</button>
+        <div class="result"></div>
+      </div>
+
+      <div class="benchmark-card" data-benchmark="select">
+        <h3>Select Row</h3>
+        <p>Highlight selected row with :class binding</p>
+        <button class="btn btn-small run-benchmark">Run</button>
+        <div class="result"></div>
+      </div>
+
+      <div class="benchmark-card" data-benchmark="swap">
+        <h3>Swap Rows</h3>
+        <p>Swap row 2 and row 999</p>
+        <button class="btn btn-small run-benchmark">Run</button>
+        <div class="result"></div>
+      </div>
+
+      <div class="benchmark-card" data-benchmark="remove">
+        <h3>Remove Row</h3>
+        <p>Remove one row from 1,000</p>
+        <button class="btn btn-small run-benchmark">Run</button>
+        <div class="result"></div>
+      </div>
+
+      <div class="benchmark-card" data-benchmark="createMany">
+        <h3>Create Many Rows</h3>
+        <p>Create 10,000 rows (stress test)</p>
+        <button class="btn btn-small run-benchmark">Run</button>
+        <div class="result"></div>
+      </div>
+
+      <div class="benchmark-card" data-benchmark="append">
+        <h3>Append Rows</h3>
+        <p>Append 1,000 to 1,000 existing rows</p>
+        <button class="btn btn-small run-benchmark">Run</button>
+        <div class="result"></div>
+      </div>
+
+      <div class="benchmark-card" data-benchmark="clear">
+        <h3>Clear Rows</h3>
+        <p>Clear 1,000 rows</p>
+        <button class="btn btn-small run-benchmark">Run</button>
+        <div class="result"></div>
+      </div>
+    </div>
+
+    <div class="summary">
+      <h2>Summary</h2>
+      <div id="wgmResult"></div>
+      <div id="details"></div>
+    </div>
+
+    <div class="preview">
+      <h2>Live Preview</h2>
+      <div id="previewContainer"></div>
+    </div>
+  </div>
+
+  <script type="module" src="benchmark.js"></script>
+</body>
+</html>

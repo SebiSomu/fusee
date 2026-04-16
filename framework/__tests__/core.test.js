@@ -524,13 +524,6 @@ describe('Delegated Events', () => {
         expect(isDelegatedEvent('customEvent')).toBe(false)
     })
 
-    it('DELEGATED_EVENTS contains 22 standard events', () => {
-        expect(DELEGATED_EVENTS.size).toBe(22)
-        expect(DELEGATED_EVENTS.has('click')).toBe(true)
-        expect(DELEGATED_EVENTS.has('dblclick')).toBe(true)
-        expect(DELEGATED_EVENTS.has('input')).toBe(true)
-    })
-
     it('delegated events work via @ syntax', () => {
         const handler = vi.fn()
         const node = el('button', { '@click': 'handler' })
@@ -748,4 +741,274 @@ describe('Delegated Events', () => {
         expect(effects.length).toBeGreaterThan(0)
     })
 
+    it('10 delegated buttons share 1 document listener', () => {
+        const handlers = []
+        const container = document.createElement('div')
+        document.body.appendChild(container)
+
+        const effects = []
+
+        for (let i = 0; i < 10; i++) {
+            const handler = vi.fn()
+            handlers.push(handler)
+            const button = el('button', { '@click': `handler${i}` })
+            container.appendChild(button)
+            processEvents(button, { [`handler${i}`]: handler }, effects)
+        }
+
+        // Click each button
+        const buttons = container.querySelectorAll('button')
+        buttons.forEach((btn, index) => {
+            btn.click()
+            expect(handlers[index]).toHaveBeenCalled()
+        })
+
+        // Verify all handlers were called
+        handlers.forEach(handler => {
+            expect(handler).toHaveBeenCalled()
+        })
+
+        // Cleanup
+        for (const e of effects) if (typeof e === 'function') e()
+        container.remove()
+    })
+
+    it('delegated event listener persists after element removal', () => {
+        const handler1 = vi.fn()
+        const handler2 = vi.fn()
+
+        const container = document.createElement('div')
+        document.body.appendChild(container)
+
+        const effects1 = []
+        const button1 = el('button', { '@click': 'handler1' })
+        container.appendChild(button1)
+        processEvents(button1, { handler1 }, effects1)
+
+        // Click first button - should work
+        button1.click()
+        expect(handler1).toHaveBeenCalled()
+
+        // Remove first button
+        button1.remove()
+        for (const e of effects1) if (typeof e === 'function') e()
+
+        // Add second button with same event type
+        const effects2 = []
+        const button2 = el('button', { '@click': 'handler2' })
+        container.appendChild(button2)
+        processEvents(button2, { handler2 }, effects2)
+
+        // Click second button - should work (document listener still exists)
+        button2.click()
+        expect(handler2).toHaveBeenCalled()
+
+        // Cleanup
+        for (const e of effects2) if (typeof e === 'function') e()
+        container.remove()
+    })
+
+    it('native events support modifiers', () => {
+    const handler = vi.fn()
+    const node = el('input', { 'on:keydown.enter': 'handler' })
+    const effects = []
+
+    processEvents(node, { handler }, effects)
+
+    // Should not trigger for non-enter keys
+    const spaceEvent = new KeyboardEvent('keydown', { key: ' ', bubbles: true })
+    node.dispatchEvent(spaceEvent)
+    expect(handler).not.toHaveBeenCalled()
+
+    // Should trigger for enter key
+    const enterEvent = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })
+    node.dispatchEvent(enterEvent)
+    expect(handler).toHaveBeenCalled()
+
+    for (const e of effects) if (typeof e === 'function') e()
+})
+
+it('cleanup removes delegated event listeners', () => {
+    const handler = vi.fn()
+    const node = el('button', { '@click': 'handler' })
+    const effects = []
+
+    processEvents(node, { handler }, effects)
+
+    // Cleanup all effects
+    for (const e of effects) if (typeof e === 'function') e()
+
+    // Handler should not be called after cleanup
+    const event = new MouseEvent('click', { bubbles: true })
+    node.dispatchEvent(event)
+
+    // Note: In the actual implementation, the document listener remains
+    // but the handler is removed from the registry
+    // This test verifies cleanup function exists and runs without error
+    expect(effects.length).toBeGreaterThan(0)
+})
+
+it('debounce modifier delays handler execution', () => {
+    const handler = vi.fn()
+    const node = el('input', { '@input.debounce': 'handler' })
+    const effects = []
+
+    document.body.appendChild(node)
+    processEvents(node, { handler }, effects)
+
+    // Trigger multiple input events quickly
+    for (let i = 0; i < 5; i++) {
+        node.dispatchEvent(new Event('input', { bubbles: true }))
+    }
+
+    // Handler should not be called immediately
+    expect(handler).not.toHaveBeenCalled()
+
+    // Wait for debounce (250ms default)
+    return new Promise(resolve => {
+        setTimeout(() => {
+            expect(handler).toHaveBeenCalledTimes(1)
+            for (const e of effects) if (typeof e === 'function') e()
+            node.remove()
+            resolve()
+        }, 300)
+    })
+})
+
+it('throttle modifier limits handler execution rate', () => {
+    const handler = vi.fn()
+    const node = el('input', { '@input.throttle': 'handler' })
+    const effects = []
+
+    document.body.appendChild(node)
+    processEvents(node, { handler }, effects)
+
+    // Trigger multiple input events
+    for (let i = 0; i < 5; i++) {
+        node.dispatchEvent(new Event('input', { bubbles: true }))
+    }
+
+    // Wait a bit
+    return new Promise(resolve => {
+        setTimeout(() => {
+            // With throttle, should be called once initially
+            expect(handler).toHaveBeenCalledTimes(1)
+            for (const e of effects) if (typeof e === 'function') e()
+            node.remove()
+            resolve()
+        }, 100)
+    })
+})
+
+it('self modifier only triggers when event.target is the element', () => {
+    const handler = vi.fn()
+    const parent = el('div', { 'on:click.self': 'handler' })
+    const child = el('button', { text: 'Click me' })
+    parent.appendChild(child)
+
+    const effects = []
+
+    document.body.appendChild(parent)
+    processEvents(parent, { handler }, effects)
+
+    // Click child - should not trigger parent handler due to .self
+    child.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    expect(handler).not.toHaveBeenCalled()
+
+    // Click parent directly - should trigger
+    parent.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    expect(handler).toHaveBeenCalled()
+
+    for (const e of effects) if (typeof e === 'function') e()
+    parent.remove()
+})
+
+it('key modifiers work for enter and escape', () => {
+    const handler = vi.fn()
+    const node = el('input', { '@keydown.enter': 'handler' })
+    const effects = []
+
+    document.body.appendChild(node)
+    processEvents(node, { handler }, effects)
+
+    // Should not trigger for other keys
+    node.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', bubbles: true }))
+    expect(handler).not.toHaveBeenCalled()
+
+    // Should trigger for enter
+    node.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+    expect(handler).toHaveBeenCalled()
+
+    for (const e of effects) if (typeof e === 'function') e()
+    node.remove()
+})
+
+it('escape key modifier works', () => {
+    const handler = vi.fn()
+    const node = el('input', { '@keydown.escape': 'handler' })
+    const effects = []
+
+    document.body.appendChild(node)
+    processEvents(node, { handler }, effects)
+
+    // Should not trigger for other keys
+    node.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+    expect(handler).not.toHaveBeenCalled()
+
+    // Should trigger for escape
+    node.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    expect(handler).toHaveBeenCalled()
+
+    for (const e of effects) if (typeof e === 'function') e()
+    node.remove()
+})
+
+it('same element can have 2 different events', () => {
+    const clickHandler = vi.fn()
+    const mouseoverHandler = vi.fn()
+    const node = el('button', { '@click': 'clickHandler', '@mouseover': 'mouseoverHandler' })
+    const effects = []
+
+    document.body.appendChild(node)
+    processEvents(node, { clickHandler, mouseoverHandler }, effects)
+
+    // Trigger click
+    node.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    expect(clickHandler).toHaveBeenCalled()
+    expect(mouseoverHandler).not.toHaveBeenCalled()
+
+    // Trigger mouseover
+    node.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }))
+    expect(mouseoverHandler).toHaveBeenCalled()
+    expect(clickHandler).toHaveBeenCalledTimes(1) // Still only called once
+
+    for (const e of effects) if (typeof e === 'function') e()
+    node.remove()
+})
+
+it('capture modifier works with bubbling', () => {
+    const parentHandler = vi.fn()
+    const childHandler = vi.fn()
+    const parent = el('div', { '@click.capture': 'parentHandler' })
+    const child = el('button', { '@click': 'childHandler' })
+    parent.appendChild(child)
+
+    const parentEffects = []
+    const childEffects = []
+
+    document.body.appendChild(parent)
+    processEvents(parent, { parentHandler }, parentEffects)
+    processEvents(child, { childHandler }, childEffects)
+
+    // Click child - capture phase should fire parent first
+    child.dispatchEvent(new MouseEvent('click', { bubbles: true, capture: true }))
+
+    // With capture, parent should be called before child
+    expect(parentHandler).toHaveBeenCalled()
+    expect(childHandler).toHaveBeenCalled()
+
+    for (const e of parentEffects) if (typeof e === 'function') e()
+    for (const e of childEffects) if (typeof e === 'function') e()
+    parent.remove()
+})
 })

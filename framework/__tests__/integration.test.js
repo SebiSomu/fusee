@@ -1346,4 +1346,87 @@ describe('Integration Tests', () => {
             expect(effectSpy).toHaveBeenCalledTimes(2)
         })
     })
+
+    // ─── EVENT DELEGATION + COMPONENT LIFECYCLE ───────────────────────────────────
+    describe('Event Delegation + Component Lifecycle', () => {
+        it('cleanup delegated events on component unmount', () => {
+            const clickCount = signal(0)
+            const clickHandler = () => clickCount(clickCount() + 1)
+
+            const Comp = defineComponent({
+                setup() {
+                    return {
+                        clickCount,
+                        clickHandler,
+                        template: '<button @click="clickHandler">Click {{ clickCount }}</button>'
+                    }
+                }
+            })
+
+            const container = document.createElement('div')
+            document.body.appendChild(container)
+            const api = Comp()
+            api.render(container)
+
+            // Verify button works
+            const button = container.querySelector('button')
+            button.click()
+            expect(clickCount()).toBe(1)
+
+            // Unmount component
+            api.unmount()
+
+            // Click after unmount - should not increment (handler cleaned up)
+            button.click()
+            expect(clickCount()).toBe(1) // Still 1, not 2
+
+            container.remove()
+        })
+
+        it('events work in f-for loop with dynamic items', () => {
+            const items = signal([1, 2, 3])
+            let clickCount = 0
+
+            const Comp = defineComponent({
+                setup() {
+                    const handleClick = () => clickCount++
+                    return {
+                        items,
+                        handleClick,
+                        template: '<div><button f-for="item in items" @click="handleClick">Item {{ item }}</button></div>'
+                    }
+                }
+            })
+
+            const container = document.createElement('div')
+            document.body.appendChild(container)
+            const api = Comp()
+            api.render(container)
+
+            // Verify buttons rendered
+            const buttons = container.querySelectorAll('button')
+            expect(buttons.length).toBe(3)
+
+            // Click second button
+            buttons[1].click()
+            expect(clickCount).toBe(1)
+
+            // Click first button
+            buttons[0].click()
+            expect(clickCount).toBe(2)
+
+            // Add new item
+            items([...items(), 4])
+
+            // Verify new button rendered and clickable
+            const newButtons = container.querySelectorAll('button')
+            expect(newButtons.length).toBe(4)
+
+            newButtons[3].click()
+            expect(clickCount).toBe(3)
+
+            api.unmount()
+            container.remove()
+        })
+    })
 })
