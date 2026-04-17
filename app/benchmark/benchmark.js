@@ -7,15 +7,15 @@ const WARMUP_RUNS = 5;
 const MEASURE_RUNS = 5;
 
 const BENCHMARK_WEIGHTS = {
-  create: 1.0,
-  replace: 1.0,
-  partial: 0.5,
-  select: 0.5,
-  swap: 1.0,
-  remove: 1.0,
-  createMany: 1.0,
-  append: 0.5,
-  clear: 1.0
+  create: 0.64,
+  replace: 0.56,
+  partial: 0.56,
+  select: 0.19,
+  swap: 0.13,
+  remove: 0.53,
+  createMany: 0.56,
+  append: 0.55,
+  clear: 0.42
 };
 
 const BASELINE = {

@@ -1,7 +1,13 @@
 let currentEffect = null
+let currentOwner = null
 let onEffectCreated = null
 
 export function setEffectHook(fn) { onEffectCreated = fn }
+
+export function onCleanup(fn) {
+    if (!currentOwner) return
+    currentOwner.cleanups.add(fn)
+}
 
 let batchDepth = 0
 const pendingEffects = new Set()
@@ -62,6 +68,11 @@ export function effect(fn) {
     let active = true
     let running = false
 
+    const owner = {
+        children: new Set(),
+        cleanups: new Set()
+    }
+
     const run = () => {
         if (!active || running) {
             if (running) console.warn('[framework] Recursive effect detected')
@@ -74,10 +85,15 @@ export function effect(fn) {
         run.deps.clear()
 
         const prevEffect = currentEffect
+        const prevOwner = currentOwner
+
         currentEffect = run
+        currentOwner = owner
+
         try { fn() }
         finally {
             currentEffect = prevEffect
+            currentOwner = prevOwner
             running = false
         }
     }
@@ -85,15 +101,27 @@ export function effect(fn) {
     run.deps = new Set()
 
     const cleanup = () => {
+        if (!active) return
         active = false
+
         pendingEffects.delete(run)
+
         for (const dep of run.deps) dep.delete(run)
         run.deps.clear()
+
+        for (const child of owner.children) child()
+        owner.children.clear()
+
+        for (const fn of owner.cleanups) fn()
+        owner.cleanups.clear()
     }
 
     if (onEffectCreated) onEffectCreated(cleanup)
-    run()
+    if (currentOwner) {
+        currentOwner.children.add(cleanup)
+    }
 
+    run()
     return cleanup
 }
 
