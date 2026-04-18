@@ -1,4 +1,4 @@
-import { signal, effect } from '../core/signal.js'
+import { signal } from '../core/signal.js'
 
 let _routes = []
 let _outlet = null
@@ -16,66 +16,92 @@ function _updateRoute() {
     currentRoute(path)
 }
 
-export function createRouter(routes) {
-    _routes = routes
+function _matchPath(routePath, actualPath) {
+    if (routePath === '*') return true
 
+    const routeParts = routePath.split('/').filter(Boolean)
+    const actualParts = actualPath.split('/').filter(Boolean)
+
+    const hasWildcard = routeParts.length > 0 && routeParts[routeParts.length - 1] === '*'
+    
+    if (hasWildcard) {
+        const baseParts = routeParts.slice(0, -1)
+        if (actualParts.length < baseParts.length) return false
+        return baseParts.every((part, i) =>
+            part.startsWith(':') || part === actualParts[i]
+        )
+    }
+
+    if (routeParts.length !== actualParts.length) return false
+
+    return routeParts.every((part, i) =>
+        part.startsWith(':') || part === actualParts[i]
+    )
+}
+
+function _findMatchingRoute(path) {
+    const exactMatch = _routes.find(r => 
+        r.path !== '*' && 
+        !r.path.endsWith('/*') && 
+        _matchPath(r.path, path)
+    )
+    if (exactMatch) return exactMatch
+
+    const wildcardMatch = _routes.find(r => 
+        r.path.endsWith('/*') && 
+        _matchPath(r.path, path)
+    )
+    if (wildcardMatch) return wildcardMatch
+
+    const catchAll = _routes.find(r => r.path === '*')
+    if (catchAll) return catchAll
+
+    return null
+}
+
+function _unmountCurrent() {
+    if (_currentInstance) {
+        try { _currentInstance.unmount() } catch { }
+    }
+}
+
+function _renderRoute(matchedRoute) {
+    _unmountCurrent()
+    _outlet.innerHTML = ''
+
+    const componentFn = matchedRoute.component
+    _currentInstance = componentFn()
+    _currentInstance.render(_outlet)
+}
+
+function _renderNotFound(path) {
+    _outlet.innerHTML = `<p style="color:red">[framework] No route matched for "${path}"</p>`
+}
+
+function _resolveRoute() {
+    if (!_outlet || _routes.length === 0) return
+
+    const path = _getPath()
+    const matched = _findMatchingRoute(path)
+
+    if (!matched) {
+        _renderNotFound(path)
+        return
+    }
+
+    _renderRoute(matched)
+}
+
+export function navigate(path) {
+    if (path === _getPath()) return
+    window.history.pushState({}, '', path)
     _updateRoute()
+    _resolveRoute()
+}
 
-    const popstateHandler = () => {
-        _updateRoute()
-        _resolve()
-    }
-    window.addEventListener('popstate', popstateHandler)
-
-    _clickHandler = (e) => {
-        const anchor = e.composedPath ? e.composedPath().find(el => el.tagName === 'A') : null
-        if (!anchor && e.target.tagName === 'A') {
-            const target = e.target
-            if (target.hasAttribute('f-link') || _isInternalLink(target)) {
-                e.preventDefault()
-                const href = target.getAttribute('href')
-                if (href && href !== _getPath()) {
-                    navigate(href)
-                }
-            }
-        } else if (anchor) {
-            if (anchor.hasAttribute('f-link') || _isInternalLink(anchor)) {
-                e.preventDefault()
-                const href = anchor.getAttribute('href')
-                if (href && href !== _getPath()) {
-                    navigate(href)
-                }
-            }
-        }
-    }
-    document.addEventListener('click', _clickHandler)
-
-    if (document.readyState === 'loading') {
-        window.addEventListener('DOMContentLoaded', () => {
-            _updateRoute()
-            _resolve()
-        }, { once: true })
-    } else {
-        setTimeout(() => {
-            if (!_currentInstance) _resolve()
-        }, 0)
-    }
-
-    return {
-        navigate,
-        destroy() {
-            window.removeEventListener('popstate', popstateHandler)
-            document.removeEventListener('click', _clickHandler)
-            if (_currentInstance) {
-                try {
-                    _currentInstance.unmount()
-                } catch { }
-            }
-            _routes = []
-            _outlet = null
-            _currentInstance = null
-        }
-    }
+export function mountOutlet(el) {
+    _outlet = el
+    _resolveRoute()
 }
 
 function _isInternalLink(anchor) {
@@ -89,50 +115,72 @@ function _isInternalLink(anchor) {
     return href.startsWith('/')
 }
 
-export function navigate(path) {
-    if (path === _getPath()) return
-    window.history.pushState({}, '', path)
+function _getAnchorFromEvent(e) {
+    if (e.composedPath) {
+        return e.composedPath().find(el => el.tagName === 'A')
+    }
+    return e.target.tagName === 'A' ? e.target : null
+}
+
+function _handleLinkClick(e) {
+    const anchor = _getAnchorFromEvent(e)
+    if (!anchor) return
+
+    if (anchor.hasAttribute('f-link') || _isInternalLink(anchor)) {
+        e.preventDefault()
+        const href = anchor.getAttribute('href')
+        if (href && href !== _getPath()) {
+            navigate(href)
+        }
+    }
+}
+
+function _setupPopstateHandler() {
+    const handler = () => {
+        _updateRoute()
+        _resolveRoute()
+    }
+    window.addEventListener('popstate', handler)
+    return handler
+}
+
+function _setupClickHandler() {
+    _clickHandler = _handleLinkClick
+    document.addEventListener('click', _clickHandler)
+    return _clickHandler
+}
+
+function _setupInitialRoute() {
+    if (document.readyState === 'loading') {
+        window.addEventListener('DOMContentLoaded', () => {
+            _updateRoute()
+            _resolveRoute()
+        }, { once: true })
+    } else {
+        setTimeout(() => {
+            if (!_currentInstance) _resolveRoute()
+        }, 0)
+    }
+}
+
+export function createRouter(routes) {
+    _routes = routes
+
     _updateRoute()
-    _resolve()
-}
 
-export function mountOutlet(el) {
-    _outlet = el
-    _resolve()
-}
+    const popstateHandler = _setupPopstateHandler()
+    _setupClickHandler()
+    _setupInitialRoute()
 
-function _resolve() {
-    if (!_outlet || _routes.length === 0) {
-        return
+    return {
+        navigate,
+        destroy() {
+            window.removeEventListener('popstate', popstateHandler)
+            document.removeEventListener('click', _clickHandler)
+            _unmountCurrent()
+            _routes = []
+            _outlet = null
+            _currentInstance = null
+        }
     }
-
-    const path = _getPath()
-
-    const matched = _routes.find(r => _matchPath(r.path, path))
-
-    if (!matched) {
-        _outlet.innerHTML = `<p style="color:red">[framework] No route matched for "${path}"</p>`
-        return
-    }
-
-    if (_currentInstance) {
-        try { _currentInstance.unmount() } catch { }
-    }
-
-    _outlet.innerHTML = ''
-
-    const componentFn = matched.component
-    _currentInstance = componentFn()
-    _currentInstance.render(_outlet)
-}
-
-function _matchPath(routePath, actualPath) {
-    const routeParts = routePath.split('/').filter(Boolean)
-    const actualParts = actualPath.split('/').filter(Boolean)
-
-    if (routeParts.length !== actualParts.length) return false
-
-    return routeParts.every((part, i) =>
-        part.startsWith(':') || part === actualParts[i]
-    )
 }

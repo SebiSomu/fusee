@@ -53,6 +53,27 @@ const routes = [
             loadingComponent: Loading
         })
     },
+    {
+        path: '/router-example',
+        component: defineAsyncComponent({
+            loader: () => import('./routes/RouterExample.js'),
+            loadingComponent: Loading
+        })
+    },
+    {
+        path: '/404',
+        component: defineAsyncComponent({
+            loader: () => import('./routes/NotFound.js'),
+            loadingComponent: Loading
+        })
+    },
+    {
+        path: '*',
+        component: defineAsyncComponent({
+            loader: () => import('./routes/WildcardDemo.js'),
+            loadingComponent: Loading
+        })
+    },
 ]
 
 createRouter(routes)

@@ -141,6 +141,11 @@ describe('Integration Tests', () => {
 
     // ─── ROUTER + COMPONENTS ──────────────────────────────────────────────────────
     describe('Router + Components', () => {
+        beforeEach(() => {
+            // Reset URL to root before each test
+            window.history.pushState({}, '', '/')
+        })
+
         it('render component via router', () => {
             const Home = defineComponent({
                 setup() {
@@ -264,17 +269,19 @@ describe('Integration Tests', () => {
 
         it('currentRoute signal does not trigger unnecessary updates for same path', () => {
             const router = createRouter([
-                { path: '/', component: () => ({ render: () => {} }) }
+                { path: '/', component: () => ({ render: () => {} }) },
+                { path: '/test', component: () => ({ render: () => {} }) }
             ])
 
             const spy = vi.fn()
             effect(() => spy(currentRoute()))
 
-            navigate('/')
+            // Navigate to a different path first to establish baseline
+            navigate('/test')
             const initialRuns = spy.mock.calls.length
 
-            // Navigate to same path should not trigger update
-            navigate('/')
+            // Navigate to same path should not trigger additional update
+            navigate('/test')
             expect(spy.mock.calls.length).toBe(initialRuns)
 
             router.destroy()
@@ -282,16 +289,18 @@ describe('Integration Tests', () => {
 
         it('navigate() does not push duplicate path to history', () => {
             const router = createRouter([
-                { path: '/', component: () => ({ render: () => {} }) }
+                { path: '/', component: () => ({ render: () => {} }) },
+                { path: '/test', component: () => ({ render: () => {} }) }
             ])
 
             const pushStateSpy = vi.spyOn(window.history, 'pushState')
             
-            navigate('/')
+            // Navigate to a path first
+            navigate('/test')
             const initialCalls = pushStateSpy.mock.calls.length
 
             // Navigate to same path should not call pushState
-            navigate('/')
+            navigate('/test')
             expect(pushStateSpy.mock.calls.length).toBe(initialCalls)
 
             pushStateSpy.mockRestore()
@@ -318,26 +327,141 @@ describe('Integration Tests', () => {
 
         it('f-link does not add active class to external links', () => {
             const router = createRouter([
-                { path: '/', component: () => ({ render: () => {} }) }
+                { path: '/', component: () => ({ render: () => {} }) },
+                { path: '/test', component: () => ({ render: () => {} }) }
             ])
 
             const container = document.createElement('div')
             container.innerHTML = `
-                <a href="/" f-link>Home</a>
+                <a href="/test" f-link>Test</a>
                 <a href="https://example.com" f-link>External</a>
                 <a href="//example.com" f-link>Protocol-relative</a>
             `
             
-            navigate('/')
+            navigate('/test')
             processLinks(container, [])
             
-            const homeLink = container.querySelector('a[href="/"]')
+            const testLink = container.querySelector('a[href="/test"]')
             const externalLink = container.querySelector('a[href="https://example.com"]')
             const protocolLink = container.querySelector('a[href="//example.com"]')
             
-            expect(homeLink?.classList.contains('active')).toBe(true)
+            expect(testLink?.classList.contains('active')).toBe(true)
             expect(externalLink?.classList.contains('active')).toBe(false)
             expect(protocolLink?.classList.contains('active')).toBe(false)
+
+            router.destroy()
+        })
+
+        it('wildcard route catches unmatched paths (404)', () => {
+            const Home = defineComponent({
+                setup() {
+                    return { template: '<div>Home</div>' }
+                }
+            })
+
+            const NotFound = defineComponent({
+                setup() {
+                    return { template: '<div>404 Not Found</div>' }
+                }
+            })
+
+            const router = createRouter([
+                { path: '/', component: () => Home() },
+                { path: '*', component: () => NotFound() }
+            ])
+
+            const container = document.createElement('div')
+            navigate('/non-existent-path')  // Set URL before mountOutlet
+            mountOutlet(container)
+            expect(container.innerHTML).toContain('404 Not Found')
+
+            navigate('/another/invalid/route')
+            expect(container.innerHTML).toContain('404 Not Found')
+
+            router.destroy()
+        })
+
+        it('wildcard has lowest priority (exact matches win)', () => {
+            const Home = defineComponent({
+                setup() {
+                    return { template: '<div>Home</div>' }
+                }
+            })
+
+            const About = defineComponent({
+                setup() {
+                    return { template: '<div>About</div>' }
+                }
+            })
+
+            const NotFound = defineComponent({
+                setup() {
+                    return { template: '<div>404 Not Found</div>' }
+                }
+            })
+
+            const router = createRouter([
+                { path: '/', component: () => Home() },
+                { path: '/about', component: () => About() },
+                { path: '*', component: () => NotFound() }
+            ])
+
+            const container = document.createElement('div')
+            navigate('/')  // Set URL before mountOutlet
+            mountOutlet(container)
+            expect(container.innerHTML).toContain('Home')
+
+            navigate('/about')
+            expect(container.innerHTML).toContain('About')
+
+            navigate('/non-existent')
+            expect(container.innerHTML).toContain('404 Not Found')
+
+            router.destroy()
+        })
+
+        it('wildcard prefix works for nested paths (/admin/*)', () => {
+            const AdminDashboard = defineComponent({
+                setup() {
+                    return { template: '<div>Admin Dashboard</div>' }
+                }
+            })
+
+            const AdminUsers = defineComponent({
+                setup() {
+                    return { template: '<div>Admin Users</div>' }
+                }
+            })
+
+            const NotFound = defineComponent({
+                setup() {
+                    return { template: '<div>404 Not Found</div>' }
+                }
+            })
+
+            const router = createRouter([
+                { path: '/admin', component: () => AdminDashboard() },
+                { path: '/admin/*', component: () => AdminUsers() },
+                { path: '*', component: () => NotFound() }
+            ])
+
+            const container = document.createElement('div')
+            navigate('/admin')  // Set URL before mountOutlet
+            mountOutlet(container)
+
+            expect(container.innerHTML).toContain('Admin Dashboard')
+
+            navigate('/admin/users')
+            expect(container.innerHTML).toContain('Admin Users')
+
+            navigate('/admin/users/123')
+            expect(container.innerHTML).toContain('Admin Users')
+
+            navigate('/admin/settings/permissions')
+            expect(container.innerHTML).toContain('Admin Users')
+
+            navigate('/other-path')
+            expect(container.innerHTML).toContain('404 Not Found')
 
             router.destroy()
         })

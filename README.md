@@ -28,6 +28,7 @@ Follow the interactive prompt to choose your template (**JavaScript** or **TypeS
 - **Optimized Directives**: Native support for `f-if`, `f-for`, `f-model`, `f-text`, `f-cloak` and more.
 - **Performance Shield (`f-once`)**: Isolate and stabilize static subtrees to prevent unnecessary reactivity.
 - **Vite Integration**: Full support for the fastest development workflow and Hot Module Replacement (HMR).
+- **Route API**: Simple routing with `createRouter` and `navigate` functions, as well as f-link directive.
 
 ---
 
@@ -80,7 +81,7 @@ export const Welcome = defineComponent({
 
 Fusée is built with a test-driven mindset to ensure the reliability of its reactivity engine and component lifecycle.
 
-- **Total Tests:** `414`
+- **Total Tests:** `420`
 - **Status:** `All Passed`
 - **Framework:** [Vitest](https://vitest.dev/)
 - **Environment:** JSDOM (Browser simulation)
