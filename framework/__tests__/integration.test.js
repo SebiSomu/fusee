@@ -2,9 +2,9 @@ import { describe, it, expect, vi } from 'vitest'
 import { defineComponent, mountTemplate, provide, inject, onMount, onUnmount, defineAsyncComponent } from '../core/component.js'
 import { signal, computed, effect, batch, watch } from '../core/signal.js'
 import { defineStore } from '../core/store.js'
-import { createRouter, navigate } from '../router/router.js'
+import { createRouter, navigate, currentRoute } from '../router/router.js'
 import { defineComposable } from '../core/composable.js'
-import { directive } from '../core/directives.js'
+import { directive, processLinks } from '../core/directives.js'
 
 describe('Integration Tests', () => {
 
@@ -153,7 +153,7 @@ describe('Integration Tests', () => {
             ])
 
             const container = document.createElement('div')
-            window.location.hash = '/'
+            navigate('/')
             mountOutlet(container)
 
             expect(container.innerHTML).toContain('Home')
@@ -179,10 +179,166 @@ describe('Integration Tests', () => {
             ])
 
             const container = document.createElement('div')
-            window.location.hash = '/about'
+            navigate('/about')
             mountOutlet(container)
 
             expect(container.innerHTML).toContain('About')
+            router.destroy()
+        })
+
+        it('currentRoute signal updates on navigation', () => {
+            const router = createRouter([
+                { path: '/', component: () => ({ render: () => {} }) }
+            ])
+
+            const routeSpy = vi.fn()
+            effect(() => routeSpy(currentRoute()))
+
+            navigate('/')
+            expect(currentRoute()).toBe('/')
+            expect(routeSpy).toHaveBeenLastCalledWith('/')
+
+            navigate('/about')
+            expect(currentRoute()).toBe('/about')
+            expect(routeSpy).toHaveBeenLastCalledWith('/about')
+
+            router.destroy()
+        })
+
+        it('f-link directive adds active class to current route', () => {
+            const router = createRouter([
+                { path: '/', component: () => ({ render: () => {} }) }
+            ])
+
+            const container = document.createElement('div')
+            container.innerHTML = '<a href="/" f-link>Home</a><a href="/about" f-link>About</a>'
+            
+            navigate('/')
+            processLinks(container, [])
+            
+            const homeLink = container.querySelector('a[href="/"]')
+            const aboutLink = container.querySelector('a[href="/about"]')
+            
+            expect(homeLink?.classList.contains('active')).toBe(true)
+            expect(aboutLink?.classList.contains('active')).toBe(false)
+
+            navigate('/about')
+            expect(homeLink?.classList.contains('active')).toBe(false)
+            expect(aboutLink?.classList.contains('active')).toBe(true)
+
+            router.destroy()
+        })
+
+        it('prevent infinite loop when currentRoute changes in effect', () => {
+            const router = createRouter([
+                { path: '/', component: () => ({ render: () => {} }) }
+            ])
+
+            let effectRuns = 0
+            const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+            // Simulating complex logic that could trigger navigate() indirectly
+            const complexLogicMap = new Map()
+            complexLogicMap.set('/', '/about')
+            complexLogicMap.set('/about', '/')
+
+            effect(() => {
+                effectRuns++
+                const route = currentRoute()
+                
+                // Complex logic: Maps, conditions, potentially calling navigate()
+                // This simulates the scenario where user code might accidentally
+                // trigger navigation based on route changes
+                if (effectRuns <= 10 && complexLogicMap.has(route)) {
+                    const target = complexLogicMap.get(route)
+                    navigate(target)
+                }
+            })
+
+            // Should be protected by batch/untrack, but verify it doesn't explode
+            expect(effectRuns).toBeLessThan(100)
+            
+            warnSpy.mockRestore()
+            router.destroy()
+        })
+
+        it('currentRoute signal does not trigger unnecessary updates for same path', () => {
+            const router = createRouter([
+                { path: '/', component: () => ({ render: () => {} }) }
+            ])
+
+            const spy = vi.fn()
+            effect(() => spy(currentRoute()))
+
+            navigate('/')
+            const initialRuns = spy.mock.calls.length
+
+            // Navigate to same path should not trigger update
+            navigate('/')
+            expect(spy.mock.calls.length).toBe(initialRuns)
+
+            router.destroy()
+        })
+
+        it('navigate() does not push duplicate path to history', () => {
+            const router = createRouter([
+                { path: '/', component: () => ({ render: () => {} }) }
+            ])
+
+            const pushStateSpy = vi.spyOn(window.history, 'pushState')
+            
+            navigate('/')
+            const initialCalls = pushStateSpy.mock.calls.length
+
+            // Navigate to same path should not call pushState
+            navigate('/')
+            expect(pushStateSpy.mock.calls.length).toBe(initialCalls)
+
+            pushStateSpy.mockRestore()
+            router.destroy()
+        })
+
+        it('destroy() removes event listeners', () => {
+            const router = createRouter([
+                { path: '/', component: () => ({ render: () => {} }) }
+            ])
+
+            const removeEventListenerSpy = vi.spyOn(window, 'removeEventListener')
+            const docRemoveSpy = vi.spyOn(document, 'removeEventListener')
+
+            router.destroy()
+
+            // Verify popstate and click listeners are removed
+            expect(removeEventListenerSpy).toHaveBeenCalledWith('popstate', expect.any(Function))
+            expect(docRemoveSpy).toHaveBeenCalledWith('click', expect.any(Function))
+
+            removeEventListenerSpy.mockRestore()
+            docRemoveSpy.mockRestore()
+        })
+
+        it('f-link does not add active class to external links', () => {
+            const router = createRouter([
+                { path: '/', component: () => ({ render: () => {} }) }
+            ])
+
+            const container = document.createElement('div')
+            container.innerHTML = `
+                <a href="/" f-link>Home</a>
+                <a href="https://example.com" f-link>External</a>
+                <a href="//example.com" f-link>Protocol-relative</a>
+            `
+            
+            navigate('/')
+            processLinks(container, [])
+            
+            const homeLink = container.querySelector('a[href="/"]')
+            const externalLink = container.querySelector('a[href="https://example.com"]')
+            const protocolLink = container.querySelector('a[href="//example.com"]')
+            
+            expect(homeLink?.classList.contains('active')).toBe(true)
+            expect(externalLink?.classList.contains('active')).toBe(false)
+            expect(protocolLink?.classList.contains('active')).toBe(false)
+
             router.destroy()
         })
     })

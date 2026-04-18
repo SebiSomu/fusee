@@ -2,6 +2,7 @@ import { signal, effect, batch } from './signal.js'
 import { evaluateExpression } from './evaluator.js'
 import { compileNode } from './compiler.js'
 import { registerDelegatedEvent, createEventHandler, isDelegatedEvent } from './event-delegation.js'
+import { currentRoute } from '../router/router.js'
 
 const customDirectives = new Map()
 
@@ -83,6 +84,7 @@ export function processDirectives(root, context, components, effects) {
     processEvents(root, context, effects)
     processCustomDirectives(root, context, effects)
     processClassList(root, context, effects)
+    processLinks(root, effects)
     processCloak(root)
 
     return false
@@ -817,4 +819,28 @@ export function processClassList(el, context, effects) {
     })
 
     effects.push(e)
+}
+
+export function processLinks(el, effects) {
+    if (el.nodeType !== 1) return
+
+    const links = el.hasAttribute('f-link') ? [el] : el.querySelectorAll('[f-link]')
+
+    for (const link of links) {
+        if (link.tagName !== 'A') continue
+
+        const href = link.getAttribute('href')
+        if (!href) continue
+
+        effects.push(effect(() => {
+            const currentPath = currentRoute()
+            const isActive = currentPath === href || currentPath.startsWith(href + '/')
+
+            if (isActive) {
+                link.classList.add('active')
+            } else {
+                link.classList.remove('active')
+            }
+        }))
+    }
 }

@@ -1,15 +1,60 @@
+import { signal, effect } from '../core/signal.js'
+
 let _routes = []
 let _outlet = null
 let _currentInstance = null
+let _clickHandler = null
+
+export const currentRoute = signal('/')
+
+function _getPath() {
+    return window.location.pathname || '/'
+}
+
+function _updateRoute() {
+    const path = _getPath()
+    currentRoute(path)
+}
 
 export function createRouter(routes) {
     _routes = routes
 
-    const handler = () => _resolve()
-    window.addEventListener('hashchange', handler)
+    _updateRoute()
+
+    const popstateHandler = () => {
+        _updateRoute()
+        _resolve()
+    }
+    window.addEventListener('popstate', popstateHandler)
+
+    _clickHandler = (e) => {
+        const anchor = e.composedPath ? e.composedPath().find(el => el.tagName === 'A') : null
+        if (!anchor && e.target.tagName === 'A') {
+            const target = e.target
+            if (target.hasAttribute('f-link') || _isInternalLink(target)) {
+                e.preventDefault()
+                const href = target.getAttribute('href')
+                if (href && href !== _getPath()) {
+                    navigate(href)
+                }
+            }
+        } else if (anchor) {
+            if (anchor.hasAttribute('f-link') || _isInternalLink(anchor)) {
+                e.preventDefault()
+                const href = anchor.getAttribute('href')
+                if (href && href !== _getPath()) {
+                    navigate(href)
+                }
+            }
+        }
+    }
+    document.addEventListener('click', _clickHandler)
 
     if (document.readyState === 'loading') {
-        window.addEventListener('DOMContentLoaded', handler, { once: true })
+        window.addEventListener('DOMContentLoaded', () => {
+            _updateRoute()
+            _resolve()
+        }, { once: true })
     } else {
         setTimeout(() => {
             if (!_currentInstance) _resolve()
@@ -19,8 +64,8 @@ export function createRouter(routes) {
     return {
         navigate,
         destroy() {
-            window.removeEventListener('hashchange', handler)
-            window.removeEventListener('DOMContentLoaded', handler)
+            window.removeEventListener('popstate', popstateHandler)
+            document.removeEventListener('click', _clickHandler)
             if (_currentInstance) {
                 try {
                     _currentInstance.unmount()
@@ -33,8 +78,22 @@ export function createRouter(routes) {
     }
 }
 
+function _isInternalLink(anchor) {
+    const href = anchor.getAttribute('href')
+    if (!href) return false
+    if (href.startsWith('#')) return false
+    if (href.startsWith('http://') || href.startsWith('https://') || href.startsWith('//')) {
+        const url = new URL(href, window.location.origin)
+        return url.origin === window.location.origin
+    }
+    return href.startsWith('/')
+}
+
 export function navigate(path) {
-    window.location.hash = path
+    if (path === _getPath()) return
+    window.history.pushState({}, '', path)
+    _updateRoute()
+    _resolve()
 }
 
 export function mountOutlet(el) {
@@ -47,8 +106,7 @@ function _resolve() {
         return
     }
 
-    const hash = window.location.hash
-    const path = hash.startsWith('#') ? hash.slice(1) || '/' : '/'
+    const path = _getPath()
 
     const matched = _routes.find(r => _matchPath(r.path, path))
 

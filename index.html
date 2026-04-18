@@ -33,6 +33,12 @@
       color: #ff3333;
       text-decoration: none;
       font-weight: 500;
+      transition: color 0.15s;
+    }
+
+    nav a.active {
+      color: #fff;
+      text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
     }
 
     /* Temă Red Fusée */
@@ -614,11 +620,11 @@
 
 <body>
   <nav>
-    <a href="#/">Home</a>
-    <a href="#/about">About</a>
-    <a href="#/test-for">Loops Test</a>
-    <a href="#/dynamic" style="color: #ec4899;">Dynamic Components</a>
-    <a href="#/composables" style="color: #34d399;">Composables</a>
+    <a href="/" f-link>Home</a>
+    <a href="/about" f-link>About</a>
+    <a href="/test-for" f-link>Loops Test</a>
+    <a href="/dynamic" f-link style="color: #ec4899;">Dynamic Components</a>
+    <a href="/composables" f-link style="color: #34d399;">Composables</a>
   </nav>
   <div id="app"></div>
   <script type="module" src="./app/main.js"></script>

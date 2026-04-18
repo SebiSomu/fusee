@@ -1,6 +1,6 @@
 // stress.test.js
 import { describe, it, expect, vi } from 'vitest'
-import { signal, effect, batch, computed } from '../core/signal.js'
+import { signal, effect, batch, computed, onCleanup } from '../core/signal.js'
 import { defineComponent, provide, inject, defineAsyncComponent } from '../core/component.js'
 
 describe('Fusée Stress & Edge Cases', () => {
@@ -26,8 +26,110 @@ describe('Fusée Stress & Edge Cases', () => {
         count(1)
         unmount()
 
-        count(2) 
+        count(2)
         expect(effectRuns).toBe(2)
+    })
+
+    it('Memory Leak Check: multiple effects should be cleaned up', () => {
+        const count = signal(0)
+        const effectRuns = [0, 0, 0]
+
+        const Comp = defineComponent({
+            setup() {
+                effect(() => {
+                    count()
+                    effectRuns[0]++
+                })
+                effect(() => {
+                    count()
+                    effectRuns[1]++
+                })
+                effect(() => {
+                    count()
+                    effectRuns[2]++
+                })
+                return { template: '<div></div>' }
+            }
+        })
+
+        const container = document.createElement('div')
+        const { render, unmount } = Comp()
+        render(container)
+
+        count(1)
+        unmount()
+
+        count(2)
+        expect(effectRuns[0]).toBe(2)
+        expect(effectRuns[1]).toBe(2)
+        expect(effectRuns[2]).toBe(2)
+    })
+
+    it('Memory Leak Check: signals should not leak after component unmount', () => {
+        const cleanupSpy = vi.fn()
+
+        const Comp = defineComponent({
+            setup() {
+                const count = signal(0)
+                effect(() => {
+                    count()
+                    onCleanup(cleanupSpy)
+                })
+                return { template: '<div></div>' }
+            }
+        })
+
+        const container = document.createElement('div')
+        const { render, unmount } = Comp()
+        render(container)
+
+        unmount()
+        expect(cleanupSpy).toHaveBeenCalled()
+    })
+
+    it('Memory Leak Check: nested effects should cleanup with parent', () => {
+        const parentCount = signal(0)
+        const childCount = signal(0)
+        let parentRuns = 0
+        let childRuns = 0
+
+        const Comp = defineComponent({
+            setup() {
+                effect(() => {
+                    parentCount()
+                    parentRuns++
+
+                    // Nested effect
+                    effect(() => {
+                        childCount()
+                        childRuns++
+                    })
+                })
+                return { template: '<div></div>' }
+            }
+        })
+
+        const container = document.createElement('div')
+        const { render, unmount } = Comp()
+        render(container)
+
+        // Both should have run once
+        expect(parentRuns).toBe(1)
+        expect(childRuns).toBe(1)
+
+        // Update child signal
+        childCount(1)
+        expect(childRuns).toBe(2) // child re-runs
+        expect(parentRuns).toBe(1) // parent doesn't re-run
+
+        // Unmount should cleanup both
+        unmount()
+
+        // After unmount, neither should run
+        parentCount(1)
+        childCount(2)
+        expect(parentRuns).toBe(1) // still 1
+        expect(childRuns).toBe(2) // still 2
     })
 
     it('Dependency Injection: Shadowing', () => {
