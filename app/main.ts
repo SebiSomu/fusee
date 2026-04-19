@@ -62,6 +62,20 @@ const routes: Route[] = [
         })
     },
     {
+        path: '/users/:id',
+        component: defineAsyncComponent({
+            loader: () => import('./routes/RouterExample.ts'),
+            loadingComponent: Loading
+        })
+    },
+    {
+        path: '/posts/:category/:slug',
+        component: defineAsyncComponent({
+            loader: () => import('./routes/RouterExample.ts'),
+            loadingComponent: Loading
+        })
+    },
+    {
         path: '/404',
         component: defineAsyncComponent({
             loader: () => import('./routes/NotFound.ts'),

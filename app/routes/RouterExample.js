@@ -1,11 +1,14 @@
-import { currentRoute, navigate } from '../../framework/index.js'
+import { currentRoute, navigate, routeParams, computed } from '../../framework/index.js'
 
 export const RouterExample = defineComponent({
     setup() {
         const path = currentRoute
+        const params = routeParams
+        const paramsJson = computed(() => JSON.stringify(params()))
 
         return {
             path,
+            paramsJson,
             navigate,
             template: `
                 <div class="page">
@@ -14,6 +17,19 @@ export const RouterExample = defineComponent({
                     <div class="demo-card">
                         <h2>currentRoute Signal</h2>
                         <code style="color: #8b8bff; font-size: 1.5rem;">{{ path }}</code>
+                    </div>
+
+                    <div class="demo-card">
+                        <h2>routeParams Signal (Dynamic Routes)</h2>
+                        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                            <a href="/users/123" f-link class="cmp-btn" style="text-decoration: none;">User 123</a>
+                            <a href="/users/456" f-link class="cmp-btn" style="text-decoration: none;">User 456</a>
+                            <a href="/posts/tech/my-post" f-link class="cmp-btn" style="text-decoration: none;">Post Route</a>
+                        </div>
+                        <code style="color: #34d399; font-size: 1.2rem;">{{ paramsJson }}</code>
+                        <p style="margin-top: 10px; color: #888; font-size: 0.9rem;">
+                            Dynamic routes use :param syntax (e.g., /users/:id or /posts/:category/:slug)
+                        </p>
                     </div>
 
                     <div class="demo-card">

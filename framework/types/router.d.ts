@@ -11,7 +11,10 @@ export type Router = {
     destroy: () => void
 }
 
+export type RouteParams = Record<string, string>
+
 export declare const currentRoute: Signal<string>
+export declare const routeParams: Signal<RouteParams>
 export declare function createRouter(routes: Route[]): Router
 export declare function navigate(path: string): void
 export declare function mountOutlet(el: HTMLElement): void

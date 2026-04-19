@@ -6,6 +6,7 @@ let _currentInstance = null
 let _clickHandler = null
 
 export const currentRoute = signal('/')
+export const routeParams = signal({})
 
 function _getPath() {
     return window.location.pathname || '/'
@@ -39,6 +40,27 @@ function _matchPath(routePath, actualPath) {
     )
 }
 
+function _extractParams(routePath, actualPath) {
+    const params = {}
+    if (routePath === '*') return params
+
+    const routeParts = routePath.split('/').filter(Boolean)
+    const actualParts = actualPath.split('/').filter(Boolean)
+
+    const hasWildcard = routeParts.length > 0 && routeParts[routeParts.length - 1] === '*'
+    const checkLength = hasWildcard ? routeParts.length - 1 : routeParts.length
+
+    for (let i = 0; i < checkLength; i++) {
+        const routePart = routeParts[i]
+        if (routePart && routePart.startsWith(':')) {
+            const paramName = routePart.slice(1)
+            params[paramName] = actualParts[i] || ''
+        }
+    }
+
+    return params
+}
+
 function _findMatchingRoute(path) {
     const exactMatch = _routes.find(r => 
         r.path !== '*' && 
@@ -65,9 +87,13 @@ function _unmountCurrent() {
     }
 }
 
-function _renderRoute(matchedRoute) {
+function _renderRoute(matchedRoute, path) {
     _unmountCurrent()
     _outlet.innerHTML = ''
+
+    // Extract and update route params
+    const params = _extractParams(matchedRoute.path, path)
+    routeParams(params)
 
     const componentFn = matchedRoute.component
     _currentInstance = componentFn()
@@ -86,10 +112,11 @@ function _resolveRoute() {
 
     if (!matched) {
         _renderNotFound(path)
+        routeParams({})
         return
     }
 
-    _renderRoute(matched)
+    _renderRoute(matched, path)
 }
 
 export function navigate(path) {
