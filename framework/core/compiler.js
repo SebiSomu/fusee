@@ -74,7 +74,10 @@ export function compileNode(node, context, components, effects) {
             child = child.nextSibling
         }
 
-        for (const cleanup of temporaryEffects) if (typeof cleanup === 'function') cleanup()
+        for (let i = temporaryEffects.length - 1; i >= 0; i--) {
+            const cleanup = temporaryEffects[i]
+            if (typeof cleanup === 'function') cleanup()
+        }
         return
     }
 

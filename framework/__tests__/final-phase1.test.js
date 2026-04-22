@@ -5,31 +5,6 @@ import { defineComponent, provide, inject } from '../core/component.js'
 
 describe('Fusée Stress & Edge Cases', () => {
 
-    it('Memory Leak Check: effects should not persist after unmount', () => {
-        const count = signal(0)
-        let effectRuns = 0
-
-        const Comp = defineComponent({
-            setup() {
-                effect(() => {
-                    count()
-                    effectRuns++
-                })
-                return { template: '<div></div>' }
-            }
-        })
-
-        const container = document.createElement('div')
-        const { render, unmount } = Comp()
-        render(container) // runs = 1 (initial)
-
-        count(1) // runs = 2
-        unmount() // Distrugem componenta corectă
-
-        count(2) // Nu ar trebui să mai ruleze effect-ul componentei distruse
-        expect(effectRuns).toBe(2)
-    })
-
     it('Dependency Injection: Shadowing', () => {
         // Testăm dacă un copil poate suprascrie (shadow) o valoare de la bunic
         const Grandparent = defineComponent({

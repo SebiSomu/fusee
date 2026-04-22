@@ -73,6 +73,7 @@ export declare function watch<T extends any[]>(
     options?: WatchOptions
 ): () => void
 export declare function inspect(...args: any[]): (() => void) | void
+export declare function onCleanup(fn: () => void): void
 
 declare function setEffectHook(fn: (eff: any) => void): void
 

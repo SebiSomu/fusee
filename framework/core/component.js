@@ -167,10 +167,15 @@ export function defineComponent(options) {
 
         function unmount() {
             for (const hook of instance._unmountHooks) hook()
-            for (const e of instance._effects) {
-                if (typeof e === 'function') e()
+            const effects = instance._effects
+            for (let i = effects.length - 1; i >= 0; i--) {
+                const cleanup = effects[i]
+                if (typeof cleanup === 'function') cleanup()
             }
-            if (instance._element) instance._element.innerHTML = ''
+            instance._effects = []
+            if (instance._element) {
+                instance._element.innerHTML = ''
+            }
         }
 
         return { render, unmount, instance }

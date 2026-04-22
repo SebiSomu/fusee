@@ -17,6 +17,7 @@ declare global {
   const inspect: typeof import('fusee-framework').inspect
   const mountOutlet: typeof import('fusee-framework').mountOutlet
   const mountTemplate: typeof import('fusee-framework').mountTemplate
+  const onCleanup: typeof import('fusee-framework').onCleanup
   const onMount: typeof import('fusee-framework').onMount
   const onUnmount: typeof import('fusee-framework').onUnmount
   const provide: typeof import('fusee-framework').provide

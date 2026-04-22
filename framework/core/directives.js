@@ -209,8 +209,11 @@ export function processFor(el, context, components, effects) {
                 const fragment = document.createDocumentFragment()
                 nodesToRemove.forEach(n => fragment.appendChild(n))
             }
-            for (const [_, entry] of cache.entries()) {
-                for (const e of entry.effects) if (typeof e === 'function') e()
+            for (const entry of cache.values()) {
+                for (let i = entry.effects.length - 1; i >= 0; i--) {
+                    const cleanup = entry.effects[i]
+                    if (typeof cleanup === 'function') cleanup()
+                }
             }
             cache.clear()
             previousOrder = []
@@ -275,7 +278,10 @@ export function processFor(el, context, components, effects) {
         if (removedEntries.length > 0) {
             const removeFragment = document.createDocumentFragment()
             removedEntries.forEach(entry => {
-                for (const e of entry.effects) if (typeof e === 'function') e()
+                for (let i = entry.effects.length - 1; i >= 0; i--) {
+                    const cleanup = entry.effects[i]
+                    if (typeof cleanup === 'function') cleanup()
+                }
                 if (entry.node.parentNode) {
                     removeFragment.appendChild(entry.node)
                 }
@@ -288,7 +294,10 @@ export function processFor(el, context, components, effects) {
 
     effects.push(() => {
         for (const entry of cache.values()) {
-            for (const cleanup of entry.effects) if (typeof cleanup === 'function') cleanup()
+            for (let i = entry.effects.length - 1; i >= 0; i--) {
+                const cleanup = entry.effects[i]
+                if (typeof cleanup === 'function') cleanup()
+            }
         }
         cache.clear()
     })
@@ -361,7 +370,10 @@ export function processIf(el, context, components, effects) {
         }
 
         if (nextIndex !== activeIndex) {
-            for (const cleanup of activeCleanup) if (typeof cleanup === 'function') cleanup()
+            for (let i = activeCleanup.length - 1; i >= 0; i--) {
+                const cleanup = activeCleanup[i]
+                if (typeof cleanup === 'function') cleanup()
+            }
             activeCleanup = []
             if (activeNode) {
                 activeNode.remove()
@@ -378,7 +390,10 @@ export function processIf(el, context, components, effects) {
     }))
 
     effects.push(() => {
-        for (const cleanup of activeCleanup) if (typeof cleanup === 'function') cleanup()
+        for (let i = activeCleanup.length - 1; i >= 0; i--) {
+            const cleanup = activeCleanup[i]
+            if (typeof cleanup === 'function') cleanup()
+        }
         activeCleanup = []
     })
 
@@ -413,7 +428,10 @@ export function processIs(el, context, components, effects) {
                 if (keepAlive) {
                     currentEntry.node.remove()
                 } else {
-                    for (const cleanup of activeCleanup) if (typeof cleanup === 'function') cleanup()
+                    for (let i = activeCleanup.length - 1; i >= 0; i--) {
+                        const cleanup = activeCleanup[i]
+                        if (typeof cleanup === 'function') cleanup()
+                    }
                     currentEntry.node.remove()
                     cache.delete(activeKey)
                     activeCleanup = []
@@ -462,7 +480,10 @@ export function processIs(el, context, components, effects) {
 
     effects.push(() => {
         for (const entry of cache.values()) {
-            for (const c of entry.cleanup) if (typeof c === 'function') c()
+            for (let i = entry.cleanup.length - 1; i >= 0; i--) {
+                const cleanup = entry.cleanup[i]
+                if (typeof cleanup === 'function') cleanup()
+            }
             entry.node.remove()
         }
         cache.clear()

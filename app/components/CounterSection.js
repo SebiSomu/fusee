@@ -14,7 +14,6 @@ export const CounterSection = defineComponent({
             get title() { return props.pageTitle },
             toggleCounter: () => showCounter(!showCounter()),
 
-            // 🔄 Re-emit handlers - forward events from Counter to parent
             handleCounterChange: (value) => emit('counter-change', value),
             handleCounterReset: () => emit('counter-reset'),
             handleCustomEvent: (count, multiplier) => emit('custom-event', count, multiplier),
