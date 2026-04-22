@@ -672,17 +672,25 @@ export function processEvents(el, context, effects) {
                 const potentialFn = context[expr]
                 const isFunction = typeof potentialFn === 'function' && !potentialFn.isSignal
 
+                const handlerState = {
+                    timeoutId: null,
+                    throttleTimeoutId: null,
+                    lastRun: 0
+                }
+
                 const wrappedHandler = createEventHandler(
                     isFunction ? potentialFn : expr,
                     modifiers,
                     context,
-                    expr
+                    expr,
+                    handlerState
                 )
 
                 const cleanup = registerDelegatedEvent(el, eventName, wrappedHandler, {
                     modifiers,
                     context,
-                    expr
+                    expr,
+                    handlerState
                 })
 
                 if (effects) {

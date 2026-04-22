@@ -58,7 +58,7 @@ function ensureDocumentListener(eventType) {
 }
 
 export function registerDelegatedEvent(element, eventType, handler, options = {}) {
-    const { modifiers = [], context, expr } = options
+    const { modifiers = [], context, expr, handlerState } = options
     const normalizedEvent = eventType.toLowerCase()
 
     ensureDocumentListener(normalizedEvent)
@@ -72,12 +72,23 @@ export function registerDelegatedEvent(element, eventType, handler, options = {}
         modifiers,
         context,
         expr,
-        cleanup: null
+        cleanup: null,
+        handlerState: handlerState || { timeoutId: null, throttleTimeoutId: null, lastRun: 0 }
     }
 
     delegatedListeners.get(normalizedEvent).add(entry)
 
     return function cleanup() {
+        const state = entry.handlerState
+        if (state.timeoutId) {
+            clearTimeout(state.timeoutId)
+            state.timeoutId = null
+        }
+        if (state.throttleTimeoutId) {
+            clearTimeout(state.throttleTimeoutId)
+            state.throttleTimeoutId = null
+        }
+
         const listeners = delegatedListeners.get(normalizedEvent)
         if (listeners) {
             listeners.delete(entry)
@@ -93,10 +104,10 @@ export function registerDelegatedEvent(element, eventType, handler, options = {}
     }
 }
 
-export function createEventHandler(handler, modifiers, context, expr) {
-    let timeoutId
-    let lastRun = 0
-    let throttleTimeoutId
+export function createEventHandler(handler, modifiers, context, expr, state = null) {
+    const timeoutId = { value: null }
+    const throttleTimeoutId = { value: null }
+    const lastRun = { value: 0 }
 
     let debounceMs = 0
     let throttleMs = 0
@@ -146,25 +157,33 @@ export function createEventHandler(handler, modifiers, context, expr) {
 
         if (throttleMs > 0) {
             const now = Date.now()
-            const remaining = throttleMs - (now - lastRun)
+            const remaining = throttleMs - (now - lastRun.value)
 
             if (remaining <= 0) {
-                clearTimeout(throttleTimeoutId)
-                lastRun = now
+                if (state && state.throttleTimeoutId) clearTimeout(state.throttleTimeoutId)
+                else clearTimeout(throttleTimeoutId.value)
+                lastRun.value = now
                 executeLogic(e)
             } else {
-                clearTimeout(throttleTimeoutId)
-                throttleTimeoutId = setTimeout(() => {
-                    lastRun = Date.now()
+                if (state && state.throttleTimeoutId) clearTimeout(state.throttleTimeoutId)
+                else clearTimeout(throttleTimeoutId.value)
+                const newTimeoutId = setTimeout(() => {
+                    lastRun.value = Date.now()
                     executeLogic(e)
                 }, remaining)
+                if (state) state.throttleTimeoutId = newTimeoutId
+                else throttleTimeoutId.value = newTimeoutId
             }
+            if (state) state.lastRun = lastRun.value
             return
         }
 
         if (debounceMs > 0) {
-            clearTimeout(timeoutId)
-            timeoutId = setTimeout(() => executeLogic(e), debounceMs)
+            if (state && state.timeoutId) clearTimeout(state.timeoutId)
+            else clearTimeout(timeoutId.value)
+            const newTimeoutId = setTimeout(() => executeLogic(e), debounceMs)
+            if (state) state.timeoutId = newTimeoutId
+            else timeoutId.value = newTimeoutId
         } else {
             executeLogic(e)
         }

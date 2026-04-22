@@ -547,4 +547,48 @@ describe('Memory Leak Detection — Functional Cleanup Tests', () => {
     // Effect should not run
     expect(effectRuns).toBe(runsBefore);
   });
+
+  it('delegated event timeouts are cleared on unmount — debounce/throttle cleanup', async () => {
+    let handlerCalls = 0;
+
+    const TestComponent = defineComponent({
+      setup() {
+        const count = signal(0);
+
+        const increment = () => {
+          handlerCalls++;
+          count(count() + 1);
+        };
+
+        return {
+          count,
+          increment,
+          template: '<button @click.debounce.50ms="increment">{{ count }}</button>'
+        };
+      }
+    });
+
+    const comp = TestComponent({}, {});
+    comp.render(container);
+
+    const button = container.querySelector('button');
+    expect(button).toBeTruthy();
+
+    // Trigger multiple clicks rapidly (before debounce fires)
+    button.click();
+    button.click();
+    button.click();
+
+    // Handler should not have fired yet (debounced)
+    expect(handlerCalls).toBe(0);
+
+    // Unmount before debounce timeout completes
+    comp.unmount();
+
+    // Wait for original debounce duration
+    await new Promise(r => setTimeout(r, 100));
+
+    // Handler should still not have fired (timeout was cleared on unmount)
+    expect(handlerCalls).toBe(0);
+  });
 });
