@@ -14,8 +14,6 @@ export function evaluateExpression(expr, context, extraContext = {}, unwrapSigna
         if (identifiers.has(k)) {
             keys.push(k)
             const val = context[k]
-            // Pass signal functions directly (not unwrapped) so they're called inside the effect
-            // This ensures proper reactive tracking when currentEffect is set
             values.push(val)
         }
     }
@@ -29,19 +27,14 @@ export function evaluateExpression(expr, context, extraContext = {}, unwrapSigna
 
     try {
         const isMultiStatement = expr.includes(';') || expr.includes('console.')
-        // Build unwrapping code for signals - this runs INSIDE the created function
-        // so currentEffect is properly set when signal accessors are called
         let body
         if (isMultiStatement) {
-            // For multi-statement, we can't easily unwrap - pass values as-is
             body = expr
         } else {
-            // Only unwrap identifiers that are actually in keys (i.e., found in context)
             const keysToUnwrap = unwrapSignals ? keys : []
             const unwrapStatements = keysToUnwrap.map(id =>
                 `const __${id} = typeof ${id} === 'function' && ${id}.isSignal ? ${id}() : ${id};`
             ).join('\n')
-            // Replace identifiers with their unwrapped versions
             let wrappedExpr = expr
             for (const id of keysToUnwrap) {
                 wrappedExpr = wrappedExpr.replace(new RegExp('\\b' + id + '\\b', 'g'), '__' + id)
@@ -58,16 +51,86 @@ export function evaluateExpression(expr, context, extraContext = {}, unwrapSigna
 
 export function parseInterpolation(str) {
     const parts = []
-    const regex = /\{\{\s*(.+?)\s*\}\}/g
+    let i = 0
     let lastIndex = 0
-    let match
 
-    while ((match = regex.exec(str)) !== null) {
-        if (match.index > lastIndex) {
-            parts.push({ type: 'static', value: str.slice(lastIndex, match.index) })
+    while (i < str.length) {
+        if (str[i] === '{' && str[i+1] === '{') {
+            if (i > 0 && str[i-1] === '\\') {
+                if (i - 1 > lastIndex) {
+                    parts.push({ type: 'static', value: str.slice(lastIndex, i - 1) })
+                }
+                parts.push({ type: 'static', value: '{{' })
+                i += 2
+                lastIndex = i
+                continue
+            }
+
+            if (i > lastIndex) {
+                parts.push({ type: 'static', value: str.slice(lastIndex, i) })
+            }
+
+            let start = i + 2
+            let j = start
+            let braceLevel = 0
+            let inString = false
+            let stringChar = null
+
+            while (j < str.length) {
+                const char = str[j]
+                
+                if (inString) {
+                    if (char === '\\') {
+                        j += 2
+                        continue
+                    }
+                    if (char === stringChar) {
+                        inString = false
+                    }
+                    j++
+                    continue
+                }
+
+                if (char === "'" || char === '"' || char === '`') {
+                    inString = true
+                    stringChar = char
+                    j++
+                    continue
+                }
+
+                if (char === '{') {
+                    braceLevel++
+                    j++
+                    continue
+                }
+
+                if (char === '}') {
+                    if (braceLevel > 0) {
+                        braceLevel--
+                        j++
+                        continue
+                    } else if (j + 1 < str.length && str[j+1] === '}') {
+                        const key = str.slice(start, j).trim()
+                        parts.push({ type: 'dynamic', key })
+                        i = j + 2
+                        lastIndex = i
+                        break
+                    }
+                }
+
+                j++
+            }
+
+            if (j >= str.length) {
+                parts.push({ type: 'static', value: '{{' })
+                i += 2
+                lastIndex = i
+                continue
+            }
+
+        } else {
+            i++
         }
-        parts.push({ type: 'dynamic', key: match[1] })
-        lastIndex = regex.lastIndex
     }
 
     if (lastIndex < str.length) {

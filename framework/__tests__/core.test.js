@@ -342,6 +342,44 @@ describe('Evaluator', () => {
         expect(parts[2]).toEqual({ type: 'static', value: '!' })
     })
 
+    it('handles escape sequences for literal braces', () => {
+        const parts = parseInterpolation('This is \\{{ literal }} not dynamic')
+        expect(parts).toHaveLength(3)
+        expect(parts[0]).toEqual({ type: 'static', value: 'This is ' })
+        expect(parts[1]).toEqual({ type: 'static', value: '{{' })
+        expect(parts[2]).toEqual({ type: 'static', value: ' literal }} not dynamic' })
+    })
+
+    it('handles complex expressions with ternary operators', () => {
+        const parts = parseInterpolation('{{ a > 0 ? "yes" : "no" }}')
+        expect(parts).toHaveLength(1)
+        expect(parts[0]).toEqual({ type: 'dynamic', key: 'a > 0 ? "yes" : "no"' })
+    })
+
+    it('handles string literals containing braces', () => {
+        const parts = parseInterpolation('{{ "foo {{ bar }}" }}')
+        expect(parts).toHaveLength(1)
+        expect(parts[0]).toEqual({ type: 'dynamic', key: '"foo {{ bar }}"' })
+    })
+
+    it('handles nested mustache expressions', () => {
+        const parts = parseInterpolation('{{ outer {{ inner }} }}')
+        expect(parts).toHaveLength(1)
+        expect(parts[0]).toEqual({ type: 'dynamic', key: 'outer {{ inner }}' })
+    })
+
+    it('handles mixed escaped and dynamic expressions', () => {
+        const parts = parseInterpolation('\\{{ escaped }} {{ dynamic }} \\{{ another }}')
+        // Escape sequences produce static parts, dynamic produces dynamic part
+        expect(parts).toHaveLength(6)
+        expect(parts[0]).toEqual({ type: 'static', value: '{{' })
+        expect(parts[1]).toEqual({ type: 'static', value: ' escaped }} ' })
+        expect(parts[2]).toEqual({ type: 'dynamic', key: 'dynamic' })
+        expect(parts[3]).toEqual({ type: 'static', value: ' ' })
+        expect(parts[4]).toEqual({ type: 'static', value: '{{' })
+        expect(parts[5]).toEqual({ type: 'static', value: ' another }}' })
+    })
+
     it('sanitizes dangerous attributes', () => {
         const warn = vi.spyOn(console, 'warn').mockImplementation(() => { })
         expect(sanitizeAttr('href', 'javascript:alert(1)')).toBe('about:blank')

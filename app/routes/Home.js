@@ -99,6 +99,14 @@ export const Home = defineComponent({
                         <p>This card uses only the default slot - no named slots provided.</p>
                     {{ /Card }}
                     
+                    <!-- 🧪 INTERPOLATION TEST -->
+                    <h3 style="margin-top: 40px; margin-bottom: 20px; color: #e83e8c;">🔤 INTERPOLATION TEST</h3>
+                    <div style="background: #2a2a2a; padding: 15px; border-radius: 8px; border: 1px solid #444;">
+                        <p><strong>Escaped Braces:</strong> \\{{ this is not evaluated }}</p>
+                        <p><strong>String Literal with Braces:</strong> {{ "Look, {{ braces }} inside a string!" }}</p>
+                        <p><strong>Dynamic + Escaped:</strong> {{ isActive ? 'Currently: \\{{ Active }}' : 'Currently: \\{{ Inactive }}' }}</p>
+                    </div>
+
                     <!-- 🧪 PROVIDE / INJECT TEST -->
                     <h3 style="margin-top: 40px; margin-bottom: 20px; color: #4CAF50;">🔗 PROVIDE / INJECT TEST</h3>
                     {{ ParentComponent }}
