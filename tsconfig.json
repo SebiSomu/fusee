@@ -4,6 +4,7 @@
     "module": "ES2020",
     "moduleResolution": "bundler",
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "types": ["vite/client"],
     
     "allowJs": true,
     "checkJs": false,

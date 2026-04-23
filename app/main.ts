@@ -1,5 +1,4 @@
-import { createRouter, mountOutlet, defineAsyncComponent } from '../framework/index.js'
-import type { Route } from '../framework/types/index.js'
+import { createRouter, mountOutlet, generateRoutesFromFiles } from '../framework/index.js'
 import { Loading } from './components/Loading.js'
 
 directive('focus', {
@@ -18,78 +17,10 @@ directive('highlight', {
     }
 })
 
-const routes: Route[] = [
-    { 
-        path: '/', 
-        component: defineAsyncComponent({
-            loader: () => import('./routes/Home.ts'),
-            loadingComponent: Loading
-        }) 
-    },
-    { 
-        path: '/about', 
-        component: defineAsyncComponent({
-            loader: () => import('./routes/About.ts'),
-            loadingComponent: Loading
-        }) 
-    },
-    {
-        path: '/test-for',
-        component: defineAsyncComponent({
-            loader: () => import('./routes/TestFor.ts'),
-            loadingComponent: Loading
-        })
-    },
-    {
-        path: '/dynamic',
-        component: defineAsyncComponent({
-            loader: () => import('./routes/TestDynamic.ts'),
-            loadingComponent: Loading
-        })
-    },
-    {
-        path: '/composables',
-        component: defineAsyncComponent({
-            loader: () => import('./routes/TestComposables.ts'),
-            loadingComponent: Loading
-        })
-    },
-    {
-        path: '/router-example',
-        component: defineAsyncComponent({
-            loader: () => import('./routes/RouterExample.ts'),
-            loadingComponent: Loading
-        })
-    },
-    {
-        path: '/users/:id',
-        component: defineAsyncComponent({
-            loader: () => import('./routes/RouterExample.ts'),
-            loadingComponent: Loading
-        })
-    },
-    {
-        path: '/posts/:category/:slug',
-        component: defineAsyncComponent({
-            loader: () => import('./routes/RouterExample.ts'),
-            loadingComponent: Loading
-        })
-    },
-    {
-        path: '/404',
-        component: defineAsyncComponent({
-            loader: () => import('./routes/NotFound.ts'),
-            loadingComponent: Loading
-        })
-    },
-    {
-        path: '*',
-        component: defineAsyncComponent({
-            loader: () => import('./routes/WildcardDemo.ts'),
-            loadingComponent: Loading
-        })
-    },
-]
+const pages = import.meta.glob('./pages/**/*.{js,ts}')
+const routes = generateRoutesFromFiles(pages, {
+    loadingComponent: Loading
+})
 
 createRouter(routes)
 
