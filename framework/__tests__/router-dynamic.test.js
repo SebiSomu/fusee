@@ -20,7 +20,7 @@ afterEach(() => {
 function createMockComponent(renderFn) {
     return () => ({
         render: renderFn,
-        unmount: () => {}
+        unmount: () => { }
     })
 }
 
@@ -174,300 +174,329 @@ describe('Dynamic Routes (flat)', () => {
         expect(outlet.innerHTML).toBe('Profile Page')
         expect(routeParams()).toEqual({})
     })
-})
 
-// ─── Nested Routes ──────────────────────────────────────────────────────────
+    // ─── Nested Routes ──────────────────────────────────────────────────────────
 
-describe('Nested Routes', () => {
-    it('matches parent + index child for parent path', () => {
-        const routes = [
-            {
-                path: '/users',
-                component: createMockComponent((el) => {
-                    el.innerHTML = '<h1>Users Layout</h1><div data-router-view></div>'
-                }),
-                children: [
-                    {
-                        path: '',
-                        component: createMockComponent((el) => {
-                            el.innerHTML = 'Users Index'
-                        })
-                    },
-                    {
-                        path: ':id',
-                        component: createMockComponent((el) => {
-                            el.innerHTML = 'User Detail'
-                        })
-                    }
-                ]
-            }
-        ]
+    describe('Nested Routes', () => {
+        it('matches parent + index child for parent path', () => {
+            const routes = [
+                {
+                    path: '/users',
+                    component: createMockComponent((el) => {
+                        el.innerHTML = '<h1>Users Layout</h1><div data-router-view></div>'
+                    }),
+                    children: [
+                        {
+                            path: '',
+                            component: createMockComponent((el) => {
+                                el.innerHTML = 'Users Index'
+                            })
+                        },
+                        {
+                            path: ':id',
+                            component: createMockComponent((el) => {
+                                el.innerHTML = 'User Detail'
+                            })
+                        }
+                    ]
+                }
+            ]
 
-        Object.defineProperty(window, 'location', {
-            writable: true,
-            value: { pathname: '/users' }
+            Object.defineProperty(window, 'location', {
+                writable: true,
+                value: { pathname: '/users' }
+            })
+
+            const outlet = document.createElement('div')
+            outlet.id = 'router-test-outlet'
+            document.body.appendChild(outlet)
+
+            createRouter(routes)
+            mountOutlet(outlet)
+
+            expect(outlet.querySelector('h1').textContent).toBe('Users Layout')
+            expect(outlet.querySelector('[data-router-view]').innerHTML).toBe('Users Index')
         })
 
-        const outlet = document.createElement('div')
-        outlet.id = 'router-test-outlet'
-        document.body.appendChild(outlet)
+        it('matches parent + dynamic child', () => {
+            const routes = [
+                {
+                    path: '/users',
+                    component: createMockComponent((el) => {
+                        el.innerHTML = '<h1>Users Layout</h1><div data-router-view></div>'
+                    }),
+                    children: [
+                        {
+                            path: '',
+                            component: createMockComponent((el) => {
+                                el.innerHTML = 'Users Index'
+                            })
+                        },
+                        {
+                            path: ':id',
+                            component: createMockComponent((el) => {
+                                el.innerHTML = 'User Detail'
+                            })
+                        }
+                    ]
+                }
+            ]
 
-        createRouter(routes)
-        mountOutlet(outlet)
+            Object.defineProperty(window, 'location', {
+                writable: true,
+                value: { pathname: '/users/42' }
+            })
 
-        expect(outlet.querySelector('h1').textContent).toBe('Users Layout')
-        expect(outlet.querySelector('[data-router-view]').innerHTML).toBe('Users Index')
-    })
+            const outlet = document.createElement('div')
+            outlet.id = 'router-test-outlet'
+            document.body.appendChild(outlet)
 
-    it('matches parent + dynamic child', () => {
-        const routes = [
-            {
-                path: '/users',
-                component: createMockComponent((el) => {
-                    el.innerHTML = '<h1>Users Layout</h1><div data-router-view></div>'
-                }),
-                children: [
-                    {
-                        path: '',
-                        component: createMockComponent((el) => {
-                            el.innerHTML = 'Users Index'
-                        })
-                    },
-                    {
-                        path: ':id',
-                        component: createMockComponent((el) => {
-                            el.innerHTML = 'User Detail'
-                        })
-                    }
-                ]
-            }
-        ]
+            createRouter(routes)
+            mountOutlet(outlet)
 
-        Object.defineProperty(window, 'location', {
-            writable: true,
-            value: { pathname: '/users/42' }
+            expect(outlet.querySelector('h1').textContent).toBe('Users Layout')
+            expect(outlet.querySelector('[data-router-view]').innerHTML).toBe('User Detail')
+            expect(routeParams()).toEqual({ id: '42' })
         })
 
-        const outlet = document.createElement('div')
-        outlet.id = 'router-test-outlet'
-        document.body.appendChild(outlet)
+        it('merges params from all levels in the chain', () => {
+            const routes = [
+                {
+                    path: '/org/:orgId',
+                    component: createMockComponent((el) => {
+                        el.innerHTML = '<div data-router-view></div>'
+                    }),
+                    children: [
+                        {
+                            path: 'team/:teamId',
+                            component: createMockComponent((el) => {
+                                el.innerHTML = 'Team Page'
+                            })
+                        }
+                    ]
+                }
+            ]
 
-        createRouter(routes)
-        mountOutlet(outlet)
+            Object.defineProperty(window, 'location', {
+                writable: true,
+                value: { pathname: '/org/acme/team/engineering' }
+            })
 
-        expect(outlet.querySelector('h1').textContent).toBe('Users Layout')
-        expect(outlet.querySelector('[data-router-view]').innerHTML).toBe('User Detail')
-        expect(routeParams()).toEqual({ id: '42' })
-    })
+            const outlet = document.createElement('div')
+            outlet.id = 'router-test-outlet'
+            document.body.appendChild(outlet)
 
-    it('merges params from all levels in the chain', () => {
-        const routes = [
-            {
-                path: '/org/:orgId',
+            createRouter(routes)
+            mountOutlet(outlet)
+
+            expect(routeParams()).toEqual({ orgId: 'acme', teamId: 'engineering' })
+        })
+
+        it('exposes matchedRoutes signal with the full chain', () => {
+            const parentRoute = {
+                path: '/users',
                 component: createMockComponent((el) => {
                     el.innerHTML = '<div data-router-view></div>'
                 }),
                 children: [
                     {
-                        path: 'team/:teamId',
+                        path: ':id',
                         component: createMockComponent((el) => {
-                            el.innerHTML = 'Team Page'
+                            el.innerHTML = 'User Detail'
                         })
                     }
                 ]
             }
-        ]
 
-        Object.defineProperty(window, 'location', {
-            writable: true,
-            value: { pathname: '/org/acme/team/engineering' }
+            const routes = [parentRoute]
+
+            Object.defineProperty(window, 'location', {
+                writable: true,
+                value: { pathname: '/users/7' }
+            })
+
+            const outlet = document.createElement('div')
+            outlet.id = 'router-test-outlet'
+            document.body.appendChild(outlet)
+
+            createRouter(routes)
+            mountOutlet(outlet)
+
+            const matched = matchedRoutes()
+            expect(matched).toHaveLength(2)
+            expect(matched[0]).toBe(parentRoute)
+            expect(matched[1]).toBe(parentRoute.children[0])
         })
 
-        const outlet = document.createElement('div')
-        outlet.id = 'router-test-outlet'
-        document.body.appendChild(outlet)
+        it('parent layout persists when navigating between children', () => {
+            let layoutRenderCount = 0
 
-        createRouter(routes)
-        mountOutlet(outlet)
-
-        expect(routeParams()).toEqual({ orgId: 'acme', teamId: 'engineering' })
-    })
-
-    it('exposes matchedRoutes signal with the full chain', () => {
-        const parentRoute = {
-            path: '/users',
-            component: createMockComponent((el) => {
-                el.innerHTML = '<div data-router-view></div>'
-            }),
-            children: [
+            const routes = [
                 {
-                    path: ':id',
+                    path: '/users',
                     component: createMockComponent((el) => {
-                        el.innerHTML = 'User Detail'
+                        layoutRenderCount++
+                        el.innerHTML = '<h1>Layout</h1><div data-router-view></div>'
+                    }),
+                    children: [
+                        {
+                            path: 'a',
+                            component: createMockComponent((el) => {
+                                el.innerHTML = 'Page A'
+                            })
+                        },
+                        {
+                            path: 'b',
+                            component: createMockComponent((el) => {
+                                el.innerHTML = 'Page B'
+                            })
+                        }
+                    ]
+                }
+            ]
+
+            Object.defineProperty(window, 'location', {
+                writable: true,
+                value: { pathname: '/users/a' }
+            })
+
+            const pushStateSpy = vi.fn((state, title, url) => {
+                if (typeof url === 'string') window.location.pathname = url
+            })
+            Object.defineProperty(window.history, 'pushState', {
+                writable: true,
+                value: pushStateSpy
+            })
+
+            const outlet = document.createElement('div')
+            outlet.id = 'router-test-outlet'
+            document.body.appendChild(outlet)
+
+            const router = createRouter(routes)
+            mountOutlet(outlet)
+
+            expect(layoutRenderCount).toBe(1)
+            expect(outlet.querySelector('[data-router-view]').innerHTML).toBe('Page A')
+
+            // Navigate to sibling child
+            router.navigate('/users/b')
+
+            // Layout should NOT have been re-rendered
+            expect(layoutRenderCount).toBe(1)
+            expect(outlet.querySelector('[data-router-view]').innerHTML).toBe('Page B')
+        })
+
+        it('unmounts entire chain when navigating to a completely different route', () => {
+            let layoutUnmounted = false
+            let childUnmounted = false
+
+            const routes = [
+                {
+                    path: '/users',
+                    component: () => ({
+                        render: (el) => {
+                            el.innerHTML = '<div data-router-view></div>'
+                        },
+                        unmount: () => { layoutUnmounted = true }
+                    }),
+                    children: [
+                        {
+                            path: '',
+                            component: () => ({
+                                render: (el) => { el.innerHTML = 'Index' },
+                                unmount: () => { childUnmounted = true }
+                            })
+                        }
+                    ]
+                },
+                {
+                    path: '/about',
+                    component: createMockComponent((el) => {
+                        el.innerHTML = 'About Page'
                     })
                 }
             ]
-        }
 
-        const routes = [parentRoute]
+            Object.defineProperty(window, 'location', {
+                writable: true,
+                value: { pathname: '/users' }
+            })
 
-        Object.defineProperty(window, 'location', {
-            writable: true,
-            value: { pathname: '/users/7' }
+            const pushStateSpy = vi.fn((state, title, url) => {
+                if (typeof url === 'string') window.location.pathname = url
+            })
+            Object.defineProperty(window.history, 'pushState', {
+                writable: true,
+                value: pushStateSpy
+            })
+
+            const outlet = document.createElement('div')
+            outlet.id = 'router-test-outlet'
+            document.body.appendChild(outlet)
+
+            const router = createRouter(routes)
+            mountOutlet(outlet)
+
+            expect(outlet.querySelector('[data-router-view]').innerHTML).toBe('Index')
+
+            router.navigate('/about')
+
+            expect(childUnmounted).toBe(true)
+            expect(layoutUnmounted).toBe(true)
+            expect(outlet.innerHTML).toBe('About Page')
         })
 
-        const outlet = document.createElement('div')
-        outlet.id = 'router-test-outlet'
-        document.body.appendChild(outlet)
-
-        createRouter(routes)
-        mountOutlet(outlet)
-
-        const matched = matchedRoutes()
-        expect(matched).toHaveLength(2)
-        expect(matched[0]).toBe(parentRoute)
-        expect(matched[1]).toBe(parentRoute.children[0])
-    })
-
-    it('parent layout persists when navigating between children', () => {
-        let layoutRenderCount = 0
-
-        const routes = [
-            {
-                path: '/users',
-                component: createMockComponent((el) => {
-                    layoutRenderCount++
-                    el.innerHTML = '<h1>Layout</h1><div data-router-view></div>'
-                }),
-                children: [
-                    {
-                        path: 'a',
-                        component: createMockComponent((el) => {
-                            el.innerHTML = 'Page A'
-                        })
-                    },
-                    {
-                        path: 'b',
-                        component: createMockComponent((el) => {
-                            el.innerHTML = 'Page B'
-                        })
-                    }
-                ]
-            }
-        ]
-
-        Object.defineProperty(window, 'location', {
-            writable: true,
-            value: { pathname: '/users/a' }
-        })
-
-        const pushStateSpy = vi.fn((state, title, url) => {
-            if (typeof url === 'string') window.location.pathname = url
-        })
-        Object.defineProperty(window.history, 'pushState', {
-            writable: true,
-            value: pushStateSpy
-        })
-
-        const outlet = document.createElement('div')
-        outlet.id = 'router-test-outlet'
-        document.body.appendChild(outlet)
-
-        const router = createRouter(routes)
-        mountOutlet(outlet)
-
-        expect(layoutRenderCount).toBe(1)
-        expect(outlet.querySelector('[data-router-view]').innerHTML).toBe('Page A')
-
-        // Navigate to sibling child
-        router.navigate('/users/b')
-
-        // Layout should NOT have been re-rendered
-        expect(layoutRenderCount).toBe(1)
-        expect(outlet.querySelector('[data-router-view]').innerHTML).toBe('Page B')
-    })
-
-    it('unmounts entire chain when navigating to a completely different route', () => {
-        let layoutUnmounted = false
-        let childUnmounted = false
-
-        const routes = [
-            {
-                path: '/users',
-                component: () => ({
-                    render: (el) => {
+        it('renders 404 when no route matches', () => {
+            const routes = [
+                {
+                    path: '/users',
+                    component: createMockComponent((el) => {
                         el.innerHTML = '<div data-router-view></div>'
-                    },
-                    unmount: () => { layoutUnmounted = true }
-                }),
-                children: [
-                    {
-                        path: '',
-                        component: () => ({
-                            render: (el) => { el.innerHTML = 'Index' },
-                            unmount: () => { childUnmounted = true }
-                        })
-                    }
-                ]
-            },
+                    }),
+                    children: [
+                        {
+                            path: '',
+                            component: createMockComponent((el) => {
+                                el.innerHTML = 'Index'
+                            })
+                        }
+                    ]
+                }
+            ]
+
+            Object.defineProperty(window, 'location', {
+                writable: true,
+                value: { pathname: '/nonexistent' }
+            })
+
+            const outlet = document.createElement('div')
+            outlet.id = 'router-test-outlet'
+            document.body.appendChild(outlet)
+
+            createRouter(routes)
+            mountOutlet(outlet)
+
+            expect(outlet.innerHTML).toContain('No route matched')
+        })
+    })
+})
+
+// ─── Multiple Paths Feature ─────────────────────────────────────────────────────
+
+describe('Multiple Paths (array paths)', () => {
+    it('matches route with array of paths', () => {
+        const routes = [
             {
-                path: '/about',
+                path: ['/login', '/register'],
                 component: createMockComponent((el) => {
-                    el.innerHTML = 'About Page'
+                    el.innerHTML = 'Auth Page'
                 })
             }
         ]
 
         Object.defineProperty(window, 'location', {
             writable: true,
-            value: { pathname: '/users' }
-        })
-
-        const pushStateSpy = vi.fn((state, title, url) => {
-            if (typeof url === 'string') window.location.pathname = url
-        })
-        Object.defineProperty(window.history, 'pushState', {
-            writable: true,
-            value: pushStateSpy
-        })
-
-        const outlet = document.createElement('div')
-        outlet.id = 'router-test-outlet'
-        document.body.appendChild(outlet)
-
-        const router = createRouter(routes)
-        mountOutlet(outlet)
-
-        expect(outlet.querySelector('[data-router-view]').innerHTML).toBe('Index')
-
-        router.navigate('/about')
-
-        expect(childUnmounted).toBe(true)
-        expect(layoutUnmounted).toBe(true)
-        expect(outlet.innerHTML).toBe('About Page')
-    })
-
-    it('renders 404 when no route matches', () => {
-        const routes = [
-            {
-                path: '/users',
-                component: createMockComponent((el) => {
-                    el.innerHTML = '<div data-router-view></div>'
-                }),
-                children: [
-                    {
-                        path: '',
-                        component: createMockComponent((el) => {
-                            el.innerHTML = 'Index'
-                        })
-                    }
-                ]
-            }
-        ]
-
-        Object.defineProperty(window, 'location', {
-            writable: true,
-            value: { pathname: '/nonexistent' }
+            value: { pathname: '/login' }
         })
 
         const outlet = document.createElement('div')
@@ -477,6 +506,31 @@ describe('Nested Routes', () => {
         createRouter(routes)
         mountOutlet(outlet)
 
-        expect(outlet.innerHTML).toContain('No route matched')
+        expect(outlet.innerHTML).toContain('Auth Page')
+    })
+
+    it('matches second path in array', () => {
+        const routes = [
+            {
+                path: ['/login', '/register'],
+                component: createMockComponent((el) => {
+                    el.innerHTML = 'Auth Page'
+                })
+            }
+        ]
+
+        Object.defineProperty(window, 'location', {
+            writable: true,
+            value: { pathname: '/register' }
+        })
+
+        const outlet = document.createElement('div')
+        outlet.id = 'router-test-outlet'
+        document.body.appendChild(outlet)
+
+        createRouter(routes)
+        mountOutlet(outlet)
+
+        expect(outlet.innerHTML).toContain('Auth Page')
     })
 })

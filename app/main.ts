@@ -1,5 +1,6 @@
 import { createRouter, mountOutlet, generateRoutes } from '../framework/index.js'
 import { Loading } from './components/Loading.js'
+import { AuthRoutes } from './routes/AuthRoutes.js'
 
 directive('focus', {
     mounted(el) {
@@ -20,6 +21,12 @@ directive('highlight', {
 const pages = import.meta.glob('./pages/**/*.{js,ts}')
 const routes = generateRoutes(pages, {
     loadingComponent: Loading
+})
+
+// Add manual route with array paths - component won't re-render when switching between /login and /register
+routes.push({
+    path: ['/login', '/register'],
+    component: AuthRoutes
 })
 
 createRouter(routes)

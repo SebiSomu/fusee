@@ -13,6 +13,10 @@ function _getPath() {
     return window.location.pathname || '/'
 }
 
+function _getRoutePaths(routePath) {
+    return Array.isArray(routePath) ? routePath : [routePath]
+}
+
 function _updateRoute() {
     currentRoute(_getPath())
 }
@@ -55,31 +59,34 @@ function _matchSegments(routePath, urlSegments) {
 
 function _matchRouteTree(routes, urlSegments) {
     for (const route of routes) {
-        const result = _matchSegments(route.path, urlSegments)
-        if (!result) continue
+        const paths = _getRoutePaths(route.path)
+        for (const path of paths) {
+            const result = _matchSegments(path, urlSegments)
+            if (!result) continue
 
-        const remaining = urlSegments.slice(result.consumed)
+            const remaining = urlSegments.slice(result.consumed)
 
-        if (route.children && route.children.length > 0) {
-            const childChain = _matchRouteTree(route.children, remaining)
-            if (childChain) {
-                return [
-                    { route, params: result.params, matchedSegments: urlSegments.slice(0, result.consumed) },
-                    ...childChain
-                ]
+            if (route.children && route.children.length > 0) {
+                const childChain = _matchRouteTree(route.children, remaining)
+                if (childChain) {
+                    return [
+                        { route, params: result.params, matchedSegments: urlSegments.slice(0, result.consumed), matchedPath: path },
+                        ...childChain
+                    ]
+                }
+                continue
             }
-            continue
-        }
 
-        if (remaining.length === 0 || route.path === '*' || route.path.endsWith('/*')) {
-            return [{ route, params: result.params, matchedSegments: urlSegments.slice(0, result.consumed) }]
+            if (remaining.length === 0 || path === '*' || path.endsWith('/*')) {
+                return [{ route, params: result.params, matchedSegments: urlSegments.slice(0, result.consumed), matchedPath: path }]
+            }
         }
     }
 
     return null
 }
 
-function _matchFlat(routePath, actualPath) {
+function _matchSingleFlat(routePath, actualPath) {
     if (routePath === '*') return true
 
     const routeParts = routePath.split('/').filter(Boolean)
@@ -97,11 +104,21 @@ function _matchFlat(routePath, actualPath) {
     return routeParts.every((part, i) => part.startsWith(':') || part === actualParts[i])
 }
 
-function _extractParamsFlat(routePath, actualPath) {
-    const params = {}
-    if (routePath === '*') return params
+function _matchFlat(routePath, actualPath) {
+    const paths = _getRoutePaths(routePath)
+    return paths.some(p => _matchSingleFlat(p, actualPath))
+}
 
-    const routeParts = routePath.split('/').filter(Boolean)
+function _findMatchingPath(routePath, actualPath) {
+    const paths = _getRoutePaths(routePath)
+    return paths.find(p => _matchSingleFlat(p, actualPath)) || null
+}
+
+function _extractParamsFromPath(singlePath, actualPath) {
+    const params = {}
+    if (singlePath === '*') return params
+
+    const routeParts = singlePath.split('/').filter(Boolean)
     const actualParts = actualPath.split('/').filter(Boolean)
 
     const hasWildcard = routeParts.length > 0 && routeParts[routeParts.length - 1] === '*'
@@ -115,6 +132,12 @@ function _extractParamsFlat(routePath, actualPath) {
     return params
 }
 
+function _extractParamsFlat(routePath, actualPath) {
+    const matchingPath = _findMatchingPath(routePath, actualPath)
+    if (!matchingPath) return {}
+    return _extractParamsFromPath(matchingPath, actualPath)
+}
+
 function _findMatchingChain(path) {
     const urlSegments = path.split('/').filter(Boolean)
     const hasNested = _routes.some(r => r.children && r.children.length > 0)
@@ -124,28 +147,32 @@ function _findMatchingChain(path) {
         if (chain) return chain
     }
 
-    const exactMatch = _routes.find(r =>
-        r.path !== '*' &&
-        !r.path.endsWith('/*') &&
-        !r.children &&
-        _matchFlat(r.path, path)
-    )
+    const paths = _routes.filter(r => {
+        const routePaths = _getRoutePaths(r.path)
+        return !routePaths.includes('*') && !routePaths.some(p => p.endsWith('/*')) && !r.children
+    })
+    const exactMatch = paths.find(r => _matchFlat(r.path, path))
     if (exactMatch) {
-        return [{ route: exactMatch, params: _extractParamsFlat(exactMatch.path, path), matchedSegments: urlSegments }]
+        const matchedPath = _findMatchingPath(exactMatch.path, path)
+        return [{ route: exactMatch, params: _extractParamsFlat(exactMatch.path, path), matchedSegments: urlSegments, matchedPath }]
     }
 
-    const wildcardMatch = _routes.find(r =>
-        r.path.endsWith('/*') &&
-        !r.children &&
-        _matchFlat(r.path, path)
-    )
+    const wildcardPaths = _routes.filter(r => {
+        const routePaths = _getRoutePaths(r.path)
+        return !r.children && routePaths.some(p => p.endsWith('/*'))
+    })
+    const wildcardMatch = wildcardPaths.find(r => _matchFlat(r.path, path))
     if (wildcardMatch) {
-        return [{ route: wildcardMatch, params: _extractParamsFlat(wildcardMatch.path, path), matchedSegments: urlSegments }]
+        const matchedPath = _findMatchingPath(wildcardMatch.path, path)
+        return [{ route: wildcardMatch, params: _extractParamsFlat(wildcardMatch.path, path), matchedSegments: urlSegments, matchedPath }]
     }
 
-    const catchAll = _routes.find(r => r.path === '*')
+    const catchAll = _routes.find(r => {
+        const routePaths = _getRoutePaths(r.path)
+        return routePaths.includes('*')
+    })
     if (catchAll) {
-        return [{ route: catchAll, params: {}, matchedSegments: urlSegments }]
+        return [{ route: catchAll, params: {}, matchedSegments: urlSegments, matchedPath: '*' }]
     }
 
     return null
@@ -161,6 +188,10 @@ function _unmountFromLevel(level) {
     _activeChain.length = level
 }
 
+function _getRoutePathCount(route) {
+    return Array.isArray(route.path) ? route.path.length : 1
+}
+
 function _renderChain(chain) {
     let reuseUntil = 0
     for (let i = 0; i < Math.min(_activeChain.length, chain.length); i++) {
@@ -172,7 +203,14 @@ function _renderChain(chain) {
             _segmentsEqual(active.matchedSegments, incoming.matchedSegments)
         ) {
             reuseUntil = i + 1
-        } else {
+        }
+        else if (
+            active.route === incoming.route &&
+            _getRoutePathCount(active.route) > 1
+        ) {
+            reuseUntil = i + 1
+        }
+        else {
             break
         }
     }

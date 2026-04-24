@@ -2,7 +2,7 @@ import type { ComponentApi, ComponentFactory } from './component'
 import type { Signal } from './signal'
 
 export type Route = {
-    path: string
+    path: string | string[]
     component: ComponentFactory<any>
     children?: Route[]
 }

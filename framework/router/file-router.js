@@ -142,26 +142,36 @@ function _sortRoutesRecursive(routes) {
     }
 }
 
-function _compareRoutes(a, b) {
-    if (a.path === '*' && b.path !== '*') return 1;
-    if (a.path !== '*' && b.path === '*') return -1;
+function _getPathArray(path) {
+    return Array.isArray(path) ? path : [path];
+}
 
-    const aWild = a.path.endsWith('/*');
-    const bWild = b.path.endsWith('/*');
+function _compareRoutes(a, b) {
+    const aPaths = _getPathArray(a.path);
+    const bPaths = _getPathArray(b.path);
+    
+    const aPath = aPaths[0];
+    const bPath = bPaths[0];
+    
+    if (aPath === '*' && bPath !== '*') return 1;
+    if (aPath !== '*' && bPath === '*') return -1;
+
+    const aWild = aPath.endsWith('/*');
+    const bWild = bPath.endsWith('/*');
     if (aWild && !bWild) return 1;
     if (!aWild && bWild) return -1;
 
-    const aDynamic = a.path.includes(':');
-    const bDynamic = b.path.includes(':');
+    const aDynamic = aPath.includes(':');
+    const bDynamic = bPath.includes(':');
     if (aDynamic && !bDynamic) return 1;
     if (!aDynamic && bDynamic) return -1;
 
     if (a.children && !b.children) return -1;
     if (!a.children && b.children) return 1;
 
-    const aSegs = a.path.split('/').filter(Boolean).length;
-    const bSegs = b.path.split('/').filter(Boolean).length;
+    const aSegs = aPath.split('/').filter(Boolean).length;
+    const bSegs = bPath.split('/').filter(Boolean).length;
     if (aSegs !== bSegs) return bSegs - aSegs;
 
-    return b.path.length - a.path.length;
+    return bPath.length - aPath.length;
 }
