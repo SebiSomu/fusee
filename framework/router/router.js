@@ -8,6 +8,9 @@ let _routes = []
 let _rootOutlet = null
 let _clickHandler = null
 let _activeChain = []
+let _routeCache = new Map()
+let _cacheMaxSize = 100
+let _routerViewTimeout = 10000
 
 function _getPath() {
     return window.location.pathname || '/'
@@ -139,12 +142,24 @@ function _extractParamsFlat(routePath, actualPath) {
 }
 
 function _findMatchingChain(path) {
+    if (_routeCache.has(path)) {
+        const cached = _routeCache.get(path)
+        _routeCache.delete(path)
+        _routeCache.set(path, cached)
+        return cached
+    }
+
     const urlSegments = path.split('/').filter(Boolean)
     const hasNested = _routes.some(r => r.children && r.children.length > 0)
 
+    let chain = null
+
     if (hasNested) {
-        const chain = _matchRouteTree(_routes, urlSegments)
-        if (chain) return chain
+        chain = _matchRouteTree(_routes, urlSegments)
+        if (chain) {
+            _cacheResult(path, chain)
+            return chain
+        }
     }
 
     const paths = _routes.filter(r => {
@@ -154,7 +169,9 @@ function _findMatchingChain(path) {
     const exactMatch = paths.find(r => _matchFlat(r.path, path))
     if (exactMatch) {
         const matchedPath = _findMatchingPath(exactMatch.path, path)
-        return [{ route: exactMatch, params: _extractParamsFlat(exactMatch.path, path), matchedSegments: urlSegments, matchedPath }]
+        chain = [{ route: exactMatch, params: _extractParamsFlat(exactMatch.path, path), matchedSegments: urlSegments, matchedPath }]
+        _cacheResult(path, chain)
+        return chain
     }
 
     const wildcardPaths = _routes.filter(r => {
@@ -164,7 +181,9 @@ function _findMatchingChain(path) {
     const wildcardMatch = wildcardPaths.find(r => _matchFlat(r.path, path))
     if (wildcardMatch) {
         const matchedPath = _findMatchingPath(wildcardMatch.path, path)
-        return [{ route: wildcardMatch, params: _extractParamsFlat(wildcardMatch.path, path), matchedSegments: urlSegments, matchedPath }]
+        chain = [{ route: wildcardMatch, params: _extractParamsFlat(wildcardMatch.path, path), matchedSegments: urlSegments, matchedPath }]
+        _cacheResult(path, chain)
+        return chain
     }
 
     const catchAll = _routes.find(r => {
@@ -172,10 +191,24 @@ function _findMatchingChain(path) {
         return routePaths.includes('*')
     })
     if (catchAll) {
-        return [{ route: catchAll, params: {}, matchedSegments: urlSegments, matchedPath: '*' }]
+        chain = [{ route: catchAll, params: {}, matchedSegments: urlSegments, matchedPath: '*' }]
+        _cacheResult(path, chain)
+        return chain
     }
 
     return null
+}
+
+function _cacheResult(path, chain) {
+    if (_routeCache.size >= _cacheMaxSize) {
+        const firstKey = _routeCache.keys().next().value
+        _routeCache.delete(firstKey)
+    }
+    _routeCache.set(path, chain)
+}
+
+function _clearRouteCache() {
+    _routeCache.clear()
 }
 
 function _unmountFromLevel(level) {
@@ -193,37 +226,45 @@ function _getRoutePathCount(route) {
 }
 
 function _renderChain(chain) {
-    let reuseUntil = 0
-    for (let i = 0; i < Math.min(_activeChain.length, chain.length); i++) {
-        const active = _activeChain[i]
-        const incoming = chain[i]
+    try {
+        let reuseUntil = 0
+        for (let i = 0; i < Math.min(_activeChain.length, chain.length); i++) {
+            const active = _activeChain[i]
+            const incoming = chain[i]
 
-        if (
-            active.route === incoming.route &&
-            _segmentsEqual(active.matchedSegments, incoming.matchedSegments)
-        ) {
-            reuseUntil = i + 1
+            if (
+                active.route === incoming.route &&
+                _segmentsEqual(active.matchedSegments, incoming.matchedSegments)
+            ) {
+                reuseUntil = i + 1
+            }
+            else if (
+                active.route === incoming.route &&
+                _getRoutePathCount(active.route) > 1
+            ) {
+                reuseUntil = i + 1
+            }
+            else {
+                break
+            }
         }
-        else if (
-            active.route === incoming.route &&
-            _getRoutePathCount(active.route) > 1
-        ) {
-            reuseUntil = i + 1
+
+        _unmountFromLevel(reuseUntil)
+
+        const allParams = {}
+        for (const entry of chain) {
+            Object.assign(allParams, entry.params)
         }
-        else {
-            break
+        routeParams(allParams)
+        matchedRoutes(chain.map(e => e.route))
+        _renderFromLevel(chain, reuseUntil)
+    } catch (error) {
+        console.error('[framework] Error rendering route chain:', error)
+        _unmountFromLevel(0)
+        if (_rootOutlet) {
+            _rootOutlet.innerHTML = `<p style="color:red">[framework] Error rendering route: ${error.message}</p>`
         }
     }
-
-    _unmountFromLevel(reuseUntil)
-
-    const allParams = {}
-    for (const entry of chain) {
-        Object.assign(allParams, entry.params)
-    }
-    routeParams(allParams)
-    matchedRoutes(chain.map(e => e.route))
-    _renderFromLevel(chain, reuseUntil)
 }
 
 function _renderFromLevel(chain, level) {
@@ -295,7 +336,7 @@ function _waitForRouterView(level, callback) {
 
     observer.observe(parentOutlet, { childList: true, subtree: true })
 
-    setTimeout(() => observer.disconnect(), 10000)
+    setTimeout(() => observer.disconnect(), _routerViewTimeout)
 }
 
 function _segmentsEqual(a, b) {
@@ -394,9 +435,11 @@ function _setupInitialRoute() {
     }
 }
 
-export function createRouter(routes) {
+export function createRouter(routes, options = {}) {
     _routes = routes
     _activeChain = []
+    _cacheMaxSize = options.cacheSize || 100
+    _routerViewTimeout = options.routerViewTimeout || 10000
 
     _updateRoute()
 
@@ -413,6 +456,7 @@ export function createRouter(routes) {
             _routes = []
             _rootOutlet = null
             _activeChain = []
+            _clearRouteCache()
         }
     }
 }

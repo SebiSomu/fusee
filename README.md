@@ -81,7 +81,7 @@ export const Welcome = defineComponent({
 
 Fusée is built with a test-driven mindset to ensure the reliability of its reactivity engine and component lifecycle.
 
-- **Total Tests:** `425`
+- **Total Tests:** `468`
 - **Status:** `All Passed`
 - **Framework:** [Vitest](https://vitest.dev/)
 - **Environment:** JSDOM (Browser simulation)

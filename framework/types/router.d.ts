@@ -18,7 +18,7 @@ export declare const currentRoute: Signal<string>
 export declare const routeParams: Signal<RouteParams>
 export declare const matchedRoutes: Signal<Route[]>
 
-export declare function createRouter(routes: Route[]): Router
+export declare function createRouter(routes: Route[], options?: { cacheSize?: number; routerViewTimeout?: number }): Router
 export declare function navigate(path: string): void
 export declare function mountOutlet(el: HTMLElement): void
 
