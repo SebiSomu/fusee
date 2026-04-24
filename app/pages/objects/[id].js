@@ -1,4 +1,4 @@
-import { currentRoute, navigate, routeParams, computed } from '../../../../framework/index.js'
+import { currentRoute, navigate, routeParams, computed, defineComponent } from '../../../framework/index.js'
 
 export const RouterExample = defineComponent({
     setup() {

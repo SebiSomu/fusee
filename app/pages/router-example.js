@@ -22,8 +22,8 @@ export const RouterExample = defineComponent({
                     <div class="demo-card">
                         <h2>routeParams Signal (Dynamic Routes)</h2>
                         <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-                            <a href="/users/123" f-link class="cmp-btn" style="text-decoration: none;">User 123</a>
-                            <a href="/users/456" f-link class="cmp-btn" style="text-decoration: none;">User 456</a>
+                            <a href="/objects/123" f-link class="cmp-btn" style="text-decoration: none;">Object 123</a>
+                            <a href="/objects/456" f-link class="cmp-btn" style="text-decoration: none;">Object 456</a>
                             <a href="/posts/tech/my-post" f-link class="cmp-btn" style="text-decoration: none;">Post Route</a>
                         </div>
                         <code style="color: #34d399; font-size: 1.2rem;">{{ paramsJson }}</code>

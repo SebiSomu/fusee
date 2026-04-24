@@ -1,30 +1,40 @@
 import { defineAsyncComponent } from '../core/component.js';
 
-export function generateRoutesFromFiles(globResults, options = {}) {
-    const routes = [];
+export function generateRoutes(globResults, options = {}) {
+    const entries = _parseGlobEntries(globResults, options);
+    const tree = _buildRouteTree(entries, false);
+    _sortRoutesRecursive(tree);
+    return tree;
+}
 
-    for (const path of Object.keys(globResults)) {
-        const loader = globResults[path];
+function _parseGlobEntries(globResults, options) {
+    const entries = [];
 
-        let routePath = path
+    for (const filePath of Object.keys(globResults)) {
+        const loader = globResults[filePath];
+
+        let cleanPath = filePath
             .replace(/^\.?\/?app\/pages\//, '')
             .replace(/^\.?\/?pages\//, '')
-            .replace(/\.[jt]sx?$/, '')
-            .replace(/\[\.\.\.([^\]]+)\]/g, '*')
-            .replace(/\[([^\]]+)\]/g, ':$1');
+            .replace(/\.[jt]sx?$/, '');
 
-        if (routePath === 'index') {
-            routePath = '/';
-        } else if (routePath === '*') {
-        } else if (routePath.endsWith('/index')) {
-            routePath = '/' + routePath.slice(0, -6);
-        } else {
-            routePath = '/' + routePath.replace(/\/+/g, '/');
-            if (!routePath.startsWith('/')) routePath = '/' + routePath;
-        }
+        const parts = cleanPath.split('/');
+        const rawFileName = parts.pop();
+        const rawDirSegments = parts;
 
-        routes.push({
-            path: routePath,
+        const dirSegments = rawDirSegments.map(_transformSegment);
+        const fileName = _transformSegment(rawFileName);
+
+        const isIndex = rawFileName === 'index';
+        const isCatchAll = /^\[\.\.\./.test(rawFileName);
+
+        entries.push({
+            filePath,
+            loader,
+            dirSegments,
+            fileName,
+            isIndex,
+            isCatchAll,
             component: defineAsyncComponent({
                 loader,
                 loadingComponent: options.loadingComponent
@@ -32,21 +42,112 @@ export function generateRoutesFromFiles(globResults, options = {}) {
         });
     }
 
-    return routes.sort((a, b) => {
-        if (a.path === '*' && b.path !== '*') return 1;
-        if (a.path !== '*' && b.path === '*') return -1;
-        if (a.path.endsWith('/*') && !b.path.endsWith('/*')) return 1;
-        if (!a.path.endsWith('/*') && b.path.endsWith('/*')) return -1;
+    return entries;
+}
 
-        const aDynamic = a.path.includes(':');
-        const bDynamic = b.path.includes(':');
+function _transformSegment(seg) {
+    return seg
+        .replace(/\[\.\.\.([^\]]+)\]/g, '*')
+        .replace(/\[([^\]]+)\]/g, ':$1');
+}
 
-        if (aDynamic && !bDynamic) return 1;
-        if (!aDynamic && bDynamic) return -1;
+function _buildRouteTree(entries, isChild) {
+    const filesHere = new Map();
+    const grouped = new Map();
 
-        const aSegments = a.path.split('/').filter(Boolean).length;
-        const bSegments = b.path.split('/').filter(Boolean).length;
-        if (aSegments !== bSegments) return bSegments - aSegments;
-        return b.path.length - a.path.length;
-    });
+    for (const entry of entries) {
+        if (entry.dirSegments.length === 0) {
+            filesHere.set(entry.fileName, entry);
+        } else {
+            const firstDir = entry.dirSegments[0];
+            if (!grouped.has(firstDir)) grouped.set(firstDir, []);
+            grouped.get(firstDir).push(entry);
+        }
+    }
+
+    const routes = [];
+    const usedAsLayout = new Set();
+
+    for (const [dirName, dirEntries] of grouped) {
+        const layoutEntry = filesHere.get(dirName);
+
+        if (layoutEntry) {
+            usedAsLayout.add(dirName);
+
+            const childEntries = dirEntries.map(e => ({
+                ...e,
+                dirSegments: e.dirSegments.slice(1)
+            }));
+
+            const children = _buildRouteTree(childEntries, true);
+
+            routes.push({
+                path: isChild ? dirName : '/' + dirName,
+                component: layoutEntry.component,
+                children
+            });
+        } else {
+            for (const entry of dirEntries) {
+                const segments = [...entry.dirSegments];
+                if (!entry.isIndex) segments.push(entry.fileName);
+
+                const routePath = isChild
+                    ? segments.join('/')
+                    : '/' + segments.join('/');
+
+                routes.push({
+                    path: routePath,
+                    component: entry.component
+                });
+            }
+        }
+    }
+
+    for (const [name, entry] of filesHere) {
+        if (usedAsLayout.has(name)) continue;
+
+        if (entry.isIndex) {
+            routes.push({ path: isChild ? '' : '/', component: entry.component });
+        } else if (entry.isCatchAll || name === '*') {
+            routes.push({ path: '*', component: entry.component });
+        } else {
+            routes.push({
+                path: isChild ? name : '/' + name,
+                component: entry.component
+            });
+        }
+    }
+
+    return routes;
+}
+
+function _sortRoutesRecursive(routes) {
+    routes.sort(_compareRoutes);
+    for (const route of routes) {
+        if (route.children) _sortRoutesRecursive(route.children);
+    }
+}
+
+function _compareRoutes(a, b) {
+    if (a.path === '*' && b.path !== '*') return 1;
+    if (a.path !== '*' && b.path === '*') return -1;
+
+    const aWild = a.path.endsWith('/*');
+    const bWild = b.path.endsWith('/*');
+    if (aWild && !bWild) return 1;
+    if (!aWild && bWild) return -1;
+
+    const aDynamic = a.path.includes(':');
+    const bDynamic = b.path.includes(':');
+    if (aDynamic && !bDynamic) return 1;
+    if (!aDynamic && bDynamic) return -1;
+
+    if (a.children && !b.children) return -1;
+    if (!a.children && b.children) return 1;
+
+    const aSegs = a.path.split('/').filter(Boolean).length;
+    const bSegs = b.path.split('/').filter(Boolean).length;
+    if (aSegs !== bSegs) return bSegs - aSegs;
+
+    return b.path.length - a.path.length;
 }

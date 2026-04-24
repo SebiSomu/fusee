@@ -1,4 +1,4 @@
-import { createRouter, mountOutlet, defineAsyncComponent, generateRoutesFromFiles } from '../framework/index.js'
+import { createRouter, mountOutlet, defineAsyncComponent, generateRoutes } from '../framework/index.js'
 import { Loading } from './components/Loading.js'
 
 directive('focus', {
@@ -17,8 +17,8 @@ directive('highlight', {
     }
 })
 
-const pages = import.meta.glob('./pages/**/*.js')
-const routes = generateRoutesFromFiles(pages, {
+const pages = import.meta.glob('./pages/**/*.{js,ts}')
+const routes = generateRoutes(pages, {
     loadingComponent: Loading
 })
 

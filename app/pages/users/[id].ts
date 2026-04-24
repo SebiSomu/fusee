@@ -1,53 +1,43 @@
-import { currentRoute, navigate, routeParams, computed } from '../../../framework/index.js'
+import { routeParams, computed, defineComponent } from '../../../framework/index'
 
-export const RouterExample = defineComponent({
+/**
+ * User Detail — child of the /users layout.
+ * Renders inside the layout's <div data-router-view> for /users/:id.
+ */
+export const UserDetail = defineComponent({
     setup() {
-        const path = currentRoute
         const params = routeParams
-        const paramsJson = computed(() => JSON.stringify(params()))
+        const userId = computed(() => params().id || '?')
 
         return {
-            path,
-            paramsJson,
-            navigate,
+            userId,
+            params,
             template: `
                 <div class="page">
-                    <h1>🔗 Router API Demo</h1>
+                    <h1>👤 User #{{ userId }}</h1>
 
                     <div class="demo-card">
-                        <h2>currentRoute Signal</h2>
-                        <code style="color: #8b8bff; font-size: 1.5rem;">{{ path }}</code>
-                    </div>
-
-                    <div class="demo-card">
-                        <h2>routeParams Signal (Dynamic Routes)</h2>
-                        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-                            <a href="/users/123" f-link class="cmp-btn" style="text-decoration: none;">User 123</a>
-                            <a href="/users/456" f-link class="cmp-btn" style="text-decoration: none;">User 456</a>
-                            <a href="/posts/tech/my-post" f-link class="cmp-btn" style="text-decoration: none;">Post Route</a>
-                        </div>
-                        <code style="color: #34d399; font-size: 1.2rem;">{{ paramsJson }}</code>
-                        <p style="margin-top: 10px; color: #888; font-size: 0.9rem;">
-                            Dynamic routes use :param syntax (e.g., /users/:id or /posts/:category/:slug)
+                        <h2>User Profile</h2>
+                        <p style="color: #8b8bff; font-size: 1.2rem; margin-bottom: 0.5rem;">
+                            ID: <strong>{{ userId }}</strong>
+                        </p>
+                        <p style="color: #888; font-size: 0.9rem;">
+                            This page renders inside the Users layout.
+                            The sidebar persists — only this content area changes.
                         </p>
                     </div>
 
-                    <div class="demo-card">
-                        <h2>navigate() Test</h2>
-                        <div style="display: flex; gap: 10px;">
-                            <button @click="navigate('/')" class="cmp-btn">Home</button>
-                            <button @click="navigate('/about')" class="cmp-btn">About</button>
-                            <button @click="navigate('/wildcard-test-123')" class="cmp-btn" style="border-color: #f59e0b; color: #f59e0b;">Wildcard</button>
-                            <button @click="navigate('/nonexistent')" class="cmp-btn" style="border-color: #ff6b6b; color: #ff6b6b;">404 Test</button>
+                    <div class="demo-card" style="margin-top: 1rem;">
+                        <h2>Navigate to Other Users</h2>
+                        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                            <a href="/users/1" f-link class="cmp-btn" style="text-decoration: none;">User #1</a>
+                            <a href="/users/2" f-link class="cmp-btn" style="text-decoration: none;">User #2</a>
+                            <a href="/users/42" f-link class="cmp-btn" style="text-decoration: none;">User #42</a>
+                            <a href="/users/999" f-link class="cmp-btn" style="text-decoration: none;">User #999</a>
                         </div>
-                    </div>
-
-                    <div class="demo-card">
-                        <h2>f-link Test</h2>
-                        <div style="display: flex; gap: 10px;">
-                            <a href="/" f-link class="cmp-btn" style="text-decoration: none;">Home</a>
-                            <a href="/about" f-link class="cmp-btn" style="text-decoration: none;">About</a>
-                        </div>
+                        <p style="margin-top: 0.75rem; color: #555; font-size: 0.8rem;">
+                            ⚡ Notice: the layout sidebar does NOT re-render when switching users!
+                        </p>
                     </div>
                 </div>
             `

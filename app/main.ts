@@ -1,4 +1,4 @@
-import { createRouter, mountOutlet, generateRoutesFromFiles } from '../framework/index.js'
+import { createRouter, mountOutlet, generateRoutes } from '../framework/index.js'
 import { Loading } from './components/Loading.js'
 
 directive('focus', {
@@ -18,7 +18,7 @@ directive('highlight', {
 })
 
 const pages = import.meta.glob('./pages/**/*.{js,ts}')
-const routes = generateRoutesFromFiles(pages, {
+const routes = generateRoutes(pages, {
     loadingComponent: Loading
 })
 
