@@ -1,0 +1,14 @@
+{
+  "name": "{{.ProjectName}}",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0",
+    "unplugin-auto-import": "^0.17.0"{{if .IsTS}},
+    "typescript": "^5.0.0"{{end}}
+  }
+}

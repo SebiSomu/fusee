@@ -1,5 +1,5 @@
 # Fusée Framework 🚀
-**v1.6.0 — Signals-First JS Framework | Atomic Reactivity | Peak Performance**
+**v1.7.0 — Signals-First JS Framework | Atomic Reactivity | Peak Performance**
 
 Fusée is a custom, high-performance fine-grained reactive JavaScript framework built for speed and simplicity. It features a recursive, non-greedy compiler, a signals-based reactivity engine, Dependency Injection for components and a comprehensive CLI for instant application scaffolding.
 
@@ -7,28 +7,44 @@ Fusée is a custom, high-performance fine-grained reactive JavaScript framework 
 
 ## ⚡ Quick Start
 
-The fastest way to get started with Fusée is via the CLI:
+The fastest way to get started with Fusée is via the **Go-Powered CLI**:
 
 ```bash
-# 1. Install Fusée globally
+# 1. Install Fusée CLI globally
 npm install -g fusee-framework
 
-# 2. Scaffold your first project
-create-fusee-app .
+# 2. Scaffold a new high-performance project
+create-fusee-app my-awesome-app
+# or simply
+fusee init my-awesome-app
 ```
-Follow the interactive prompt to choose your template (**JavaScript** or **TypeScript**) and launch your app with `npm run dev`!
+Follow the interactive prompt to choose your template (**JavaScript** or **TypeScript**) and launch your app instantly!
+
+---
+
+## 🏗️ File-Based Routing (Nuxt-style)
+Fusée now supports automated, file-based routing. No more manual route definitions!
+
+- **Pages**: Just drop a file in `app/pages/` and it becomes a route.
+- **Layouts**: Use `app/pages/_layout.js` to wrap your pages in consistent UI structures.
+- **Dynamic Routes**: Support for `[id].js` style dynamic parameters.
+
+```bash
+# Generate a new page instantly
+fusee generate page contact
+```
 
 ---
 
 ## 🔥 Key Features
 
+- **New Go-Powered CLI**: Blazing fast project scaffolding and resource generation.
 - **Signals-First Reactivity**: Modern atomic updates that ensure only the modified parts of the DOM are touched.
-- **Recursive Hybrid Compiler**: A robust architectural approach to node traversal, eliminating rendering bugs while maintaining "greedy" directive processing for speed.
-- **Strict Component System**: Use `defineComponent` for prop validation, lifecycle hooks (`onMount`, `onUnmount`), and automated cleanup.
+- **Nuxt-style File Routing**: Automated route discovery with layout support.
+- **Recursive Hybrid Compiler**: A robust architectural approach to node traversal.
 - **Optimized Directives**: Native support for `f-if`, `f-for`, `f-model`, `f-text`, `f-cloak` and more.
-- **Performance Shield (`f-once`)**: Isolate and stabilize static subtrees to prevent unnecessary reactivity.
-- **Vite Integration**: Full support for the fastest development workflow and Hot Module Replacement (HMR).
-- **Route API**: Simple routing with `createRouter` and `navigate` functions, as well as f-link directive.
+- **Performance Shield (`f-once`)**: Isolate and stabilize static subtrees.
+- **Vite Integration**: Full support for the fastest development workflow and HMR.
 
 ---
 
@@ -116,8 +132,7 @@ npx vitest
 
 ## 🚀 Future Roadmap
 
-- [ ] Advanced file-based routing support and state management
-- [ ] SSR support
+- [ ] Advanced state management and SSR support
 - [ ] Lightweight compiler which transforms declarative HTML into optimized runtime instructions
 - [ ] Integrated backend development support
 

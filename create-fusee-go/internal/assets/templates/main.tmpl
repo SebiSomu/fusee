@@ -1,0 +1,14 @@
+import { createRouter, mountOutlet, generateRoutes } from 'fusee-framework';
+import { Loading } from './components/Loading';
+
+const pages = import.meta.glob('./pages/**/*.{js,ts}');
+const routes = generateRoutes(pages, {
+    loadingComponent: Loading
+});
+
+createRouter(routes);
+
+const root = document.getElementById('app');
+if (root) {
+    mountOutlet(root);
+}

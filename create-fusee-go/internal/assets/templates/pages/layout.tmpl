@@ -1,0 +1,18 @@
+export const Layout = defineComponent({
+    setup() {
+        return {
+            template: `
+                <div style="min-height: 100vh; display: flex; flex-direction: column;">
+                    <nav style="background: #111; padding: 1rem 2rem; display: flex; gap: 2rem; border-bottom: 1px solid #222;">
+                        <a href="/" style="color: #ff3333; text-decoration: none; font-weight: bold;">Fusée 🚀</a>
+                        <a href="/about" style="color: #eee; text-decoration: none; opacity: 0.8;">About</a>
+                    </nav>
+                    <main style="flex: 1; padding: 2rem;" data-router-view></main>
+                    <footer style="padding: 2rem; border-top: 1px solid #222; text-align: center; opacity: 0.5; font-size: 0.8rem;">
+                        Built with Fusée Framework
+                    </footer>
+                </div>
+            `
+        };
+    }
+});

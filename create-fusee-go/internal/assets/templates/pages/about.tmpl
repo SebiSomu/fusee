@@ -1,0 +1,20 @@
+export const About = defineComponent({
+    setup() {
+        return {
+            template: `
+                <div style="max-width: 800px; margin: 0 auto; padding-top: 4rem;">
+                    <h1 style="color: #ff3333; margin-bottom: 2rem;">About Fusée</h1>
+                    <p style="line-height: 1.6; font-size: 1.2rem; opacity: 0.9;">
+                        Fusée is a high-performance, reactive framework inspired by SolidJS and Nuxt.
+                        It features a unique template engine that works directly with the DOM, 
+                        providing a seamless development experience with minimal overhead.
+                    </p>
+                    <div style="margin-top: 3rem; padding: 2rem; background: #111; border-radius: 15px; border-left: 4px solid #ff3333;">
+                        <h3 style="margin-top: 0;">File-Based Routing</h3>
+                        <p>This page was automatically registered based on its filename in the <code>app/pages</code> directory.</p>
+                    </div>
+                </div>
+            `
+        };
+    }
+});

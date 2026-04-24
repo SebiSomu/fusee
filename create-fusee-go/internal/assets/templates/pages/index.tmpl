@@ -1,0 +1,22 @@
+export const Index = defineComponent({
+    setup() {
+        const count = signal(0);
+        return {
+            count,
+            inc: () => count(count() + 1),
+            template: `
+                <div style="text-align: center; padding-top: 4rem;">
+                    <h1 style="font-size: 4rem; color: #ff3333; margin-bottom: 1rem;">Welcome Home</h1>
+                    <p style="opacity: 0.7; margin-bottom: 3rem;">File-based routing and layouts are now active!</p>
+                    
+                    <div style="display: inline-flex; align-items: center; gap: 2rem; background: #111; padding: 2rem; border-radius: 20px; border: 1px solid #222;">
+                        <span style="font-size: 3rem; font-weight: bold;">{{`{{`}} count {{`}}` }}</span>
+                        <button @click="inc" style="background: #ff3333; color: white; border: none; padding: 1rem 2rem; border-radius: 10px; cursor: pointer; font-weight: bold;">
+                            Increment
+                        </button>
+                    </div>
+                </div>
+            `
+        };
+    }
+});

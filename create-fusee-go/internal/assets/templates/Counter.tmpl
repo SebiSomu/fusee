@@ -1,0 +1,26 @@
+{{if .IsTS}}interface CounterResult {
+    count: Signal<number>
+    inc: () => void
+    dec: () => void
+    template: string
+}
+
+export const Counter = defineComponent({
+    setup(): CounterResult {
+{{else}}export const Counter = defineComponent({
+    setup() {
+{{end}}        const count = signal{{if .IsTS}}<number>{{end}}(0);
+        return {
+            count,
+            inc: () => count(count() + 1),
+            dec: () => count(count() - 1),
+            template: `
+                <div style="display:flex; align-items:center; gap:2rem; background:#111; padding:2rem; border-radius:20px; border:1px solid #222;">
+                    <button @click="dec" style="{{.BtnStyle}}">-</button>
+                    <span style="font-size:3rem; font-weight:bold; min-width:60px; text-align:center;">{{`{{`}} count {{`}}` }}</span>
+                    <button @click="inc" style="{{.BtnStyle}}">+</button>
+                </div>
+            `
+        };
+    }
+});
