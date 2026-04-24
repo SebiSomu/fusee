@@ -1,6 +1,5 @@
 import { signal } from '../core/signal.js'
 
-
 export const currentRoute = signal('/')
 export const routeParams = signal({})
 export const matchedRoutes = signal([])

@@ -201,7 +201,7 @@ describe('generateRoutesFromFiles', () => {
             './pages/users/[id].js': () => Promise.resolve({})
         }
 
-        const routes = generateRoutesFromFiles(globResults)
+        const routes = generateRoutes(globResults)
 
         // /users should be nested (has layout)
         const usersRoute = routes.find(r => r.path === '/users')
@@ -212,5 +212,32 @@ describe('generateRoutesFromFiles', () => {
         const aboutRoute = routes.find(r => r.path === '/about')
         expect(homeRoute.children).toBeUndefined()
         expect(aboutRoute.children).toBeUndefined()
+    })
+
+    it('wraps all routes in a root layout if _layout.js exists', () => {
+        const globResults = {
+            './pages/_layout.js': () => Promise.resolve({}),
+            './pages/index.js': () => Promise.resolve({}),
+            './pages/about.js': () => Promise.resolve({}),
+            './pages/users.js': () => Promise.resolve({}),
+            './pages/users/index.js': () => Promise.resolve({})
+        }
+
+        const routes = generateRoutes(globResults)
+
+        // There should only be ONE route at the top level
+        expect(routes).toHaveLength(1)
+        
+        const rootRoute = routes[0]
+        expect(rootRoute.path).toBe('') // Wrapper path is empty
+        expect(rootRoute.children).toBeDefined()
+        expect(rootRoute.children).toHaveLength(3) // /, /about, /users
+
+        const homeRoute = rootRoute.children.find(r => r.path === '/')
+        expect(homeRoute).toBeDefined()
+        
+        const usersRoute = rootRoute.children.find(r => r.path === '/users')
+        expect(usersRoute).toBeDefined()
+        expect(usersRoute.children).toBeDefined() // /users is still nested inside the root layout
     })
 })

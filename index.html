@@ -23,6 +23,7 @@
 
     nav {
       display: flex;
+      flex-wrap: wrap;
       gap: 1rem;
       padding: 1rem 2rem;
       background: #1a1a24;
@@ -58,11 +59,17 @@
     }
 
     #app {
-      padding: 2rem;
-      max-width: 600px;
-      margin: 0 auto;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
     }
 
+    .content-wrap {
+      padding: 2rem;
+      max-width: 800px;
+      margin: 0 auto;
+      width: 100%;
+    }
     .page h1 {
       margin-bottom: 1rem;
       font-size: 1.8rem;
@@ -624,15 +631,7 @@
 </head>
 
 <body>
-  <nav>
-    <a href="/" f-link>Home</a>
-    <a href="/about" f-link>About</a>
-    <a href="/test-for" f-link>Loops Test</a>
-    <a href="/dynamic" f-link style="color: #ec4899;">Dynamic Components</a>
-    <a href="/composables" f-link style="color: #34d399;">Composables</a>
-    <a href="/users" f-link style="color: #f59e0b;">👥 Users (Nested)</a>
-    <a href="/router-example" f-link style="color: #8b8bff;">🔗 Router Example</a>
-  </nav>
+
   <div id="app"></div>
   <script type="module" src="./app/main.js"></script>
 </body>

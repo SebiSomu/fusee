@@ -65,6 +65,12 @@ function _buildRouteTree(entries, isChild) {
         }
     }
 
+    let rootLayoutEntry = null;
+    if (filesHere.has('_layout')) {
+        rootLayoutEntry = filesHere.get('_layout');
+        filesHere.delete('_layout');
+    }
+
     const routes = [];
     const usedAsLayout = new Set();
 
@@ -116,6 +122,14 @@ function _buildRouteTree(entries, isChild) {
                 component: entry.component
             });
         }
+    }
+
+    if (rootLayoutEntry) {
+        return [{
+            path: '',
+            component: rootLayoutEntry.component,
+            children: routes
+        }];
     }
 
     return routes;
