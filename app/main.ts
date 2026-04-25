@@ -60,7 +60,13 @@ routes.push({
 
 
 
-createRouter(routes)
+createRouter(routes, {
+    scrollBehavior: {
+        scrollToTop: true,
+        scrollToAnchor: true,
+        saveScrollPosition: true
+    }
+})
 
 
 

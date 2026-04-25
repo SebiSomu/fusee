@@ -2,7 +2,7 @@ import { signal, effect, batch } from './signal.js'
 import { evaluateExpression } from './evaluator.js'
 import { compileNode } from './compiler.js'
 import { registerDelegatedEvent, createEventHandler, isDelegatedEvent } from './event-delegation.js'
-import { currentRoute } from '../router/router.js'
+import { currentRoute, navigate } from '../router/router.js'
 
 const customDirectives = new Map()
 
@@ -861,6 +861,8 @@ export function processLinks(el, effects) {
         const href = link.getAttribute('href')
         if (!href) continue
 
+        link.removeAttribute('f-link')
+
         effects.push(effect(() => {
             const currentPath = currentRoute()
             const isActive = currentPath === href || currentPath.startsWith(href + '/')
@@ -871,5 +873,12 @@ export function processLinks(el, effects) {
                 link.classList.remove('active')
             }
         }))
+
+        const clickHandler = (e) => {
+            e.preventDefault()
+            navigate(href)
+        }
+        link.addEventListener('click', clickHandler)
+        effects.push(() => link.removeEventListener('click', clickHandler))
     }
 }

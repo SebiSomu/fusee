@@ -770,3 +770,130 @@ describe('Router Optimizations', () => {
         router.destroy()
     })
 })
+
+// ─── Scroll Behavior ─────────────────────────────────────────────────────
+
+describe('Scroll Behavior', () => {
+    it('scrolls to top by default when scrollBehavior.scrollToTop is true', () => {
+        const routes = [
+            {
+                path: '/',
+                component: createMockComponent((el) => {
+                    el.innerHTML = 'Home'
+                })
+            },
+            {
+                path: '/about',
+                component: createMockComponent((el) => {
+                    el.innerHTML = 'About'
+                })
+            }
+        ]
+
+        Object.defineProperty(window, 'location', {
+            writable: true,
+            value: { pathname: '/' }
+        })
+
+        const outlet = document.createElement('div')
+        outlet.id = 'router-test-outlet'
+        document.body.appendChild(outlet)
+
+        const scrollToSpy = vi.fn()
+        window.scrollTo = scrollToSpy
+
+        const router = createRouter(routes, {
+            scrollBehavior: { scrollToTop: true }
+        })
+        currentRouter = router
+        mountOutlet(outlet)
+
+        expect(currentRoute()).toBe('/')
+
+        router.navigate('/about')
+        expect(scrollToSpy).toHaveBeenCalledWith({ top: 0, left: 0, behavior: 'smooth' })
+
+        router.destroy()
+    })
+
+    it('saves and restores scroll position when saveScrollPosition is enabled', () => {
+        const routes = [
+            {
+                path: '/page1',
+                component: createMockComponent((el) => {
+                    el.innerHTML = 'Page 1'
+                })
+            },
+            {
+                path: '/page2',
+                component: createMockComponent((el) => {
+                    el.innerHTML = 'Page 2'
+                })
+            }
+        ]
+
+        Object.defineProperty(window, 'location', {
+            writable: true,
+            value: { pathname: '/page1' }
+        })
+
+        const outlet = document.createElement('div')
+        outlet.id = 'router-test-outlet'
+        document.body.appendChild(outlet)
+
+        window.scrollY = 500
+        window.scrollX = 100
+
+        const router = createRouter(routes, {
+            scrollBehavior: { saveScrollPosition: true, scrollToTop: false }
+        })
+        currentRouter = router
+        mountOutlet(outlet)
+
+        router.navigate('/page2')
+
+        router.navigate('/page1')
+        expect(window.scrollY).toBe(500)
+        expect(window.scrollX).toBe(100)
+
+        router.destroy()
+    })
+
+    it('uses custom scroll behavior function', () => {
+        const routes = [
+            {
+                path: '/page1',
+                component: createMockComponent((el) => {
+                    el.innerHTML = 'Page 1'
+                })
+            }
+        ]
+
+        Object.defineProperty(window, 'location', {
+            writable: true,
+            value: { pathname: '/page1' }
+        })
+
+        const outlet = document.createElement('div')
+        outlet.id = 'router-test-outlet'
+        document.body.appendChild(outlet)
+
+        const customScrollSpy = vi.fn().mockReturnValue({ left: 50, top: 100 })
+        const scrollToSpy = vi.fn()
+        window.scrollTo = scrollToSpy
+
+        const router = createRouter(routes, {
+            scrollBehavior: {
+                custom: customScrollSpy
+            }
+        })
+        currentRouter = router
+        mountOutlet(outlet)
+
+        router.navigate('/page1')
+        expect(customScrollSpy).toHaveBeenCalled()
+        expect(scrollToSpy).toHaveBeenCalledWith({ left: 50, top: 100, behavior: 'smooth' })
+
+        router.destroy()
+    })
+})

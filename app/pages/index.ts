@@ -50,6 +50,15 @@ export const Home = defineComponent({
                     <p>This is an SPA built with my own (TypeScript!) custom framework!</p>
                     <p>Made with passion by Sebastian Șomu</p>
 
+                    <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; margin: 1rem 0;">
+                        <a href="/scroll-demo" f-link class="cmp-btn" style="background: linear-gradient(135deg, #8b8bff, #6b6bff);">
+                            🔽 Scroll Behavior Demo
+                        </a>
+                        <a href="/users" f-link class="cmp-btn">
+                            👥 Router Example
+                        </a>
+                    </div>
+
                     <button @click="changeTitle" class="primary-btn" style="margin-bottom: 20px;">Change App Title</button>
 
                     <h3 style="margin-top: 40px; margin-bottom: 20px; color: #f59e0b;">🎨 f-classList Demo</h3>

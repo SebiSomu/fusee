@@ -11,9 +11,14 @@ let _activeChain = []
 let _routeCache = new Map()
 let _cacheMaxSize = 100
 let _routerViewTimeout = 10000
+let _scrollBehaviorOptions = null
+let _scrollPositions = new Map()
+let _currentPath = null
 
 function _getPath() {
-    return window.location.pathname || '/'
+    const pathname = window.location.pathname || '/'
+    const hash = window.location.hash || ''
+    return pathname + hash
 }
 
 function _getRoutePaths(routePath) {
@@ -90,10 +95,9 @@ function _matchRouteTree(routes, urlSegments) {
 }
 
 function _matchSingleFlat(routePath, actualPath) {
-    if (routePath === '*') return true
-
+    const actualPathWithoutHash = actualPath.split('#')[0]
     const routeParts = routePath.split('/').filter(Boolean)
-    const actualParts = actualPath.split('/').filter(Boolean)
+    const actualParts = actualPathWithoutHash.split('/').filter(Boolean)
 
     const hasWildcard = routeParts.length > 0 && routeParts[routeParts.length - 1] === '*'
 
@@ -121,8 +125,9 @@ function _extractParamsFromPath(singlePath, actualPath) {
     const params = {}
     if (singlePath === '*') return params
 
+    const actualPathWithoutHash = actualPath.split('#')[0]
     const routeParts = singlePath.split('/').filter(Boolean)
-    const actualParts = actualPath.split('/').filter(Boolean)
+    const actualParts = actualPathWithoutHash.split('/').filter(Boolean)
 
     const hasWildcard = routeParts.length > 0 && routeParts[routeParts.length - 1] === '*'
     const checkLen = hasWildcard ? routeParts.length - 1 : routeParts.length
@@ -142,14 +147,16 @@ function _extractParamsFlat(routePath, actualPath) {
 }
 
 function _findMatchingChain(path) {
-    if (_routeCache.has(path)) {
-        const cached = _routeCache.get(path)
-        _routeCache.delete(path)
-        _routeCache.set(path, cached)
+    const pathWithoutHash = path.split('#')[0]
+    
+    if (_routeCache.has(pathWithoutHash)) {
+        const cached = _routeCache.get(pathWithoutHash)
+        _routeCache.delete(pathWithoutHash)
+        _routeCache.set(pathWithoutHash, cached)
         return cached
     }
 
-    const urlSegments = path.split('/').filter(Boolean)
+    const urlSegments = pathWithoutHash.split('/').filter(Boolean)
     const hasNested = _routes.some(r => r.children && r.children.length > 0)
 
     let chain = null
@@ -157,7 +164,7 @@ function _findMatchingChain(path) {
     if (hasNested) {
         chain = _matchRouteTree(_routes, urlSegments)
         if (chain) {
-            _cacheResult(path, chain)
+            _cacheResult(pathWithoutHash, chain)
             return chain
         }
     }
@@ -166,11 +173,11 @@ function _findMatchingChain(path) {
         const routePaths = _getRoutePaths(r.path)
         return !routePaths.includes('*') && !routePaths.some(p => p.endsWith('/*')) && !r.children
     })
-    const exactMatch = paths.find(r => _matchFlat(r.path, path))
+    const exactMatch = paths.find(r => _matchFlat(r.path, pathWithoutHash))
     if (exactMatch) {
-        const matchedPath = _findMatchingPath(exactMatch.path, path)
-        chain = [{ route: exactMatch, params: _extractParamsFlat(exactMatch.path, path), matchedSegments: urlSegments, matchedPath }]
-        _cacheResult(path, chain)
+        const matchedPath = _findMatchingPath(exactMatch.path, pathWithoutHash)
+        chain = [{ route: exactMatch, params: _extractParamsFlat(exactMatch.path, pathWithoutHash), matchedSegments: urlSegments, matchedPath }]
+        _cacheResult(pathWithoutHash, chain)
         return chain
     }
 
@@ -178,11 +185,11 @@ function _findMatchingChain(path) {
         const routePaths = _getRoutePaths(r.path)
         return !r.children && routePaths.some(p => p.endsWith('/*'))
     })
-    const wildcardMatch = wildcardPaths.find(r => _matchFlat(r.path, path))
+    const wildcardMatch = wildcardPaths.find(r => _matchFlat(r.path, pathWithoutHash))
     if (wildcardMatch) {
-        const matchedPath = _findMatchingPath(wildcardMatch.path, path)
-        chain = [{ route: wildcardMatch, params: _extractParamsFlat(wildcardMatch.path, path), matchedSegments: urlSegments, matchedPath }]
-        _cacheResult(path, chain)
+        const matchedPath = _findMatchingPath(wildcardMatch.path, pathWithoutHash)
+        chain = [{ route: wildcardMatch, params: _extractParamsFlat(wildcardMatch.path, pathWithoutHash), matchedSegments: urlSegments, matchedPath }]
+        _cacheResult(pathWithoutHash, chain)
         return chain
     }
 
@@ -192,7 +199,7 @@ function _findMatchingChain(path) {
     })
     if (catchAll) {
         chain = [{ route: catchAll, params: {}, matchedSegments: urlSegments, matchedPath: '*' }]
-        _cacheResult(path, chain)
+        _cacheResult(pathWithoutHash, chain)
         return chain
     }
 
@@ -209,6 +216,63 @@ function _cacheResult(path, chain) {
 
 function _clearRouteCache() {
     _routeCache.clear()
+}
+
+function _saveScrollPosition(path) {
+    if (!_scrollBehaviorOptions?.saveScrollPosition) return
+    _scrollPositions.set(path, {
+        left: window.scrollX,
+        top: window.scrollY
+    })
+}
+
+function _getSavedScrollPosition(path) {
+    return _scrollPositions.get(path) || null
+}
+
+function _applyScrollBehavior(to, from) {
+    const options = _scrollBehaviorOptions
+    if (!options) return
+
+    const savedPosition = _getSavedScrollPosition(to)
+
+    if (options.custom) {
+        const result = options.custom(to, from, savedPosition)
+        if (result && typeof result.then === 'function') {
+            result.then(pos => _performScroll(pos))
+        } else {
+            _performScroll(result)
+        }
+        return
+    }
+
+    if (options.scrollToAnchor && to.includes('#')) {
+        const anchor = to.split('#')[1]
+        const element = document.getElementById(anchor)
+        if (element) {
+            element.scrollIntoView({ behavior: 'smooth' })
+            return
+        }
+    }
+
+    if (options.scrollToTop !== false) {
+        window.scrollTo({ top: 0, left: 0, behavior: 'smooth' })
+    } else if (savedPosition && options.saveScrollPosition) {
+        window.scrollTo(savedPosition.left, savedPosition.top)
+    }
+}
+
+function _performScroll(position) {
+    if (!position || position === false) return
+
+    if (typeof position === 'object' && 'selector' in position) {
+        const element = document.querySelector(position.selector)
+        if (element) {
+            element.scrollIntoView({ behavior: 'smooth' })
+        }
+    } else if (typeof position === 'object' && 'left' in position) {
+        window.scrollTo({ left: position.left, top: position.top, behavior: 'smooth' })
+    }
 }
 
 function _unmountFromLevel(level) {
@@ -362,10 +426,20 @@ function _resolveRoute() {
     }
 
     _renderChain(chain)
+
+    const from = _currentPath
+    _currentPath = path
+    _applyScrollBehavior(path, from)
 }
 
 export function navigate(path) {
-    if (path === _getPath()) return
+    const currentPath = _getPath().split('#')[0]
+    const targetPath = path.split('#')[0]
+    if (targetPath === currentPath && path === _getPath()) {
+        _applyScrollBehavior(path, _getPath())
+        return
+    }
+    _saveScrollPosition(_getPath())
     window.history.pushState({}, '', path)
     _updateRoute()
     _resolveRoute()
@@ -440,6 +514,7 @@ export function createRouter(routes, options = {}) {
     _activeChain = []
     _cacheMaxSize = options.cacheSize || 100
     _routerViewTimeout = options.routerViewTimeout || 10000
+    _scrollBehaviorOptions = options.scrollBehavior || null
 
     _updateRoute()
 
@@ -457,6 +532,9 @@ export function createRouter(routes, options = {}) {
             _rootOutlet = null
             _activeChain = []
             _clearRouteCache()
+            _scrollPositions.clear()
+            _scrollBehaviorOptions = null
+            _currentPath = null
         }
     }
 }

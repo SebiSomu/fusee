@@ -52,10 +52,21 @@ export const Home = defineComponent({
                     <p>This is an SPA built with my own JavaScript custom framework!</p>
                     <p>Made with passion by Sebastian Șomu</p>
 
+                    <!-- Navigation -->
+                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin: 1.5rem 0; padding: 1rem; background: #2a2a2a; border-radius: 8px;">
+                        <a href="#classlist" f-link style="color: #f59e0b; text-decoration: none; padding: 0.5rem 1rem; background: #3a3a3a; border-radius: 4px;">🎨 f-classList</a>
+                        <a href="#userform" f-link style="color: #10b981; text-decoration: none; padding: 0.5rem 1rem; background: #3a3a3a; border-radius: 4px;">📝 User Form</a>
+                        <a href="#counter" f-link style="color: #3b82f6; text-decoration: none; padding: 0.5rem 1rem; background: #3a3a3a; border-radius: 4px;">🔢 Counter</a>
+                        <a href="#emit" f-link style="color: #4da6ff; text-decoration: none; padding: 0.5rem 1rem; background: #3a3a3a; border-radius: 4px;">🧪 Emit Events</a>
+                        <a href="#slots" f-link style="color: #8b5cf6; text-decoration: none; padding: 0.5rem 1rem; background: #3a3a3a; border-radius: 4px;">🎴 Slots</a>
+                        <a href="#interpolation" f-link style="color: #e83e8c; text-decoration: none; padding: 0.5rem 1rem; background: #3a3a3a; border-radius: 4px;">🔤 Interpolation</a>
+                        <a href="#provide" f-link style="color: #4CAF50; text-decoration: none; padding: 0.5rem 1rem; background: #3a3a3a; border-radius: 4px;">🔗 Provide/Inject</a>
+                    </div>
+
                     <button @click="changeTitle" class="primary-btn" style="margin-bottom: 20px;">Change App Title</button>
 
                     <!-- 🎨 f-classList Demo -->
-                    <h3 style="margin-top: 40px; margin-bottom: 20px; color: #f59e0b;">🎨 f-classList Demo</h3>
+                    <h3 id="classlist" style="margin-top: 40px; margin-bottom: 20px; color: #f59e0b;">🎨 f-classList Demo</h3>
                     <div class="demo-box" f-classList="basicClasses">
                         Demo Box (hover me!)
                     </div>
@@ -71,16 +82,18 @@ export const Home = defineComponent({
                         </button>
                     </div>
 
+                    <h3 id="userform" style="margin-top: 40px; margin-bottom: 20px; color: #10b981;">📝 User Form Demo</h3>
                     {{ UserForm }}
                     
+                    <h3 id="counter" style="margin-top: 40px; margin-bottom: 20px; color: #3b82f6;">🔢 Counter Demo</h3>
                     {{ CounterSection @counter-change="handleCounterChange" @counter-reset="handleCounterReset" @custom-event="handleCustomEvent" :pageTitle="title" }}
                     
                     <!-- 🧪 EMIT TEST - NEW SEPARATE COMPONENT -->
-                    <h3 style="margin-top: 40px; margin-bottom: 20px; color: #4da6ff;">🧪 EMIT EVENTS TEST LAB</h3>
+                    <h3 id="emit" style="margin-top: 40px; margin-bottom: 20px; color: #4da6ff;">🧪 EMIT EVENTS TEST LAB</h3>
                     {{ EmitTest @simple-click="handleSimpleClick" @click-with-data="handleClickWithData" @object-event="handleObjectEvent" }}
                     
                     <!-- 🧪 Slots Test -->
-                    <h3 style="margin-top: 40px; margin-bottom: 20px;">🎴 Slots Test</h3>
+                    <h3 id="slots" style="margin-top: 40px; margin-bottom: 20px;">🎴 Slots Test</h3>
                     
                     {{ Card title="Custom Card" }}
                         <template slot="header">
@@ -100,7 +113,7 @@ export const Home = defineComponent({
                     {{ /Card }}
                     
                     <!-- 🧪 INTERPOLATION TEST -->
-                    <h3 style="margin-top: 40px; margin-bottom: 20px; color: #e83e8c;">🔤 INTERPOLATION TEST</h3>
+                    <h3 id="interpolation" style="margin-top: 40px; margin-bottom: 20px; color: #e83e8c;">🔤 INTERPOLATION TEST</h3>
                     <div style="background: #2a2a2a; padding: 15px; border-radius: 8px; border: 1px solid #444;">
                         <p><strong>Escaped Braces:</strong> \\{{ this is not evaluated }}</p>
                         <p><strong>String Literal with Braces:</strong> {{ "Look, {{ braces }} inside a string!" }}</p>
@@ -108,8 +121,15 @@ export const Home = defineComponent({
                     </div>
 
                     <!-- 🧪 PROVIDE / INJECT TEST -->
-                    <h3 style="margin-top: 40px; margin-bottom: 20px; color: #4CAF50;">🔗 PROVIDE / INJECT TEST</h3>
+                    <h3 id="provide" style="margin-top: 40px; margin-bottom: 20px; color: #4CAF50;">🔗 PROVIDE / INJECT TEST</h3>
                     {{ ParentComponent }}
+
+                    <!-- Back to top -->
+                    <div style="text-align: center; margin-top: 3rem; padding: 2rem;">
+                        <a href="/" f-link style="color: white; text-decoration: none; padding: 0.75rem 1.5rem; background: #3b82f6; border-radius: 6px; font-weight: bold;">
+                            ⬆️ Back to Top
+                        </a>
+                    </div>
                 </div>
             `
         }

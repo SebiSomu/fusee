@@ -39,9 +39,15 @@ export default defineConfig({
     test: {
         environment: 'jsdom',
         globals: true,
+        exclude: [
+            'node_modules/**',
+            'bench-node-1/**',
+            'create-fusee-go/**',
+            'dist/**'
+        ],
         typecheck: {
             enabled: true,
-            include: ['**/*.test-d.ts'],
+            include: ['framework/**/*.test-d.ts'],
         }
     }
 })

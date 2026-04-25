@@ -173,5 +173,5 @@ function _compareRoutes(a, b) {
     const bSegs = bPath.split('/').filter(Boolean).length;
     if (aSegs !== bSegs) return bSegs - aSegs;
 
-    return bPath.length - aPath.length;
+    return aPath.localeCompare(bPath);
 }

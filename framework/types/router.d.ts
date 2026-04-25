@@ -7,6 +7,15 @@ export type Route = {
     children?: Route[]
 }
 
+export type ScrollPosition = { left: number; top: number } | { selector: string } | false
+
+export type ScrollBehaviorOptions = {
+    scrollToTop?: boolean
+    scrollToAnchor?: boolean
+    saveScrollPosition?: boolean
+    custom?: (to: string, from: string, savedPosition: ScrollPosition | null) => ScrollPosition | Promise<ScrollPosition>
+}
+
 export type Router = {
     navigate: (path: string) => void
     destroy: () => void
@@ -18,7 +27,7 @@ export declare const currentRoute: Signal<string>
 export declare const routeParams: Signal<RouteParams>
 export declare const matchedRoutes: Signal<Route[]>
 
-export declare function createRouter(routes: Route[], options?: { cacheSize?: number; routerViewTimeout?: number }): Router
+export declare function createRouter(routes: Route[], options?: { cacheSize?: number; routerViewTimeout?: number; scrollBehavior?: ScrollBehaviorOptions }): Router
 export declare function navigate(path: string): void
 export declare function mountOutlet(el: HTMLElement): void
 

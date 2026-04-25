@@ -1,4 +1,5 @@
-import { createRouter, mountOutlet, defineAsyncComponent, generateRoutes } from '../framework/index.js'
+import { createRouter, mountOutlet, generateRoutes, directive } from '../framework/index.js'
+
 import { Loading } from './components/Loading.js'
 
 directive('focus', {
@@ -17,13 +18,22 @@ directive('highlight', {
     }
 })
 
-const pages = import.meta.glob('./pages/**/*.{js,ts}')
+const pages = import.meta.glob('./pages/**/*.js')
+
 const routes = generateRoutes(pages, {
     loadingComponent: Loading
 })
 
-createRouter(routes)
+// Scroll behavior configuration
+createRouter(routes, {
+    scrollBehavior: {
+        scrollToTop: true,
+        scrollToAnchor: true,
+        saveScrollPosition: true
+    }
+})
 
 const outlet = document.getElementById('app')
 if (!outlet) throw new Error('[app] #app element not found in DOM')
+
 mountOutlet(outlet)
