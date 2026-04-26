@@ -1,15 +1,25 @@
-import { currentRoute, navigate, routeParams, computed } from '../../framework/index.js'
+import { currentRoute, navigate, routeParams, routeQuery, computed } from '../../framework/index.js'
 
 export const RouterExample = defineComponent({
     setup() {
         const path = currentRoute
         const params = routeParams
+        const query = routeQuery
         const paramsJson = computed(() => JSON.stringify(params()))
+        const queryJson = computed(() => JSON.stringify(query()))
+
+        const updateQuery = () => {
+            const now = new Date().toLocaleTimeString()
+            const basePath = path().split('?')[0]
+            navigate(`${basePath}?t=${encodeURIComponent(now)}&user=guest`)
+        }
 
         return {
             path,
             paramsJson,
+            queryJson,
             navigate,
+            updateQuery,
             template: `
                 <div class="page">
                     <h1>🔗 Router API Demo</h1>
@@ -17,6 +27,19 @@ export const RouterExample = defineComponent({
                     <div class="demo-card">
                         <h2>currentRoute Signal</h2>
                         <code style="color: #8b8bff; font-size: 1.5rem;">{{ path }}</code>
+                    </div>
+
+                    <div class="demo-card">
+                        <h2>routeQuery Signal (Query Params)</h2>
+                        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                            <a href="/router-example?search=framework&page=1" f-link class="cmp-btn" style="text-decoration: none;">?search=framework&page=1</a>
+                            <a href="/router-example?filter=active&sort=desc" f-link class="cmp-btn" style="text-decoration: none;">?filter=active&sort=desc</a>
+                            <button @click="updateQuery" class="cmp-btn">Update Time via Query</button>
+                        </div>
+                        <code style="color: #f59e0b; font-size: 1.2rem;">{{ queryJson }}</code>
+                        <p style="margin-top: 10px; color: #888; font-size: 0.9rem;">
+                            Query parameters are automatically parsed into the routeQuery signal.
+                        </p>
                     </div>
 
                     <div class="demo-card">

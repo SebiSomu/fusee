@@ -2,6 +2,7 @@ import { signal } from '../core/signal.js'
 
 export const currentRoute = signal('/')
 export const routeParams = signal({})
+export const routeQuery = signal({})
 export const matchedRoutes = signal([])
 
 let _routes = []
@@ -17,8 +18,20 @@ let _currentPath = null
 
 function _getPath() {
     const pathname = window.location.pathname || '/'
+    const search = window.location.search || ''
     const hash = window.location.hash || ''
-    return pathname + hash
+    return pathname + search + hash
+}
+
+function _extractQuery(path) {
+    const queryStr = path.split('?')[1]?.split('#')[0]
+    if (!queryStr) return {}
+    const params = new URLSearchParams(queryStr)
+    const query = {}
+    for (const [key, value] of params.entries()) {
+        query[key] = value
+    }
+    return query
 }
 
 function _getRoutePaths(routePath) {
@@ -95,9 +108,9 @@ function _matchRouteTree(routes, urlSegments) {
 }
 
 function _matchSingleFlat(routePath, actualPath) {
-    const actualPathWithoutHash = actualPath.split('#')[0]
+    const actualPathWithoutParams = actualPath.split(/[?#]/)[0]
     const routeParts = routePath.split('/').filter(Boolean)
-    const actualParts = actualPathWithoutHash.split('/').filter(Boolean)
+    const actualParts = actualPathWithoutParams.split('/').filter(Boolean)
 
     const hasWildcard = routeParts.length > 0 && routeParts[routeParts.length - 1] === '*'
 
@@ -125,9 +138,9 @@ function _extractParamsFromPath(singlePath, actualPath) {
     const params = {}
     if (singlePath === '*') return params
 
-    const actualPathWithoutHash = actualPath.split('#')[0]
+    const actualPathWithoutParams = actualPath.split(/[?#]/)[0]
     const routeParts = singlePath.split('/').filter(Boolean)
-    const actualParts = actualPathWithoutHash.split('/').filter(Boolean)
+    const actualParts = actualPathWithoutParams.split('/').filter(Boolean)
 
     const hasWildcard = routeParts.length > 0 && routeParts[routeParts.length - 1] === '*'
     const checkLen = hasWildcard ? routeParts.length - 1 : routeParts.length
@@ -147,16 +160,16 @@ function _extractParamsFlat(routePath, actualPath) {
 }
 
 function _findMatchingChain(path) {
-    const pathWithoutHash = path.split('#')[0]
+    const pathWithoutParams = path.split(/[?#]/)[0]
     
-    if (_routeCache.has(pathWithoutHash)) {
-        const cached = _routeCache.get(pathWithoutHash)
-        _routeCache.delete(pathWithoutHash)
-        _routeCache.set(pathWithoutHash, cached)
+    if (_routeCache.has(pathWithoutParams)) {
+        const cached = _routeCache.get(pathWithoutParams)
+        _routeCache.delete(pathWithoutParams)
+        _routeCache.set(pathWithoutParams, cached)
         return cached
     }
 
-    const urlSegments = pathWithoutHash.split('/').filter(Boolean)
+    const urlSegments = pathWithoutParams.split('/').filter(Boolean)
     const hasNested = _routes.some(r => r.children && r.children.length > 0)
 
     let chain = null
@@ -164,7 +177,7 @@ function _findMatchingChain(path) {
     if (hasNested) {
         chain = _matchRouteTree(_routes, urlSegments)
         if (chain) {
-            _cacheResult(pathWithoutHash, chain)
+            _cacheResult(pathWithoutParams, chain)
             return chain
         }
     }
@@ -173,11 +186,11 @@ function _findMatchingChain(path) {
         const routePaths = _getRoutePaths(r.path)
         return !routePaths.includes('*') && !routePaths.some(p => p.endsWith('/*')) && !r.children
     })
-    const exactMatch = paths.find(r => _matchFlat(r.path, pathWithoutHash))
+    const exactMatch = paths.find(r => _matchFlat(r.path, pathWithoutParams))
     if (exactMatch) {
-        const matchedPath = _findMatchingPath(exactMatch.path, pathWithoutHash)
-        chain = [{ route: exactMatch, params: _extractParamsFlat(exactMatch.path, pathWithoutHash), matchedSegments: urlSegments, matchedPath }]
-        _cacheResult(pathWithoutHash, chain)
+        const matchedPath = _findMatchingPath(exactMatch.path, pathWithoutParams)
+        chain = [{ route: exactMatch, params: _extractParamsFlat(exactMatch.path, pathWithoutParams), matchedSegments: urlSegments, matchedPath }]
+        _cacheResult(pathWithoutParams, chain)
         return chain
     }
 
@@ -185,11 +198,11 @@ function _findMatchingChain(path) {
         const routePaths = _getRoutePaths(r.path)
         return !r.children && routePaths.some(p => p.endsWith('/*'))
     })
-    const wildcardMatch = wildcardPaths.find(r => _matchFlat(r.path, pathWithoutHash))
+    const wildcardMatch = wildcardPaths.find(r => _matchFlat(r.path, pathWithoutParams))
     if (wildcardMatch) {
-        const matchedPath = _findMatchingPath(wildcardMatch.path, pathWithoutHash)
-        chain = [{ route: wildcardMatch, params: _extractParamsFlat(wildcardMatch.path, pathWithoutHash), matchedSegments: urlSegments, matchedPath }]
-        _cacheResult(pathWithoutHash, chain)
+        const matchedPath = _findMatchingPath(wildcardMatch.path, pathWithoutParams)
+        chain = [{ route: wildcardMatch, params: _extractParamsFlat(wildcardMatch.path, pathWithoutParams), matchedSegments: urlSegments, matchedPath }]
+        _cacheResult(pathWithoutParams, chain)
         return chain
     }
 
@@ -199,7 +212,7 @@ function _findMatchingChain(path) {
     })
     if (catchAll) {
         chain = [{ route: catchAll, params: {}, matchedSegments: urlSegments, matchedPath: '*' }]
-        _cacheResult(pathWithoutHash, chain)
+        _cacheResult(pathWithoutParams, chain)
         return chain
     }
 
@@ -430,11 +443,12 @@ function _resolveRoute() {
     const from = _currentPath
     _currentPath = path
     _applyScrollBehavior(path, from)
+    routeQuery(_extractQuery(path))
 }
 
 export function navigate(path) {
-    const currentPath = _getPath().split('#')[0]
-    const targetPath = path.split('#')[0]
+    const currentPath = _getPath().split(/[?#]/)[0]
+    const targetPath = path.split(/[?#]/)[0]
     if (targetPath === currentPath && path === _getPath()) {
         _applyScrollBehavior(path, _getPath())
         return

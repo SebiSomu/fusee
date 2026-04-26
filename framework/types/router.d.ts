@@ -25,6 +25,7 @@ export type RouteParams = Record<string, string>
 
 export declare const currentRoute: Signal<string>
 export declare const routeParams: Signal<RouteParams>
+export declare const routeQuery: Signal<Record<string, string>>
 export declare const matchedRoutes: Signal<Route[]>
 
 export declare function createRouter(routes: Route[], options?: { cacheSize?: number; routerViewTimeout?: number; scrollBehavior?: ScrollBehaviorOptions }): Router
