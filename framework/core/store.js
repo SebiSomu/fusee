@@ -1,4 +1,6 @@
 import { getCurrentInstance, setCurrentInstance } from './component.js'
+import { batch } from './signal.js'
+
 
 const storesRegistry = new Map()
 const storePlugins = []
@@ -43,12 +45,28 @@ export function defineStore(id, setup) {
             }
 
             Object.defineProperties(store, {
-                $id: {
+                id: {
                     value: id,
                     enumerable: false
                 },
-                $type: {
+                type: {
                     value: 'store',
+                    enumerable: false
+                },
+                patch: {
+                    value: (arg) => {
+                        batch(() => {
+                            if (typeof arg === 'function') {
+                                arg(store)
+                            } else if (arg && typeof arg === 'object') {
+                                for (const key in arg) {
+                                    if (typeof store[key] === 'function' && store[key].isSignal && !store[key].readonly) {
+                                        store[key](arg[key])
+                                    }
+                                }
+                            }
+                        })
+                    },
                     enumerable: false
                 }
             })

@@ -161,7 +161,7 @@ function _extractParamsFlat(routePath, actualPath) {
 
 function _findMatchingChain(path) {
     const pathWithoutParams = path.split(/[?#]/)[0]
-    
+
     if (_routeCache.has(pathWithoutParams)) {
         const cached = _routeCache.get(pathWithoutParams)
         _routeCache.delete(pathWithoutParams)
