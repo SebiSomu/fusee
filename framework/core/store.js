@@ -114,3 +114,14 @@ export function resetStore(id) {
 export function clearStores() {
     storesRegistry.clear()
 }
+
+export function storeToRefs(store) {
+    const refs = {}
+    for (const key in store) {
+        const value = store[key]
+        if (typeof value === 'function' && value.isSignal) {
+            refs[key] = value
+        }
+    }
+    return refs
+}

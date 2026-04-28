@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { defineStore } from '../core/store.js'
+import { defineStore, storeToRefs } from '../core/store.js'
 import { signal, effect } from '../core/signal.js'
 
 describe('store', () => {
@@ -164,6 +164,71 @@ describe('store', () => {
 
         expect(spy).toHaveBeenCalledTimes(4)
         expect(spy).toHaveBeenLastCalledWith(3)
+    })
+
+    it('storeToRefs extracts only signal properties', () => {
+        const useStore = defineStore('test-10', () => {
+            const count = signal(0)
+            const name = signal('test')
+            const increment = () => count(count() + 1)
+            return { count, name, increment }
+        })
+
+        const store = useStore()
+        const refs = storeToRefs(store)
+
+        // Should only have signals
+        expect(Object.keys(refs)).toContain('count')
+        expect(Object.keys(refs)).toContain('name')
+        expect(Object.keys(refs)).not.toContain('increment')
+
+        // Values should be the signal functions
+        expect(refs.count).toBe(store.count)
+        expect(refs.name).toBe(store.name)
+    })
+
+    it('storeToRefs maintains reactivity when destructured', () => {
+        const useStore = defineStore('test-11', () => {
+            const count = signal(0)
+            return { count }
+        })
+
+        const store = useStore()
+        const { count } = storeToRefs(store)
+
+        const spy = vi.fn()
+        effect(() => {
+            spy(count())
+        })
+
+        expect(spy).toHaveBeenCalledTimes(1)
+        expect(spy).toHaveBeenLastCalledWith(0)
+
+        // Update through destructured ref
+        count(5)
+        expect(spy).toHaveBeenCalledTimes(2)
+        expect(spy).toHaveBeenLastCalledWith(5)
+
+        // Update through original store
+        store.count(10)
+        expect(spy).toHaveBeenCalledTimes(3)
+        expect(spy).toHaveBeenLastCalledWith(10)
+    })
+
+    it('storeToRefs excludes store built-in properties', () => {
+        const useStore = defineStore('test-12', () => {
+            const count = signal(0)
+            return { count }
+        })
+
+        const store = useStore()
+        const refs = storeToRefs(store)
+
+        // Should not include store built-ins
+        expect(Object.keys(refs)).not.toContain('id')
+        expect(Object.keys(refs)).not.toContain('type')
+        expect(Object.keys(refs)).not.toContain('patch')
+        expect(Object.keys(refs)).not.toContain('reset')
     })
 
 })
