@@ -99,4 +99,71 @@ describe('store', () => {
         expect(store.id).toBe('test-6') // id remains constant
     })
 
+    it('reset restores all signals to initial values', () => {
+        const useStore = defineStore('test-7', () => {
+            const count = signal(0)
+            const name = signal('initial')
+            const items = signal([1, 2, 3])
+            return { count, name, items }
+        })
+
+        const store = useStore()
+        expect(typeof store.reset).toBe('function')
+
+        // Modify state
+        store.count(10)
+        store.name('modified')
+        store.items([4, 5, 6])
+
+        expect(store.count()).toBe(10)
+        expect(store.name()).toBe('modified')
+        expect(store.items()).toEqual([4, 5, 6])
+
+        // Reset
+        store.reset()
+
+        expect(store.count()).toBe(0)
+        expect(store.name()).toBe('initial')
+        expect(store.items()).toEqual([1, 2, 3])
+    })
+
+    it('reset is non-enumerable', () => {
+        const useStore = defineStore('test-8', () => {
+            const count = signal(0)
+            return { count }
+        })
+
+        const store = useStore()
+        const keys = Object.keys(store)
+        expect(keys).not.toContain('reset')
+    })
+
+    it('reset batches updates', () => {
+        const useStore = defineStore('test-9', () => {
+            const a = signal(1)
+            const b = signal(2)
+            return { a, b }
+        })
+
+        const store = useStore()
+        const spy = vi.fn()
+
+        effect(() => {
+            spy(store.a() + store.b())
+        })
+
+        expect(spy).toHaveBeenCalledTimes(1)
+
+        store.a(10)
+        store.b(20)
+
+        expect(spy).toHaveBeenCalledTimes(3)
+
+        // Reset should trigger only once
+        store.reset()
+
+        expect(spy).toHaveBeenCalledTimes(4)
+        expect(spy).toHaveBeenLastCalledWith(3)
+    })
+
 })

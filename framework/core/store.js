@@ -44,6 +44,13 @@ export function defineStore(id, setup) {
                 setCurrentInstance(prevInstance)
             }
 
+            const initialState = {}
+            for (const key in store) {
+                if (typeof store[key] === 'function' && store[key].isSignal && !store[key].readonly) {
+                    initialState[key] = store[key]()
+                }
+            }
+
             Object.defineProperties(store, {
                 id: {
                     value: id,
@@ -64,6 +71,16 @@ export function defineStore(id, setup) {
                                         store[key](arg[key])
                                     }
                                 }
+                            }
+                        })
+                    },
+                    enumerable: false
+                },
+                reset: {
+                    value: () => {
+                        batch(() => {
+                            for (const key in initialState) {
+                                store[key](initialState[key])
                             }
                         })
                     },
