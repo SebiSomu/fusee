@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { defineStore, storeToRefs } from '../core/store.js'
+import { defineStore, storeToRefs, MutationType } from '../core/store.js'
 import { signal, effect } from '../core/signal.js'
 
 describe('store', () => {
@@ -229,6 +229,226 @@ describe('store', () => {
         expect(Object.keys(refs)).not.toContain('type')
         expect(Object.keys(refs)).not.toContain('patch')
         expect(Object.keys(refs)).not.toContain('reset')
+    })
+
+    // ─── $subscribe Tests ───────────────────────────────────────────────────────
+
+    it('subscribe is available on store', () => {
+        const useStore = defineStore('test-sub-1', () => {
+            const count = signal(0)
+            return { count }
+        })
+
+        const store = useStore()
+        expect(typeof store.subscribe).toBe('function')
+    })
+
+    it('subscribe returns unsubscribe function', () => {
+        const useStore = defineStore('test-sub-2', () => {
+            const count = signal(0)
+            return { count }
+        })
+
+        const store = useStore()
+        const unsubscribe = store.subscribe(() => {})
+        expect(typeof unsubscribe).toBe('function')
+    })
+
+    it('subscribe detects direct mutations', async () => {
+        const useStore = defineStore('test-sub-3', () => {
+            const count = signal(0)
+            return { count }
+        })
+
+        const store = useStore()
+        const spy = vi.fn()
+
+        store.subscribe(spy)
+        store.count(5)
+
+        // Wait for microtask
+        await new Promise(r => queueMicrotask(r))
+
+        expect(spy).toHaveBeenCalledTimes(1)
+        expect(spy).toHaveBeenLastCalledWith(
+            expect.objectContaining({
+                type: 'direct',
+                storeId: 'test-sub-3',
+                payload: { count: 5 }
+            }),
+            expect.objectContaining({ count: 5 })
+        )
+    })
+
+    it('subscribe detects patch object mutations', async () => {
+        const useStore = defineStore('test-sub-4', () => {
+            const name = signal('John')
+            const age = signal(25)
+            return { name, age }
+        })
+
+        const store = useStore()
+        const spy = vi.fn()
+
+        store.subscribe(spy)
+        store.patch({ name: 'Jane', age: 30 })
+
+        // Wait for microtask
+        await new Promise(r => queueMicrotask(r))
+
+        expect(spy).toHaveBeenCalledTimes(1)
+        expect(spy).toHaveBeenLastCalledWith(
+            expect.objectContaining({
+                type: 'patch object',
+                storeId: 'test-sub-4',
+                payload: { name: 'Jane', age: 30 }
+            }),
+            expect.objectContaining({ name: 'Jane', age: 30 })
+        )
+    })
+
+    it('subscribe detects patch function mutations', async () => {
+        const useStore = defineStore('test-sub-5', () => {
+            const count = signal(0)
+            return { count }
+        })
+
+        const store = useStore()
+        const spy = vi.fn()
+
+        store.subscribe(spy)
+        store.patch(state => {
+            state.count(state.count() + 1)
+        })
+
+        // Wait for microtask
+        await new Promise(r => queueMicrotask(r))
+
+        expect(spy).toHaveBeenCalledTimes(1)
+        expect(spy).toHaveBeenLastCalledWith(
+            expect.objectContaining({
+                type: 'patch function',
+                storeId: 'test-sub-5',
+                payload: undefined
+            }),
+            expect.objectContaining({ count: 1 })
+        )
+    })
+
+    it('subscribe with flush: sync triggers immediately', () => {
+        const useStore = defineStore('test-sub-6', () => {
+            const count = signal(0)
+            return { count }
+        })
+
+        const store = useStore()
+        const spy = vi.fn()
+
+        store.subscribe(spy, { flush: 'sync' })
+        store.count(5)
+
+        // Should be called immediately, no async
+        expect(spy).toHaveBeenCalledTimes(1)
+        expect(spy).toHaveBeenLastCalledWith(
+            expect.objectContaining({
+                type: 'direct',
+                storeId: 'test-sub-6'
+            }),
+            expect.objectContaining({ count: 5 })
+        )
+    })
+
+    it('unsubscribe function stops callbacks', async () => {
+        const useStore = defineStore('test-sub-7', () => {
+            const count = signal(0)
+            return { count }
+        })
+
+        const store = useStore()
+        const spy = vi.fn()
+
+        const unsubscribe = store.subscribe(spy)
+        store.count(1)
+        await new Promise(r => queueMicrotask(r))
+        expect(spy).toHaveBeenCalledTimes(1)
+
+        unsubscribe()
+        store.count(2)
+        await new Promise(r => queueMicrotask(r))
+        expect(spy).toHaveBeenCalledTimes(1) // Should not increase
+    })
+
+    it('patch triggers only one subscription callback', async () => {
+        const useStore = defineStore('test-sub-8', () => {
+            const a = signal(1)
+            const b = signal(2)
+            return { a, b }
+        })
+
+        const store = useStore()
+        const spy = vi.fn()
+
+        store.subscribe(spy)
+        store.patch({ a: 10, b: 20 })
+
+        await new Promise(r => queueMicrotask(r))
+
+        // Should only trigger once for the patch, not for each signal
+        expect(spy).toHaveBeenCalledTimes(1)
+    })
+
+    it('id is accessible on store', () => {
+        const useStore = defineStore('test-sub-9', () => {
+            const count = signal(0)
+            return { count }
+        })
+
+        const store = useStore()
+        expect(store.id).toBe('test-sub-9')
+    })
+
+    it('MutationType constants are exported', () => {
+        expect(MutationType.DIRECT).toBe('direct')
+        expect(MutationType.PATCH_OBJECT).toBe('patch object')
+        expect(MutationType.PATCH_FUNCTION).toBe('patch function')
+    })
+
+    it('reset triggers subscription with patch function type', async () => {
+        const useStore = defineStore('test-sub-10', () => {
+            const count = signal(0)
+            return { count }
+        })
+
+        const store = useStore()
+        const spy = vi.fn()
+
+        store.count(10)
+        await new Promise(r => queueMicrotask(r))
+
+        store.subscribe(spy)
+        store.reset()
+
+        await new Promise(r => queueMicrotask(r))
+
+        expect(spy).toHaveBeenCalledTimes(1)
+        expect(spy).toHaveBeenLastCalledWith(
+            expect.objectContaining({
+                type: 'patch function',
+                storeId: 'test-sub-10'
+            }),
+            expect.objectContaining({ count: 0 })
+        )
+    })
+
+    it('subscribe is non-enumerable', () => {
+        const useStore = defineStore('test-sub-11', () => {
+            const count = signal(0)
+            return { count }
+        })
+
+        const store = useStore()
+        const keys = Object.keys(store)
+        expect(keys).not.toContain('subscribe')
     })
 
 })
