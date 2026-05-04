@@ -4,6 +4,7 @@ import { batch, effect } from './signal.js'
 
 const storesRegistry = new Map()
 const storePlugins = []
+const initializationStack = new Set()
 
 export const MutationType = {
     DIRECT: 'direct',
@@ -15,6 +16,23 @@ export function registerStorePlugin(plugin) {
     if (typeof plugin === 'function') {
         storePlugins.push(plugin)
     }
+}
+
+export function useNestedStore(useStoreFn) {
+    if (typeof useStoreFn !== 'function' || !useStoreFn.$id) {
+        console.error('[framework] useNestedStore requires a valid store hook (defineStore result)')
+        throw new Error('Invalid store hook provided to useNestedStore')
+    }
+
+    const targetId = useStoreFn.$id
+
+    if (initializationStack.has(targetId)) {
+        const chain = Array.from(initializationStack).concat(targetId).join(' -> ')
+        console.error(`[framework] Circular dependency detected: ${chain}`)
+        throw new Error(`Circular store dependency detected: ${chain}`)
+    }
+
+    return useStoreFn()
 }
 
 const isDev = typeof import.meta.env !== 'undefined' ? !!import.meta.env.DEV : true
@@ -34,6 +52,7 @@ export function defineStore(id, setup) {
             const prevInstance = getCurrentInstance()
 
             setCurrentInstance(null)
+            initializationStack.add(id)
 
             try {
                 store = setup()
@@ -47,6 +66,7 @@ export function defineStore(id, setup) {
                 console.error(`[framework] Error initializing store "${id}":`, err)
                 throw err
             } finally {
+                initializationStack.delete(id)
                 setCurrentInstance(prevInstance)
             }
 

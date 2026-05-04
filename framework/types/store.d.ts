@@ -27,10 +27,13 @@ export interface Store<T> {
     subscribe(callback: SubscribeCallback, options?: SubscribeOptions): UnsubscribeFunction;
 }
 
-export function defineStore<T>(id: string, setup: () => T): () => T & Store<T>;
+export type StoreHook<T> = (() => T & Store<T>) & { $id: string };
+
+export function defineStore<T>(id: string, setup: () => T): StoreHook<T>;
 export function resetStore(id: string): void;
 export function clearStores(): void;
 export function registerStorePlugin(plugin: (store: any, id: string) => void): void;
+export function useNestedStore<T>(useStoreFn: StoreHook<T>): T & Store<T>;
 
 export type StoreToRefs<T> = {
     [K in keyof T]: T[K] extends (...args: any[]) => infer R ? import('./signal').SignalAccessor<R> : never
@@ -57,6 +60,7 @@ export function storeToState<T>(store: T & Store<T>): StoreToState<T>;
 export function storeToGetters<T>(store: T & Store<T>): StoreToGetters<T>;
 
 declare global {
-    function defineStore<T>(id: string, setup: () => T): () => T & Store<T>;
+    function defineStore<T>(id: string, setup: () => T): import('./store').StoreHook<T>;
+    function useNestedStore<T>(useStoreFn: import('./store').StoreHook<T>): T & Store<T>;
     type MutationType = import('./store').MutationType;
 }

@@ -1,6 +1,10 @@
-import { describe, it, expect, vi } from 'vitest'
-import { defineStore, storeToRefs, MutationType } from '../core/store.js'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { defineStore, storeToRefs, MutationType, useNestedStore, resetStore, clearStores } from '../core/store.js'
 import { signal, effect } from '../core/signal.js'
+
+beforeEach(() => {
+    clearStores()
+})
 
 describe('store', () => {
 
@@ -449,6 +453,132 @@ describe('store', () => {
         const store = useStore()
         const keys = Object.keys(store)
         expect(keys).not.toContain('subscribe')
+    })
+
+    // ─── Nested Stores Tests ──────────────────────────────────────────────────────
+
+    it('useNestedStore allows one store to use another', () => {
+        const useUserStore = defineStore('user', () => ({
+            name: signal('John'),
+            isLoggedIn: signal(true)
+        }))
+
+        const useCartStore = defineStore('cart', () => {
+            const user = useNestedStore(useUserStore)
+            const items = signal([])
+
+            const canCheckout = () => user.isLoggedIn() && items().length > 0
+
+            return { items, canCheckout, userName: () => user.name() }
+        })
+
+        const cart = useCartStore()
+        expect(cart.userName()).toBe('John')
+        expect(cart.canCheckout()).toBe(false)
+
+        cart.items.push('item1')
+        expect(cart.canCheckout()).toBe(true)
+    })
+
+    it('useNestedStore throws on circular dependency A -> B -> A', () => {
+        const useStoreA = defineStore('circular-A', () => {
+            const value = signal(1)
+            return { value }
+        })
+
+        const useStoreB = defineStore('circular-B', () => {
+            useNestedStore(useStoreA)
+            const value = signal(2)
+            return { value }
+        })
+
+        resetStore('circular-A')
+        resetStore('circular-B')
+
+        const useStoreAWithCircular = defineStore('circular-A', () => {
+            useNestedStore(useStoreB)
+            const value = signal(1)
+            return { value }
+        })
+
+        expect(() => useStoreAWithCircular()).toThrow('Circular store dependency detected')
+    })
+
+    it('useNestedStore throws on circular dependency A -> B -> C -> A', () => {
+        const useStoreA = defineStore('deep-A', () => ({
+            value: signal(1)
+        }))
+
+        const useStoreB = defineStore('deep-B', () => {
+            useNestedStore(useStoreA)
+            return { value: signal(2) }
+        })
+
+        const useStoreC = defineStore('deep-C', () => {
+            useNestedStore(useStoreB)
+            return { value: signal(3) }
+        })
+
+        resetStore('deep-A')
+        resetStore('deep-B')
+        resetStore('deep-C')
+
+        const useStoreAWithCircular = defineStore('deep-A', () => {
+            useNestedStore(useStoreC)
+            return { value: signal(1) }
+        })
+
+        expect(() => useStoreAWithCircular()).toThrow('Circular store dependency detected')
+    })
+
+    it('useNestedStore allows deep nesting without circular dependency', () => {
+        const useStoreA = defineStore('safe-A', () => ({
+            a: signal('A')
+        }))
+
+        const useStoreB = defineStore('safe-B', () => {
+            const a = useNestedStore(useStoreA)
+            return { b: signal('B'), fromA: () => a.a() }
+        })
+
+        const useStoreC = defineStore('safe-C', () => {
+            const b = useNestedStore(useStoreB)
+            return { c: signal('C'), fromB: () => b.fromA() }
+        })
+
+        const c = useStoreC()
+        expect(c.fromB()).toBe('A')
+    })
+
+    it('useNestedStore reuses already initialized stores', () => {
+        let initCount = 0
+
+        const useCounterStore = defineStore('shared-counter', () => {
+            initCount++
+            return { count: signal(0) }
+        })
+
+        const useStoreA = defineStore('consumer-A', () => {
+            const counter = useNestedStore(useCounterStore)
+            return { counter }
+        })
+
+        const useStoreB = defineStore('consumer-B', () => {
+            const counter = useNestedStore(useCounterStore)
+            return { counter }
+        })
+
+        const a = useStoreA()
+        const b = useStoreB()
+
+        expect(initCount).toBe(1)
+        expect(a.counter).toBe(b.counter)
+    })
+
+    it('useNestedStore validates store hook argument', () => {
+        expect(() => useNestedStore(null)).toThrow('Invalid store hook')
+        expect(() => useNestedStore(() => {})).toThrow('Invalid store hook')
+        expect(() => useNestedStore({})).toThrow('Invalid store hook')
     })
 
 })

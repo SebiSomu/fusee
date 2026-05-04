@@ -19,6 +19,8 @@ declare global {
     const storeToRefs: typeof import('./store').storeToRefs
     const storeToState: typeof import('./store').storeToState
     const storeToGetters: typeof import('./store').storeToGetters
+    const useNestedStore: typeof import('./store').useNestedStore
+    type StoreHook<T> = import('./store').StoreHook<T>
     const isDelegatedEvent: typeof import('./event-delegation').isDelegatedEvent
 }
 
