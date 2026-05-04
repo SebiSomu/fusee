@@ -23,7 +23,10 @@ import {
     defineStore,
     registerStorePlugin,
     resetStore,
-    clearStores
+    clearStores,
+    storeToRefs,
+    storeToState,
+    storeToGetters
 } from '../core/store.js'
 import {
     defineComposable,
@@ -410,11 +413,68 @@ describe('Store', () => {
     it('supports plugins', () => {
         const plugin = vi.fn()
         registerStorePlugin(plugin)
-        
+
         const useStore = defineStore('plugin-test', () => ({ ok: true }))
         useStore()
-        
+
         expect(plugin).toHaveBeenCalledWith(expect.anything(), 'plugin-test')
+    })
+
+    it('computes getters from computed signals', () => {
+        const useStore = defineStore('cart', () => {
+            const items = signal([{ price: 10 }, { price: 20 }])
+            const total = computed(() => items().reduce((sum, item) => sum + item.price, 0))
+            return { items, total }
+        })
+
+        const store = useStore()
+        expect(store.total()).toBe(30)
+
+        store.items.push({ price: 15 })
+        expect(store.total()).toBe(45)
+    })
+
+    it('warns when trying to set a getter', () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => { })
+
+        const useStore = defineStore('readonly-test', () => {
+            const count = signal(5)
+            const doubled = computed(() => count() * 2)
+            return { count, doubled }
+        })
+
+        const store = useStore()
+        store.doubled(100)
+
+        expect(warn).toHaveBeenCalledWith(expect.stringContaining('read-only'))
+        expect(store.doubled()).toBe(10)
+
+        warn.mockRestore()
+    })
+
+    it('separates state and getters via storeToState and storeToGetters', () => {
+        const useStore = defineStore('separation-test', () => {
+            const name = signal('Alice')
+            const greeting = computed(() => `Hello ${name()}`)
+            return { name, greeting }
+        })
+
+        const store = useStore()
+        const state = storeToState(store)
+        const getters = storeToGetters(store)
+        const refs = storeToRefs(store)
+
+        expect(state.name).toBeDefined()
+        expect(state.greeting).toBeUndefined()
+
+        expect(getters.greeting).toBeDefined()
+        expect(getters.name).toBeUndefined()
+
+        expect(refs.name).toBeDefined()
+        expect(refs.greeting).toBeDefined()
+
+        expect(state.name()).toBe('Alice')
+        expect(getters.greeting()).toBe('Hello Alice')
     })
 })
 

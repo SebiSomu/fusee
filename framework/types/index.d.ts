@@ -16,6 +16,9 @@ declare global {
     type DirectiveHooks<V = any> = import('./directives').DirectiveHooks<V>
     type DelegatedEventOptions = import('./event-delegation').DelegatedEventOptions
     const defineStore: typeof import('./store').defineStore
+    const storeToRefs: typeof import('./store').storeToRefs
+    const storeToState: typeof import('./store').storeToState
+    const storeToGetters: typeof import('./store').storeToGetters
     const isDelegatedEvent: typeof import('./event-delegation').isDelegatedEvent
 }
 

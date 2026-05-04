@@ -36,7 +36,25 @@ export type StoreToRefs<T> = {
     [K in keyof T]: T[K] extends (...args: any[]) => infer R ? import('./signal').SignalAccessor<R> : never
 }
 
+export type StoreToState<T> = {
+    [K in keyof T]: T[K] extends (...args: any[]) => infer R
+        ? import('./signal').SignalAccessor<R> extends { readonly: true }
+            ? never
+            : import('./signal').SignalAccessor<R>
+        : never
+}
+
+export type StoreToGetters<T> = {
+    [K in keyof T]: T[K] extends (...args: any[]) => infer R
+        ? import('./signal').SignalAccessor<R> extends { readonly: true }
+            ? import('./signal').SignalAccessor<R>
+            : never
+        : never
+}
+
 export function storeToRefs<T>(store: T & Store<T>): StoreToRefs<T>;
+export function storeToState<T>(store: T & Store<T>): StoreToState<T>;
+export function storeToGetters<T>(store: T & Store<T>): StoreToGetters<T>;
 
 declare global {
     function defineStore<T>(id: string, setup: () => T): () => T & Store<T>;

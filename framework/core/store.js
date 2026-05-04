@@ -52,10 +52,15 @@ export function defineStore(id, setup) {
 
             const initialState = {}
             const signalKeys = []
+            const getterKeys = []
             for (const key in store) {
-                if (typeof store[key] === 'function' && store[key].isSignal && !store[key].readonly) {
-                    initialState[key] = store[key]()
-                    signalKeys.push(key)
+                if (typeof store[key] === 'function' && store[key].isSignal) {
+                    if (store[key].readonly) {
+                        getterKeys.push(key)
+                    } else {
+                        initialState[key] = store[key]()
+                        signalKeys.push(key)
+                    }
                 }
             }
 
@@ -118,10 +123,36 @@ export function defineStore(id, setup) {
                 return wrapped
             }
 
+            function wrapGetter(key, originalGetter) {
+                const wrapped = function(newValue) {
+                    if (arguments.length === 0) {
+                        return originalGetter()
+                    } else {
+                        console.warn(`[framework] Getter "${key}" is read-only`)
+                        return originalGetter()
+                    }
+                }
+                wrapped.isSignal = true
+                wrapped.readonly = true
+                for (const method of ['map', 'filter', 'slice', 'concat', 'flat', 'flatMap',
+                                      'find', 'findLast', 'findIndex', 'findLastIndex',
+                                      'indexOf', 'lastIndexOf', 'includes', 'every', 'some',
+                                      'reduce', 'at', 'join']) {
+                    if (originalGetter[method]) {
+                        wrapped[method] = originalGetter[method]
+                    }
+                }
+                return wrapped
+            }
+
             const wrappedSignals = {}
             for (const key of signalKeys) {
                 wrappedSignals[key] = wrapSignal(key, store[key])
                 store[key] = wrappedSignals[key]
+            }
+
+            for (const key of getterKeys) {
+                store[key] = wrapGetter(key, store[key])
             }
 
             Object.defineProperties(store, {
@@ -246,4 +277,26 @@ export function storeToRefs(store) {
         }
     }
     return refs
+}
+
+export function storeToState(store) {
+    const state = {}
+    for (const key in store) {
+        const value = store[key]
+        if (typeof value === 'function' && value.isSignal && !value.readonly) {
+            state[key] = value
+        }
+    }
+    return state
+}
+
+export function storeToGetters(store) {
+    const getters = {}
+    for (const key in store) {
+        const value = store[key]
+        if (typeof value === 'function' && value.isSignal && value.readonly) {
+            getters[key] = value
+        }
+    }
+    return getters
 }
