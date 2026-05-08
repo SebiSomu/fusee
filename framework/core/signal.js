@@ -403,6 +403,65 @@ function hasWatchChanged(newValue, oldValue, isMultiSource, equals) {
     return !equals(newValue, oldValue)
 }
 
+export function resource(sourceOrFetcher, fetcher) {
+    let source = null
+    let actualFetcher = fetcher
+
+    if (arguments.length === 1) {
+        actualFetcher = sourceOrFetcher
+    } else {
+        source = sourceOrFetcher
+    }
+
+    const data = signal(undefined)
+    const loading = signal(false)
+    const error = signal(undefined)
+
+    async function load(input) {
+        batch(() => {
+            loading(true)
+            error(undefined)
+        })
+
+        try {
+            const result = await actualFetcher(input)
+            batch(() => {
+                data(result)
+                loading(false)
+            })
+        } catch (err) {
+            batch(() => {
+                error(err)
+                loading(false)
+            })
+        }
+    }
+
+    if (source) {
+        effect(() => {
+            const input = typeof source === 'function' ? source() : source
+            if (input !== null && input !== false && input !== undefined) {
+                load(input)
+            }
+        })
+    } else {
+        load()
+    }
+
+    const accessor = () => data()
+    accessor.isSignal = true
+    accessor.loading = loading
+    accessor.error = error
+
+    const mutate = (val) => data(val)
+    const refetch = () => {
+        const input = source ? (typeof source === 'function' ? source() : source) : undefined
+        load(input)
+    }
+
+    return [accessor, { mutate, refetch }]
+}
+
 function runWatchCleanup(cleanupRef) {
     if (typeof cleanupRef.fn === 'function') {
         const fn = cleanupRef.fn
