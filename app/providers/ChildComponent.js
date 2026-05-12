@@ -1,4 +1,5 @@
 import { inject } from '../../framework/index.js'
+import { LoggerService } from '../services.js'
 import { GrandchildComponent } from './GrandchildComponent.js'
 
 // ChildComponent - injects values from parent (ParentComponent)
@@ -8,6 +9,9 @@ export const ChildComponent = defineComponent({
         // Inject values provided by the parent
         const count = inject('count')
         const message = inject('message')
+
+        const logger = inject(LoggerService)
+        logger.log('ChildComponent initialized!')
 
         // These are NOT provided by parent, so they will be undefined
         const nonExistent = inject('nonExistent')
@@ -20,6 +24,7 @@ export const ChildComponent = defineComponent({
             count,
             message,
             nonExistent,
+            logger,
             updateMessage,
             template: `
                 <div style="padding: 15px; border: 2px solid #2196F3; border-radius: 8px; margin-top: 15px; background: #1a1a1a; color: #fff;">
@@ -29,6 +34,7 @@ export const ChildComponent = defineComponent({
                         <li><strong>count:</strong> {{ count }}</li>
                         <li><strong>message:</strong> {{ message }}</li>
                         <li><strong>nonExistent:</strong> {{ nonExistent || 'undefined' }}</li>
+                        <li><strong>Logger ID:</strong> {{ logger.id }} <em>(Singleton!)</em></li>
                     </ul>
                     <button @click="updateMessage" style="margin-top: 10px; padding: 6px 12px; background: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer;">
                         Update Message

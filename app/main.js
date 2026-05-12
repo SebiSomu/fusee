@@ -1,4 +1,5 @@
-import { createRouter, mountOutlet, generateRoutes, directive } from '../framework/index.js'
+import { createRouter, mountOutlet, generateRoutes, directive, provideGlobal } from '../framework/index.js'
+import { APP_CONFIG } from './services.js'
 
 import { Loading } from './components/Loading.js'
 
@@ -23,6 +24,11 @@ const pages = import.meta.glob('./pages/**/*.js')
 const routes = generateRoutes(pages, {
     loadingComponent: Loading
 })
+
+provideGlobal(APP_CONFIG, {
+    title: 'Fusee v2 App',
+    version: '2.0.0-beta'
+});
 
 // Scroll behavior configuration
 createRouter(routes, {

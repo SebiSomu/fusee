@@ -1,5 +1,6 @@
 import { effect, setEffectHook, batch } from './signal.js'
 import { mountTemplate } from './compiler.js'
+import { resolveGlobal } from './di.js'
 
 let currentInstance = null
 
@@ -193,7 +194,8 @@ export function inject(key) {
         if (key in parent._provides) return parent._provides[key];
         parent = parent._parent;
     }
-    return null;
+    
+    return resolveGlobal(key);
 }
 
 export function defineAsyncComponent(loaderOrOptions) {

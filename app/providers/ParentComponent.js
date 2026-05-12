@@ -1,4 +1,5 @@
-import { provide } from '../../framework/index.js'
+import { provide, inject } from '../../framework/index.js'
+import { LoggerService } from '../services.js'
 import { ChildComponent } from './ChildComponent.js'
 
 // ParentComponent - provides values to child components
@@ -8,6 +9,9 @@ export const ParentComponent = defineComponent({
         const count = signal(42)
         const message = signal('Hello from Parent!')
         const userData = { name: 'John', age: 30 }
+
+        const logger = inject(LoggerService)
+        logger.log('ParentComponent initialized!')
 
         // Provide values to descendant components
         provide('count', count)
