@@ -7,45 +7,127 @@ export class InjectionToken {
     }
 }
 
-const globalInstances = new Map();
-const globalRegistry = new Map();
-
-export function provideGlobal(token, provider) {
-    globalRegistry.set(token, provider);
+export function isClass(fn) {
+    if (typeof fn !== 'function') return false;
+    const str = fn.toString();
+    if (/^\s*class\s+/.test(str)) return true;
+    return fn.prototype !== undefined && 
+           fn.prototype.constructor === fn && 
+           Object.getOwnPropertyNames(fn.prototype).length > 1;
 }
 
-export function resolveGlobal(token) {
-    if (globalInstances.has(token)) {
-        return globalInstances.get(token);
+export class Injector {
+    get(token, options = { optional: false }) {
+        throw new Error('Not implemented');
+    }
+}
+
+export class NullInjector extends Injector {
+    get(token, options = { optional: false }) {
+        if (options.optional) {
+            return null;
+        }
+        const tokenName = token?.name || token?.description || token;
+        throw new Error(`NullInjectorError: No provider for ${tokenName}!`);
+    }
+}
+
+export class EnvironmentInjector extends Injector {
+    constructor(providers = [], parent = new NullInjector()) {
+        super();
+        this.parent = parent;
+        this.records = new Map(); 
+        this.instances = new Map(); 
+        this.resolutionStack = new Set(); 
+
+        this._normalizeProviders(providers);
     }
 
-    if (globalRegistry.has(token)) {
-        let provider = globalRegistry.get(token);
-        let instance;
+    _normalizeProviders(providers) {
+        for (const provider of providers) {
+            if (typeof provider === 'function' && isClass(provider)) {
+                this.records.set(provider, { useClass: provider });
+            } else if (provider && provider.provide) {
+                this.records.set(provider.provide, provider);
+            } else {
+                throw new Error(`Invalid provider configuration: ${provider}`);
+            }
+        }
+    }
 
-        if (typeof provider === 'function' && isClass(provider)) {
-            instance = new provider(); // class
-        } else if (typeof provider === 'function') {
-            instance = provider(); // factory function
-        } else {
-            instance = provider; // value
+    provide(provider) {
+        this._normalizeProviders([provider]);
+    }
+
+    // Bubble-up algorithm for resolving hierarchical dependencies
+    get(token, options = { optional: false }) {
+        if (this.instances.has(token)) {
+            return this.instances.get(token);
         }
 
-        globalInstances.set(token, instance);
-        return instance;
+        if (this.records.has(token)) {
+            if (this.resolutionStack.has(token)) {
+                const tokenName = token?.name || token?.description || token;
+                throw new Error(`Circular dependency detected for ${tokenName}!`);
+            }
+
+            this.resolutionStack.add(token);
+
+            try {
+                const record = this.records.get(token);
+                const instance = this._instantiate(record);
+                this.instances.set(token, instance);
+                return instance;
+            } finally {
+                this.resolutionStack.delete(token);
+            }
+        }
+
+        return this.parent.get(token, options);
     }
 
-    if (typeof token === 'function' && isClass(token)) {
-        const instance = new token();
-        globalInstances.set(token, instance);
-        return instance;
+    _instantiate(record) {
+        return runInContext(this, () => {
+            if (record.useValue !== undefined) {
+                return record.useValue;
+            }
+            if (record.useFactory) {
+                return record.useFactory();
+            }
+            if (record.useExisting) {
+                return inject(record.useExisting);
+            }
+            if (record.useClass) {
+                const ClassDef = record.useClass;
+                return new ClassDef();
+            }
+            throw new Error(`Invalid provider record configuration for ${record.provide?.name || record.provide}`);
+        });
     }
-
-    return null;
 }
 
-function isClass(fn) {
-    return typeof fn === 'function' && 
-           /^\s*class\s+/.test(fn.toString()) || 
-           (fn.prototype && fn.prototype.constructor === fn && Object.getOwnPropertyNames(fn.prototype).length > 1);
+let activeInjector = null;
+
+export function runInContext(injector, fn) {
+    const previousInjector = activeInjector;
+    activeInjector = injector;
+    try {
+        return fn();
+    } finally {
+        activeInjector = previousInjector;
+    }
+}
+export function inject(token, options = { optional: false }) {
+    if (!activeInjector) {
+        throw new Error(
+            `inject() must be called from an injection context (e.g. inside a provider's constructor or factory).`
+        );
+    }
+    return activeInjector.get(token, options);
+}
+
+export const rootInjector = new EnvironmentInjector();
+
+export function provideGlobal(provider) {
+    rootInjector.provide(provider);
 }

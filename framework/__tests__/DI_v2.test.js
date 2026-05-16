@@ -1,97 +1,122 @@
-import { describe, it, expect, vi } from 'vitest'
-import { defineComponent, inject, provideGlobal, InjectionToken } from '../index.js'
+import { describe, it, expect } from 'vitest'
+import { 
+    InjectionToken, 
+    EnvironmentInjector, 
+    NullInjector, 
+    inject, 
+    runInContext 
+} from '../core/di.js'
 
-describe('Fusée DI v2: Singletons & Tokens', () => {
+describe('Fusée DI v2: Hierarchical System', () => {
 
-    it('should support InjectionToken as a key', () => {
-        const THEME_TOKEN = new InjectionToken('theme');
-        const container = document.createElement('div');
-        
-        const Child = defineComponent({
-            setup() {
-                const theme = inject(THEME_TOKEN);
-                return { theme, template: '<div></div>' };
-            }
-        });
-
-        provideGlobal(THEME_TOKEN, 'dark');
-        
-        const childApi = Child();
-        expect(childApi.instance.state.theme).toBe('dark');
+    it('should throw NullInjectorError if token not provided', () => {
+        const root = new NullInjector();
+        expect(() => root.get('Missing')).toThrow(/NullInjectorError/);
     });
 
-    it('should provide global singletons (lazy instantiation of classes)', () => {
-        class Logger {
+    it('should return null if optional: true', () => {
+        const root = new NullInjector();
+        expect(root.get('Missing', { optional: true })).toBeNull();
+    });
+
+    it('should resolve useValue provider', () => {
+        const TOKEN = new InjectionToken('API_URL');
+        const injector = new EnvironmentInjector([
+            { provide: TOKEN, useValue: 'https://api.test' }
+        ]);
+
+        expect(injector.get(TOKEN)).toBe('https://api.test');
+    });
+
+    it('should resolve useClass and inject its dependencies', () => {
+        const URL_TOKEN = new InjectionToken('URL');
+        
+        class HttpService {
             constructor() {
-                this.id = Math.random();
+                this.url = inject(URL_TOKEN);
             }
-            log(msg) { return msg; }
         }
 
-        const CompA = defineComponent({
-            setup() {
-                const logger = inject(Logger);
-                return { logger, template: '<div></div>' };
-            }
-        });
+        const injector = new EnvironmentInjector([
+            { provide: URL_TOKEN, useValue: 'https://api.test' },
+            { provide: HttpService, useClass: HttpService }
+        ]);
 
-        const CompB = defineComponent({
-            setup() {
-                const logger = inject(Logger);
-                return { logger, template: '<div></div>' };
-            }
-        });
-
-        const apiA = CompA();
-        const apiB = CompB();
-
-        expect(apiA.instance.state.logger).toBeInstanceOf(Logger);
-        expect(apiA.instance.state.logger.id).toBe(apiB.instance.state.logger.id);
+        const http = injector.get(HttpService);
+        expect(http).toBeInstanceOf(HttpService);
+        expect(http.url).toBe('https://api.test');
+        
+        // Singleton check
+        expect(injector.get(HttpService)).toBe(http);
     });
 
-    it('should support factory providers globally', () => {
-        const API_KEY = new InjectionToken('api-key');
-        let callCount = 0;
-        
-        provideGlobal(API_KEY, () => {
-            callCount++;
-            return 'SECRET_123';
-        });
-
-        const Comp = defineComponent({
-            setup() {
-                const key = inject(API_KEY);
-                return { key, template: '<div></div>' };
-            }
-        });
-
-        const api1 = Comp();
-        const api2 = Comp();
-
-        expect(api1.instance.state.key).toBe('SECRET_123');
-        expect(callCount).toBe(1); // Singleton: factory only called once
+    it('should resolve shorthand class provider', () => {
+        class Logger {
+            log() {}
+        }
+        const injector = new EnvironmentInjector([Logger]);
+        const logger = injector.get(Logger);
+        expect(logger).toBeInstanceOf(Logger);
     });
 
-    it('should prioritize component-level provide over global registry', () => {
-        const TOKEN = new InjectionToken('test');
-        provideGlobal(TOKEN, 'global-value');
-
-        const Child = defineComponent({
-            setup() {
-                const val = inject(TOKEN);
-                return { val, template: '<div></div>' };
+    it('should resolve useFactory and use inject() inside it', () => {
+        const CONFIG = new InjectionToken('Config');
+        const injector = new EnvironmentInjector([
+            { provide: CONFIG, useValue: { prod: true } },
+            { 
+                provide: 'IsProd', 
+                useFactory: () => {
+                    const config = inject(CONFIG);
+                    return config.prod;
+                }
             }
-        });
+        ]);
 
-        const Parent = defineComponent({
-            setup() {
-                const { provide } = Fusee; 
+        expect(injector.get('IsProd')).toBe(true);
+    });
+
+    it('should resolve useExisting', () => {
+        const OldToken = new InjectionToken('Old');
+        const NewToken = new InjectionToken('New');
+
+        const injector = new EnvironmentInjector([
+            { provide: OldToken, useValue: 'Value' },
+            { provide: NewToken, useExisting: OldToken }
+        ]);
+
+        expect(injector.get(NewToken)).toBe('Value');
+    });
+
+    it('should bubble up to parent injector', () => {
+        const PARENT_TOKEN = new InjectionToken('Parent');
+        const parent = new EnvironmentInjector([
+            { provide: PARENT_TOKEN, useValue: 'parent-value' }
+        ]);
+
+        const child = new EnvironmentInjector([], parent);
+
+        expect(child.get(PARENT_TOKEN)).toBe('parent-value');
+    });
+
+    it('should detect circular dependencies', () => {
+        class A {
+            constructor() {
+                this.b = inject(B);
             }
-        });
+        }
         
-        const parentInstance = { _provides: { [TOKEN]: 'local-value' }, _parent: null };
-        const childApi = Child({}, { parent: parentInstance });
+        class B {
+            constructor() {
+                this.a = inject(A);
+            }
+        }
 
-        expect(childApi.instance.state.val).toBe('local-value');
+        const injector = new EnvironmentInjector([A, B]);
+
+        expect(() => injector.get(A)).toThrow(/Circular dependency detected/);
+    });
+
+    it('should allow inject() only within context', () => {
+        expect(() => inject('Token')).toThrow(/must be called from an injection context/);
     });
 });

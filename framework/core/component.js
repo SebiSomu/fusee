@@ -1,6 +1,6 @@
 import { effect, setEffectHook, batch } from './signal.js'
 import { mountTemplate } from './compiler.js'
-import { resolveGlobal } from './di.js'
+import { inject as injectFromDI, rootInjector, runInContext } from './di.js'
 
 let currentInstance = null
 
@@ -195,7 +195,7 @@ export function inject(key) {
         parent = parent._parent;
     }
     
-    return resolveGlobal(key);
+    return runInContext(rootInjector, () => injectFromDI(key, { optional: true }));
 }
 
 export function defineAsyncComponent(loaderOrOptions) {
