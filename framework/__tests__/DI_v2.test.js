@@ -98,7 +98,7 @@ describe('Fusée DI v2: Hierarchical System', () => {
         expect(child.get(PARENT_TOKEN)).toBe('parent-value');
     });
 
-    it('should detect circular dependencies', () => {
+    it('should detect circular dependencies and output the path', () => {
         class A {
             constructor() {
                 this.b = inject(B);
@@ -113,7 +113,7 @@ describe('Fusée DI v2: Hierarchical System', () => {
 
         const injector = new EnvironmentInjector([A, B]);
 
-        expect(() => injector.get(A)).toThrow(/Circular dependency detected/);
+        expect(() => injector.get(A)).toThrow(/Circular dependency detected: A -> B -> A/);
     });
 
     it('should allow inject() only within context', () => {

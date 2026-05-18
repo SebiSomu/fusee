@@ -68,8 +68,10 @@ export class EnvironmentInjector extends Injector {
 
         if (this.records.has(token)) {
             if (this.resolutionStack.has(token)) {
-                const tokenName = token?.name || token?.description || token;
-                throw new Error(`Circular dependency detected for ${tokenName}!`);
+                const path = [...this.resolutionStack, token]
+                    .map(t => t?.name || t?.description || t)
+                    .join(' -> ');
+                throw new Error(`Circular dependency detected: ${path}`);
             }
 
             this.resolutionStack.add(token);
