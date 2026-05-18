@@ -106,24 +106,41 @@ export class EnvironmentInjector extends Injector {
     }
 }
 
-let activeInjector = null;
+let _activeInjector = null;
 
 export function runInContext(injector, fn) {
-    const previousInjector = activeInjector;
-    activeInjector = injector;
+    const previousInjector = _activeInjector;
+    _activeInjector = injector;
     try {
         return fn();
     } finally {
-        activeInjector = previousInjector;
+        _activeInjector = previousInjector;
     }
 }
-export function inject(token, options = { optional: false }) {
-    if (!activeInjector) {
-        throw new Error(
-            `inject() must be called from an injection context (e.g. inside a provider's constructor or factory).`
-        );
+
+export function inject(token, options = {}) {
+    if (_activeInjector === null) {
+        throw new Error('inject() called outside of an injection context');
     }
-    return activeInjector.get(token, options);
+
+    const isOptional = options.optional === true;
+    const skipSelf = options.skipSelf === true;
+
+    const injectorToUse = skipSelf ? _activeInjector.parent : _activeInjector;
+
+    if (!injectorToUse) {
+        if (isOptional) return null;
+        throw new Error(`No provider found for ${token?.name || token}`);
+    }
+
+    try {
+        return injectorToUse.get(token, options);
+    } catch (error) {
+        if (isOptional) {
+            return null;
+        }
+        throw error;
+    }
 }
 
 export const rootInjector = new EnvironmentInjector();

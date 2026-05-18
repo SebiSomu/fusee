@@ -117,6 +117,34 @@ describe('Fusée DI v2: Hierarchical System', () => {
     });
 
     it('should allow inject() only within context', () => {
-        expect(() => inject('Token')).toThrow(/must be called from an injection context/);
+        expect(() => inject('Token')).toThrow(/called outside of an injection context/);
+    });
+
+    it('should support inject({ optional: true })', () => {
+        const injector = new EnvironmentInjector([]);
+        runInContext(injector, () => {
+            const result = inject('MissingToken', { optional: true });
+            expect(result).toBeNull();
+        });
+    });
+
+    it('should support inject({ skipSelf: true })', () => {
+        const TOKEN = new InjectionToken('SkipSelfToken');
+        
+        const parent = new EnvironmentInjector([
+            { provide: TOKEN, useValue: 'parent-value' }
+        ]);
+
+        const child = new EnvironmentInjector([
+            { provide: TOKEN, useValue: 'child-value' }
+        ], parent);
+
+        runInContext(child, () => {
+            const defaultResult = inject(TOKEN);
+            expect(defaultResult).toBe('child-value');
+
+            const skipSelfResult = inject(TOKEN, { skipSelf: true });
+            expect(skipSelfResult).toBe('parent-value');
+        });
     });
 });
