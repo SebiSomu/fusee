@@ -86,6 +86,14 @@ export class EnvironmentInjector extends Injector {
             }
         }
 
+        if (options.self === true) {
+            if (options.optional === true) {
+                return null;
+            }
+            const tokenName = token?.name || token?.description || token;
+            throw new Error(`NullInjectorError: No provider found for ${tokenName} locally (self: true)`);
+        }
+
         return this.parent.get(token, options);
     }
 
@@ -156,6 +164,11 @@ export function inject(token, options = {}) {
 
     const isOptional = options.optional === true;
     const skipSelf = options.skipSelf === true;
+    const self = options.self === true;
+
+    if (skipSelf && self) {
+        throw new Error('Cannot combine both skipSelf and self InjectOptions');
+    }
 
     const injectorToUse = skipSelf ? _activeInjector.parent : _activeInjector;
 

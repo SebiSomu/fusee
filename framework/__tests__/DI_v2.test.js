@@ -202,4 +202,39 @@ describe('Fusée DI v2: Hierarchical System', () => {
         expect(injector.instances.size).toBe(0);
         expect(injector.records.size).toBe(0);
     });
+
+    it('should support inject({ self: true })', () => {
+        const TOKEN = new InjectionToken('SelfToken');
+        
+        const parent = new EnvironmentInjector([
+            { provide: TOKEN, useValue: 'parent-value' }
+        ]);
+
+        const child = new EnvironmentInjector([], parent);
+
+        runInContext(child, () => {
+            // self: true with optional: true should return null
+            expect(inject(TOKEN, { self: true, optional: true })).toBeNull();
+
+            // self: true without optional: true should throw NullInjectorError
+            expect(() => inject(TOKEN, { self: true })).toThrow(/No provider found for SelfToken locally/);
+        });
+
+        const childWithLocal = new EnvironmentInjector([
+            { provide: TOKEN, useValue: 'child-value' }
+        ], parent);
+
+        runInContext(childWithLocal, () => {
+            expect(inject(TOKEN, { self: true })).toBe('child-value');
+        });
+    });
+
+    it('should throw error when combining both skipSelf and self options', () => {
+        const TOKEN = new InjectionToken('ConflictingToken');
+        const injector = new EnvironmentInjector([]);
+
+        runInContext(injector, () => {
+            expect(() => inject(TOKEN, { skipSelf: true, self: true })).toThrow(/Cannot combine both skipSelf and self/);
+        });
+    });
 });

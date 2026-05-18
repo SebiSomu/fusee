@@ -9,6 +9,7 @@ export declare function isClass(fn: any): boolean;
 export interface InjectOptions {
     optional?: boolean;
     skipSelf?: boolean;
+    self?: boolean;
 }
 
 export declare abstract class Injector {
