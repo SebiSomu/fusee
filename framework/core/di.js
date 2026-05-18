@@ -32,14 +32,15 @@ export class NullInjector extends Injector {
     }
 }
 
+const NULL_INJECTOR = new NullInjector();
+
 export class EnvironmentInjector extends Injector {
-    constructor(providers = [], parent = new NullInjector()) {
+    constructor(providers = [], parent = NULL_INJECTOR) {
         super();
         this.parent = parent;
         this.records = new Map(); 
         this.instances = new Map(); 
         this.resolutionStack = new Set(); 
-
         this._normalizeProviders(providers);
     }
 
@@ -130,17 +131,10 @@ export function inject(token, options = {}) {
 
     if (!injectorToUse) {
         if (isOptional) return null;
-        throw new Error(`No provider found for ${token?.name || token}`);
+        throw new Error(`NullInjectorError: No provider found for ${token?.name || token}`);
     }
 
-    try {
-        return injectorToUse.get(token, options);
-    } catch (error) {
-        if (isOptional) {
-            return null;
-        }
-        throw error;
-    }
+    return injectorToUse.get(token, options);
 }
 
 export const rootInjector = new EnvironmentInjector();

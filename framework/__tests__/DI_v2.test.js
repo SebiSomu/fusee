@@ -147,4 +147,15 @@ describe('Fusée DI v2: Hierarchical System', () => {
             expect(skipSelfResult).toBe('parent-value');
         });
     });
+
+    it('should not swallow real errors when optional: true', () => {
+        const TOKEN = new InjectionToken('ErrorToken');
+        const injector = new EnvironmentInjector([
+            { provide: TOKEN, useFactory: () => { throw new Error('Real error'); } }
+        ]);
+
+        runInContext(injector, () => {
+            expect(() => inject(TOKEN, { optional: true })).toThrow(/Real error/);
+        });
+    });
 });
