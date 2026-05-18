@@ -32,6 +32,7 @@ export declare class EnvironmentInjector extends Injector {
     provide(provider: Provider): void;
     get<T>(token: any, options?: InjectOptions): T;
     createChild(providers?: Provider[]): EnvironmentInjector;
+    destroy(): void;
 }
 
 export declare function runInContext<T>(injector: Injector, fn: () => T): T;

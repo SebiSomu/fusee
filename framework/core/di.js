@@ -111,6 +111,26 @@ export class EnvironmentInjector extends Injector {
     createChild(providers = []) {
         return new EnvironmentInjector(providers, this);
     }
+
+    destroy() {
+        for (const instance of this.instances.values()) {
+            if (instance && typeof instance.destroy === 'function') {
+                try {
+                    instance.destroy();
+                } catch (e) {
+                    console.error('Error during instance destroy:', e);
+                }
+            } else if (instance && typeof instance.onDestroy === 'function') {
+                try {
+                    instance.onDestroy();
+                } catch (e) {
+                    console.error('Error during instance onDestroy:', e);
+                }
+            }
+        }
+        this.instances.clear();
+        this.records.clear();
+    }
 }
 
 let _activeInjector = null;

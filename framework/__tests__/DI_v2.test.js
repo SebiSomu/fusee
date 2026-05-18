@@ -173,4 +173,33 @@ describe('Fusée DI v2: Hierarchical System', () => {
             expect(() => inject(TOKEN, { optional: true })).toThrow(/Real error/);
         });
     });
+
+    it('should destroy the injector and call destroy/onDestroy lifecycle hooks on resolved instances', () => {
+        let destroyCalled = false;
+        let onDestroyCalled = false;
+
+        class ServiceA {
+            destroy() {
+                destroyCalled = true;
+            }
+        }
+
+        class ServiceB {
+            onDestroy() {
+                onDestroyCalled = true;
+            }
+        }
+
+        const injector = new EnvironmentInjector([ServiceA, ServiceB]);
+        
+        const a = injector.get(ServiceA);
+        const b = injector.get(ServiceB);
+
+        injector.destroy();
+
+        expect(destroyCalled).toBe(true);
+        expect(onDestroyCalled).toBe(true);
+        expect(injector.instances.size).toBe(0);
+        expect(injector.records.size).toBe(0);
+    });
 });
