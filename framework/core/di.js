@@ -107,6 +107,10 @@ export class EnvironmentInjector extends Injector {
             throw new Error(`Invalid provider record configuration for ${record.provide?.name || record.provide}`);
         });
     }
+
+    createChild(providers = []) {
+        return new EnvironmentInjector(providers, this);
+    }
 }
 
 let _activeInjector = null;

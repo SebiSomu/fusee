@@ -98,6 +98,21 @@ describe('Fusée DI v2: Hierarchical System', () => {
         expect(child.get(PARENT_TOKEN)).toBe('parent-value');
     });
 
+    it('should create a child injector linked to the parent via createChild', () => {
+        const TOKEN = new InjectionToken('Scoped');
+        const parent = new EnvironmentInjector([
+            { provide: TOKEN, useValue: 'parent-scoped' }
+        ]);
+
+        const child = parent.createChild([
+            { provide: TOKEN, useValue: 'child-scoped' }
+        ]);
+
+        expect(child.parent).toBe(parent);
+        expect(child.get(TOKEN)).toBe('child-scoped');
+        expect(parent.get(TOKEN)).toBe('parent-scoped');
+    });
+
     it('should detect circular dependencies and output the path', () => {
         class A {
             constructor() {

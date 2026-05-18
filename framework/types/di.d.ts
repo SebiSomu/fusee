@@ -29,7 +29,9 @@ export declare type Provider =
 export declare class EnvironmentInjector extends Injector {
     constructor(providers?: Provider[], parent?: Injector);
     parent: Injector;
-    get<T>(token: any, options?: InjectOptions): T | null;
+    provide(provider: Provider): void;
+    get<T>(token: any, options?: InjectOptions): T;
+    createChild(providers?: Provider[]): EnvironmentInjector;
 }
 
 export declare function runInContext<T>(injector: Injector, fn: () => T): T;
