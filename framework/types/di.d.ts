@@ -8,6 +8,7 @@ export declare function isClass(fn: any): boolean;
 
 export interface InjectOptions {
     optional?: boolean;
+    skipSelf?: boolean;
 }
 
 export declare abstract class Injector {
@@ -32,4 +33,7 @@ export declare class EnvironmentInjector extends Injector {
 }
 
 export declare function runInContext<T>(injector: Injector, fn: () => T): T;
+export declare function replaceActiveInjector(injector: Injector): void;
+export declare function inject<T>(token: any, options: InjectOptions & { optional: true }): T | null;
 export declare function inject<T>(token: any, options?: InjectOptions): T;
+

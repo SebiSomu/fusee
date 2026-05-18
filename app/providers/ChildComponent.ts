@@ -9,8 +9,8 @@ export const ChildComponent = defineComponent({
         const count = inject('count')
         const message = inject('message')
 
-        // These are NOT provided by parent, so they will be undefined
-        const nonExistent = inject('nonExistent')
+        // These are NOT provided by parent, so we use optional: true to avoid throwing NullInjectorError
+        const nonExistent = inject('nonExistent', { optional: true })
 
         function updateMessage(): void {
             const msg = message as any

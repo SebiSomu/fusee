@@ -119,6 +119,10 @@ export function runInContext(injector, fn) {
     }
 }
 
+export function replaceActiveInjector(injector) {
+    _activeInjector = injector;
+}
+
 export function inject(token, options = {}) {
     if (_activeInjector === null) {
         throw new Error('inject() called outside of an injection context');

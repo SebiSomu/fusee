@@ -541,7 +541,11 @@ test('component: provide utility', () => {
 })
 
 test('component: inject utility with generic', () => {
-    expectTypeOf(inject<string>('key')).toEqualTypeOf<string | null>()
+    expectTypeOf(inject<string>('key')).toEqualTypeOf<string>()
+})
+
+test('component: inject utility with optional flag', () => {
+    expectTypeOf(inject<string>('key', { optional: true })).toEqualTypeOf<string | null>()
 })
 
 test('component: factory return type', () => {

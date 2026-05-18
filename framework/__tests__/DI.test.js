@@ -130,16 +130,27 @@ describe('Fusée Communication: Emit & DI', () => {
             expect(childApi.instance.state.secret).toBe('1234')
         })
 
-        it('should return null if key is not found in ancestors', () => {
+        it('should return null if key is not found in ancestors and optional: true is provided', () => {
             const Child = defineComponent({
                 setup() {
-                    const missing = inject('non-existent')
+                    const missing = inject('non-existent', { optional: true })
                     return { missing, template: '' }
                 }
             })
 
-            const childApi = Child({}, { parent: { _provides: {} } })
+            const childApi = Child({}, { parent: { _injector: null } }) 
             expect(childApi.instance.state.missing).toBeNull()
+        })
+
+        it('should throw error if key is not found and optional is not provided', () => {
+            const Child = defineComponent({
+                setup() {
+                    inject('non-existent')
+                    return { template: '' }
+                }
+            })
+
+            expect(() => Child({}, { parent: { _injector: null } })).toThrow(/NullInjectorError/);
         })
 
         it('should react to reactive values provided in a parent', () => {
@@ -166,6 +177,37 @@ describe('Fusée Communication: Emit & DI', () => {
             expect(cState.currentTheme()).toBe('light')
             theme('dark')
             expect(cState.currentTheme()).toBe('dark')
+        })
+
+        it('should unify component DI and class DI (Service injects Component value)', () => {
+            const THEME_TOKEN = 'ThemeToken'
+
+            class ThemeService {
+                constructor() {
+                    this.theme = inject(THEME_TOKEN)
+                }
+            }
+
+            const Child = defineComponent({
+                setup() {
+                    const themeService = inject(ThemeService)
+                    return { themeService, template: '' }
+                }
+            })
+
+            const Parent = defineComponent({
+                setup() {
+                    provide(THEME_TOKEN, 'dark-mode')
+                    provide(ThemeService, { useClass: ThemeService })
+                    
+                    return { template: '' }
+                }
+            })
+
+            const pInst = Parent().instance
+            const cApi = Child({}, { parent: pInst })
+            
+            expect(cApi.instance.state.themeService.theme).toBe('dark-mode')
         })
     })
 })

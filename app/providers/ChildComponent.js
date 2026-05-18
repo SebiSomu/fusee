@@ -13,8 +13,8 @@ export const ChildComponent = defineComponent({
         const logger = inject(LoggerService)
         logger.log('ChildComponent initialized!')
 
-        // These are NOT provided by parent, so they will be undefined
-        const nonExistent = inject('nonExistent')
+        // These are NOT provided by parent, so we use optional: true to avoid throwing NullInjectorError
+        const nonExistent = inject('nonExistent', { optional: true })
 
         function updateMessage() {
             message('Message updated by Child!')
