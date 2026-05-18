@@ -417,7 +417,11 @@ export function resource(sourceOrFetcher, fetcher) {
     const loading = signal(false)
     const error = signal(undefined)
 
+    let currentPromiseId = 0
+
     async function load(input) {
+        const id = ++currentPromiseId
+
         batch(() => {
             loading(true)
             error(undefined)
@@ -425,11 +429,16 @@ export function resource(sourceOrFetcher, fetcher) {
 
         try {
             const result = await actualFetcher(input)
+            
+            if (id !== currentPromiseId) return 
+
             batch(() => {
                 data(result)
                 loading(false)
             })
         } catch (err) {
+            if (id !== currentPromiseId) return
+
             batch(() => {
                 error(err)
                 loading(false)
