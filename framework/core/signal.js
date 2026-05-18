@@ -403,28 +403,66 @@ function hasWatchChanged(newValue, oldValue, isMultiSource, equals) {
     return !equals(newValue, oldValue)
 }
 
-export function resource(sourceOrFetcher, fetcher) {
+export function resource(sourceOrFetcher, fetcherOrOptions, optionsObj) {
     let source = null
-    let actualFetcher = fetcher
+    let actualFetcher = null
+    let options = {}
 
     if (arguments.length === 1) {
         actualFetcher = sourceOrFetcher
-    } else {
+    } else if (arguments.length === 2) {
+        if (typeof fetcherOrOptions === 'function') {
+            source = sourceOrFetcher
+            actualFetcher = fetcherOrOptions
+        } else {
+            actualFetcher = sourceOrFetcher
+            options = fetcherOrOptions || {}
+        }
+    } else if (arguments.length >= 3) {
         source = sourceOrFetcher
+        actualFetcher = fetcherOrOptions
+        options = optionsObj || {}
     }
 
     const data = signal(undefined)
     const loading = signal(false)
+    const isFetching = signal(false)
     const error = signal(undefined)
 
     let currentPromiseId = 0
+    const cache = new Map()
+    const staleTime = typeof options.staleTime === 'number' ? options.staleTime : 0
 
-    async function load(input) {
+    function serializeKey(input) {
+        if (input === undefined) return 'undefined'
+        if (input === null) return 'null'
+        if (typeof input === 'object') return JSON.stringify(input)
+        return String(input)
+    }
+
+    async function load(input, force = false) {
+        const key = serializeKey(input)
+        const cached = force ? null : cache.get(key)
+        const isStale = !cached || (Date.now() - cached.updatedAt > staleTime)
+
+        if (cached) {
+            batch(() => {
+                data(cached.data)
+                error(undefined)
+                loading(false)
+            })
+            if (!isStale) return
+        } else {
+            batch(() => {
+                loading(true)
+                error(undefined)
+            })
+        }
+
         const id = ++currentPromiseId
 
         batch(() => {
-            loading(true)
-            error(undefined)
+            isFetching(true)
         })
 
         try {
@@ -432,9 +470,12 @@ export function resource(sourceOrFetcher, fetcher) {
             
             if (id !== currentPromiseId) return 
 
+            cache.set(key, { data: result, updatedAt: Date.now() })
+
             batch(() => {
                 data(result)
                 loading(false)
+                isFetching(false)
             })
         } catch (err) {
             if (id !== currentPromiseId) return
@@ -442,6 +483,7 @@ export function resource(sourceOrFetcher, fetcher) {
             batch(() => {
                 error(err)
                 loading(false)
+                isFetching(false)
             })
         }
     }
@@ -460,12 +502,18 @@ export function resource(sourceOrFetcher, fetcher) {
     const accessor = () => data()
     accessor.isSignal = true
     accessor.loading = loading
+    accessor.isFetching = isFetching
     accessor.error = error
 
-    const mutate = (val) => data(val)
+    const mutate = (val) => {
+        const input = source ? (typeof source === 'function' ? source() : source) : undefined
+        const key = serializeKey(input)
+        cache.set(key, { data: val, updatedAt: Date.now() })
+        data(val)
+    }
     const refetch = () => {
         const input = source ? (typeof source === 'function' ? source() : source) : undefined
-        load(input)
+        load(input, true)
     }
 
     return [accessor, { mutate, refetch }]

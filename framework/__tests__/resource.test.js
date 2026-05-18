@@ -99,4 +99,72 @@ describe('resource()', () => {
         expect(data()).toBe('done')
         expect(data.loading()).toBe(false)
     })
+
+    it('caches subsequent calls and respects staleTime', async () => {
+        let count = 0
+        const fetcher = vi.fn().mockImplementation(() => Promise.resolve(++count))
+        const source = signal(1)
+        const [data] = resource(source, fetcher, { staleTime: 5000 })
+
+        // First load
+        await new Promise(r => setTimeout(r, 0))
+        expect(data()).toBe(1)
+        expect(fetcher).toHaveBeenCalledTimes(1)
+
+        // Change source to 2
+        source(2)
+        await new Promise(r => setTimeout(r, 0))
+        expect(data()).toBe(2)
+        expect(fetcher).toHaveBeenCalledTimes(2)
+
+        // Change source back to 1 (should hit cache instantly, fetcher NOT called again since it's fresh)
+        source(1)
+        expect(data()).toBe(1) // Optimistic cache hit!
+        expect(data.loading()).toBe(false)
+        expect(data.isFetching()).toBe(false)
+        expect(fetcher).toHaveBeenCalledTimes(2) // Still 2!
+    })
+
+    it('manages isFetching signal separately from loading', async () => {
+        const fetcher = vi.fn().mockResolvedValue('fetched')
+        const [data] = resource(fetcher)
+
+        expect(data.loading()).toBe(true)
+        expect(data.isFetching()).toBe(true)
+
+        await new Promise(r => setTimeout(r, 0))
+
+        expect(data.loading()).toBe(false)
+        expect(data.isFetching()).toBe(false)
+    })
+
+    it('performs background revalidation (SWR) when cached data is stale', async () => {
+        let count = 0
+        const fetcher = vi.fn().mockImplementation(() => Promise.resolve(++count))
+        const source = signal(1)
+        
+        // staleTime is 0, so cached data is always stale and will trigger background revalidation
+        const [data] = resource(source, fetcher, { staleTime: 0 })
+
+        // First load
+        await new Promise(r => setTimeout(r, 0))
+        expect(data()).toBe(1)
+        expect(fetcher).toHaveBeenCalledTimes(1)
+
+        source(2)
+        await new Promise(r => setTimeout(r, 0))
+        expect(data()).toBe(2)
+        expect(fetcher).toHaveBeenCalledTimes(2)
+
+        source(1)
+        expect(data()).toBe(1)
+        expect(data.loading()).toBe(false)
+        expect(data.isFetching()).toBe(true)
+        expect(fetcher).toHaveBeenCalledTimes(3) // background fetch was triggered immediately!
+
+        // Wait for background fetch to resolve
+        await new Promise(r => setTimeout(r, 0))
+        expect(data()).toBe(3) // updated with new background fetch result!
+        expect(data.isFetching()).toBe(false)
+    })
 })

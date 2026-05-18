@@ -60,10 +60,15 @@ export interface WatchOptions {
     equals?: (a: any, b: any) => boolean;
 }
 
+export interface ResourceOptions {
+    staleTime?: number;
+}
+
 export type ResourceAccessor<T> = {
     (): T | undefined;
     isSignal: boolean;
     loading: Signal<boolean>;
+    isFetching: Signal<boolean>;
     error: Signal<any>;
 } & (T extends any[] ? ReactiveArrayMethods<T[number]> : {})
 
@@ -88,8 +93,8 @@ export declare function watch<T extends any[]>(
 ): () => void
 export declare function inspect(...args: any[]): (() => void) | void
 export declare function onCleanup(fn: () => void): void
-export declare function resource<T, S = any>(fetcher: (source: S) => Promise<T>): Resource<T>
-export declare function resource<T, S>(source: WatchSource<S>, fetcher: (source: S) => Promise<T>): Resource<T>
+export declare function resource<T, S = any>(fetcher: (source: S) => Promise<T>, options?: ResourceOptions): Resource<T>
+export declare function resource<T, S>(source: WatchSource<S>, fetcher: (source: S) => Promise<T>, options?: ResourceOptions): Resource<T>
 
 declare function setEffectHook(fn: (eff: any) => void): void
 
