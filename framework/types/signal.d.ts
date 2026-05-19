@@ -62,6 +62,7 @@ export interface WatchOptions {
 
 export interface ResourceOptions {
     staleTime?: number;
+    key?: string | number;
 }
 
 export type ResourceAccessor<T> = {

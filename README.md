@@ -1,4 +1,4 @@
-# Fusée Framework 🚀
+# Fusée Framework
 
 **v1.7.0 — Signals-First JS Framework | Atomic Reactivity | Peak Performance**
 
@@ -6,7 +6,7 @@ Fusée is a custom, high-performance fine-grained reactive JavaScript framework 
 
 ---
 
-## ⚡ Quick Start
+## Quick Start
 
 The fastest way to get started with Fusée is via the **Go-Powered CLI**:
 
@@ -24,7 +24,7 @@ Follow the interactive prompt to choose your template (**JavaScript** or **TypeS
 
 ---
 
-## 🏗️ File-Based Routing (Nuxt-style)
+## File-Based Routing (Nuxt-style)
 
 Fusée now supports automated, file-based routing. No more manual route definitions!
 
@@ -39,7 +39,7 @@ fusee generate page contact
 
 ---
 
-## 🔥 Key Features
+## Key Features
 
 - **New Go-Powered CLI**: Blazing fast project scaffolding and resource generation.
 - **Signals-First Reactivity**: Modern atomic updates that ensure only the modified parts of the DOM are touched.
@@ -51,7 +51,7 @@ fusee generate page contact
 
 ---
 
-## 🛠 Project Structure
+## Project Structure
 
 A typical Fusée project looks like this:
 
@@ -61,7 +61,7 @@ A typical Fusée project looks like this:
 
 ---
 
-## 📝 Example Component
+## Example Component
 
 ```javascript
 export const Welcome = defineComponent({
@@ -96,7 +96,7 @@ export const Welcome = defineComponent({
 
 ---
 
-## ✅ Quality Assurance & Testing
+## Quality Assurance & Testing
 
 Fusée is built with a test-driven mindset to ensure the reliability of its reactivity engine and component lifecycle.
 
@@ -134,10 +134,10 @@ npx vitest
 
 ---
 
-## 🚀 Future Roadmap
+## Future Roadmap
 
 - [ ] Advanced state management and SSR support
 - [ ] Lightweight compiler which transforms declarative HTML into optimized runtime instructions
 - [ ] Integrated backend development support
 
-Built with ❤️ by me, Sebi Somu, a forward-thinking JavaScript Architect.
+Built by me, Sebi Somu, a forward-thinking JavaScript Architect.

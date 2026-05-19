@@ -403,6 +403,9 @@ function hasWatchChanged(newValue, oldValue, isMultiSource, equals) {
     return !equals(newValue, oldValue)
 }
 
+const globalInFlightByKey = new Map()
+const globalInFlightByFetcher = new WeakMap()
+
 export function resource(sourceOrFetcher, fetcherOrOptions, optionsObj) {
     let source = null
     let actualFetcher = null
@@ -465,8 +468,40 @@ export function resource(sourceOrFetcher, fetcherOrOptions, optionsObj) {
             isFetching(true)
         })
 
+        let promise;
+        if (options.key !== undefined) {
+            const dedupeKey = String(options.key) + '_' + key;
+            promise = globalInFlightByKey.get(dedupeKey);
+            if (!promise) {
+                promise = (async () => actualFetcher(input))();
+                globalInFlightByKey.set(dedupeKey, promise);
+                promise.finally(() => {
+                    if (globalInFlightByKey.get(dedupeKey) === promise) {
+                        globalInFlightByKey.delete(dedupeKey);
+                    }
+                }).catch(() => {});
+            }
+        } 
+        else {
+            let inFlightMap = globalInFlightByFetcher.get(actualFetcher);
+            if (!inFlightMap) {
+                inFlightMap = new Map();
+                globalInFlightByFetcher.set(actualFetcher, inFlightMap);
+            }
+            promise = inFlightMap.get(key);
+            if (!promise) {
+                promise = (async () => actualFetcher(input))();
+                inFlightMap.set(key, promise);
+                promise.finally(() => {
+                    if (inFlightMap.get(key) === promise) {
+                        inFlightMap.delete(key);
+                    }
+                }).catch(() => {});
+            }
+        }
+
         try {
-            const result = await actualFetcher(input)
+            const result = await promise
             
             if (id !== currentPromiseId) return 
 

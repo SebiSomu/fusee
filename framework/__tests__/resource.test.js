@@ -167,4 +167,54 @@ describe('resource()', () => {
         expect(data()).toBe(3) // updated with new background fetch result!
         expect(data.isFetching()).toBe(false)
     })
+
+    it('deduplicates parallel requests with the same fetcher and input', async () => {
+        let fetches = 0
+        const fetcher = vi.fn().mockImplementation(async (id) => {
+            fetches++
+            await new Promise(r => setTimeout(r, 10))
+            return `user-${id}`
+        })
+
+        const [data1] = resource(1, fetcher)
+        const [data2] = resource(1, fetcher)
+        const [data3] = resource(1, fetcher)
+
+        expect(data1.loading()).toBe(true)
+        expect(data2.loading()).toBe(true)
+        expect(data3.loading()).toBe(true)
+
+        await new Promise(r => setTimeout(r, 15))
+
+        expect(data1()).toBe('user-1')
+        expect(data2()).toBe('user-1')
+        expect(data3()).toBe('user-1')
+        expect(fetches).toBe(1) 
+        expect(fetcher).toHaveBeenCalledTimes(1)
+    })
+
+    it('deduplicates parallel requests using explicit key', async () => {
+        let fetches = 0
+        const fetcher1 = vi.fn().mockImplementation(async (id) => {
+            fetches++
+            await new Promise(r => setTimeout(r, 10))
+            return `post-${id}`
+        })
+        const fetcher2 = vi.fn().mockImplementation(async (id) => {
+            fetches++
+            await new Promise(r => setTimeout(r, 10))
+            return `post-${id}`
+        })
+
+        const [data1] = resource(2, fetcher1, { key: 'post' })
+        const [data2] = resource(2, fetcher2, { key: 'post' })
+
+        await new Promise(r => setTimeout(r, 15))
+
+        expect(data1()).toBe('post-2')
+        expect(data2()).toBe('post-2')
+        expect(fetcher1).toHaveBeenCalledTimes(1)
+        expect(fetcher2).toHaveBeenCalledTimes(0)
+        expect(fetches).toBe(1)
+    })
 })
