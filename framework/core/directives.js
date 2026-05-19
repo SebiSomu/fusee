@@ -1,6 +1,7 @@
 import { signal, effect, batch } from './signal.js'
 import { evaluateExpression } from './evaluator.js'
 import { compileNode } from './compiler.js'
+import { reconcileArrays } from './reconcile.js'
 import { registerDelegatedEvent, createEventHandler, isDelegatedEvent } from './event-delegation.js'
 import { currentRoute, navigate } from '../router/router.js'
 
@@ -165,8 +166,7 @@ export function processFor(el, context, components, effects) {
     const templateNode = el.cloneNode(true)
     parent.removeChild(el)
 
-    let cache = new Map()
-    let previousOrder = []
+    let oldRenderedNodes = []
 
     effects.push(effect(() => {
         const rawItems = evaluateExpression(arrayExpr, context)
@@ -180,9 +180,6 @@ export function processFor(el, context, components, effects) {
             items = Object.entries(rawItems).map(([key, value], index) => ({ value, key, rawIndex: index }))
         }
 
-        const nextCache = new Map()
-        const nextOrder = []
-
         const newItemsWithKeys = items.map((item, index) => {
             const itemContext = Object.create(context)
             itemContext[itemName] = item.value
@@ -190,116 +187,54 @@ export function processFor(el, context, components, effects) {
             if (indexName) itemContext[indexName] = index
 
             const key = keyExpr ? evaluateExpression(keyExpr, itemContext) : item.rawIndex
-            return { item, key }
+            return { item, key, index }
         })
 
         const parentNode = anchor.parentNode
-        let currentCursor = anchor.nextSibling
 
-        const isClear = items.length === 0 && previousOrder.length > 0
-        if (isClear) {
-            const nodesToRemove = []
-            let node = anchor.nextSibling
-            while (node) {
-                const next = node.nextSibling
-                nodesToRemove.push(node)
-                node = next
-            }
-            if (nodesToRemove.length > 0) {
-                const fragment = document.createDocumentFragment()
-                nodesToRemove.forEach(n => fragment.appendChild(n))
-            }
-            for (const entry of cache.values()) {
-                for (let i = entry.effects.length - 1; i >= 0; i--) {
-                    const cleanup = entry.effects[i]
-                    if (typeof cleanup === 'function') cleanup()
-                }
-            }
-            cache.clear()
-            previousOrder = []
-            return
-        }
-
-        const fragment = document.createDocumentFragment()
-        const nodesToInsert = []
-
-        newItemsWithKeys.forEach(({ item, key }, index) => {
-            let entry = cache.get(key)
-
-            if (entry) {
-                batch(() => {
-                    if (typeof entry.context[itemName] === 'function' && entry.context[itemName].isSignal) {
-                        entry.context[itemName](item.value)
-                    }
-                    if (keyName && typeof entry.context[keyName] === 'function' && entry.context[keyName].isSignal) {
-                        entry.context[keyName](item.hasOwnProperty('key') ? item.key : item.rawIndex)
-                    }
-                    if (indexName && typeof entry.context[indexName] === 'function' && entry.context[indexName].isSignal) {
-                        entry.context[indexName](index)
-                    }
-                })
-
-                if (entry.node !== currentCursor) {
-                    parentNode.insertBefore(entry.node, currentCursor)
-                } else {
-                    currentCursor = currentCursor.nextSibling
-                }
-                cache.delete(key)
-            } else {
+        oldRenderedNodes = reconcileArrays(
+            parentNode,
+            anchor,
+            oldRenderedNodes,
+            newItemsWithKeys,
+            (obj) => obj.key,
+            (newItem, index) => {
                 const itemContext = Object.create(context)
-                itemContext[itemName] = signal(item.value)
-                if (keyName) itemContext[keyName] = signal(item.hasOwnProperty('key') ? item.key : item.rawIndex)
+                itemContext[itemName] = signal(newItem.item.value)
+                if (keyName) itemContext[keyName] = signal(newItem.item.hasOwnProperty('key') ? newItem.item.key : newItem.item.rawIndex)
                 if (indexName) itemContext[indexName] = signal(index)
 
                 const clone = templateNode.cloneNode(true)
                 const childEffects = []
                 compileNode(clone, itemContext, components, childEffects)
 
-                fragment.appendChild(clone)
-                entry = { node: clone, effects: childEffects, context: itemContext }
-                nodesToInsert.push({ node: clone, effects: childEffects, context: itemContext, key })
+                return { node: clone, effects: childEffects, context: itemContext, key: newItem.key }
+            },
+            (oldNode, newItem, index) => {
+                batch(() => {
+                    if (typeof oldNode.context[itemName] === 'function' && oldNode.context[itemName].isSignal) {
+                        oldNode.context[itemName](newItem.item.value)
+                    }
+                    if (keyName && typeof oldNode.context[keyName] === 'function' && oldNode.context[keyName].isSignal) {
+                        oldNode.context[keyName](newItem.item.hasOwnProperty('key') ? newItem.item.key : newItem.item.rawIndex)
+                    }
+                    if (indexName && typeof oldNode.context[indexName] === 'function' && oldNode.context[indexName].isSignal) {
+                        oldNode.context[indexName](index)
+                    }
+                })
             }
-
-            nextCache.set(key, entry)
-            nextOrder.push(entry.node)
-        })
-
-        if (fragment.childNodes.length > 0) {
-            parentNode.insertBefore(fragment, currentCursor)
-            nodesToInsert.forEach(({ node, effects, context, key }) => {
-                nextCache.set(key, { node, effects, context })
-            })
-        }
-
-        const removedEntries = []
-        for (const [_, entry] of cache.entries()) {
-            removedEntries.push(entry)
-        }
-        if (removedEntries.length > 0) {
-            const removeFragment = document.createDocumentFragment()
-            removedEntries.forEach(entry => {
-                for (let i = entry.effects.length - 1; i >= 0; i--) {
-                    const cleanup = entry.effects[i]
-                    if (typeof cleanup === 'function') cleanup()
-                }
-                if (entry.node.parentNode) {
-                    removeFragment.appendChild(entry.node)
-                }
-            })
-        }
-
-        cache = nextCache
-        previousOrder = nextOrder
+        )
     }))
 
     effects.push(() => {
-        for (const entry of cache.values()) {
+        for (const entry of oldRenderedNodes) {
+            if (!entry) continue
             for (let i = entry.effects.length - 1; i >= 0; i--) {
                 const cleanup = entry.effects[i]
                 if (typeof cleanup === 'function') cleanup()
             }
         }
-        cache.clear()
+        oldRenderedNodes = []
     })
 
     return true

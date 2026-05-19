@@ -1664,7 +1664,7 @@ describe('Integration Tests', () => {
         })
 
         it('events work in f-for loop with dynamic items', () => {
-            const items = signal([1, 2, 3])
+            const items = signal([{ id: 1, val: 1 }, { id: 2, val: 2 }, { id: 3, val: 3 }])
             let clickCount = 0
 
             const Comp = defineComponent({
@@ -1673,7 +1673,7 @@ describe('Integration Tests', () => {
                     return {
                         items,
                         handleClick,
-                        template: '<div><button f-for="item in items" @click="handleClick">Item {{ item }}</button></div>'
+                        template: '<div><button f-for="item in items" :key="item.id" @click="handleClick">Item {{ item().val }}</button></div>'
                     }
                 }
             })
@@ -1684,7 +1684,7 @@ describe('Integration Tests', () => {
             api.render(container)
 
             // Verify buttons rendered
-            const buttons = container.querySelectorAll('button')
+            const buttons = Array.from(container.querySelectorAll('button'))
             expect(buttons.length).toBe(3)
 
             // Click second button
@@ -1696,17 +1696,115 @@ describe('Integration Tests', () => {
             expect(clickCount).toBe(2)
 
             // Add new item
-            items([...items(), 4])
+            items([...items(), { id: 4, val: 4 }])
 
             // Verify new button rendered and clickable
-            const newButtons = container.querySelectorAll('button')
+            const newButtons = Array.from(container.querySelectorAll('button'))
             expect(newButtons.length).toBe(4)
+
+            // Verify the first 3 nodes were preserved exactly (identity check)
+            expect(newButtons[0]).toBe(buttons[0])
+            expect(newButtons[1]).toBe(buttons[1])
+            expect(newButtons[2]).toBe(buttons[2])
 
             newButtons[3].click()
             expect(clickCount).toBe(3)
 
             api.unmount()
             container.remove()
+        })
+
+        it('Keyed DOM Reconciliation: moving items preserves DOM nodes', () => {
+            const items = signal([{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }])
+
+            const Comp = defineComponent({
+                setup() {
+                    return {
+                        items,
+                        template: '<ul><li f-for="item in items" :key="item.id">{{ item().id }}</li></ul>'
+                    }
+                }
+            })
+
+            const container = document.createElement('div')
+            Comp().render(container)
+
+            const list = container.querySelector('ul')
+            const initialNodes = Array.from(list.children)
+            expect(initialNodes.map(n => n.textContent)).toEqual(['1', '2', '3', '4'])
+
+            // Move items: [4, 1, 3, 2]
+            items([{ id: 4 }, { id: 1 }, { id: 3 }, { id: 2 }])
+
+            const finalNodes = Array.from(list.children)
+            expect(finalNodes.map(n => n.textContent)).toEqual(['4', '1', '3', '2'])
+
+            // Verify exact DOM node instances were preserved and just moved
+            expect(finalNodes[0]).toBe(initialNodes[3])
+            expect(finalNodes[1]).toBe(initialNodes[0])
+            expect(finalNodes[2]).toBe(initialNodes[2])
+            expect(finalNodes[3]).toBe(initialNodes[1])
+        })
+
+        it('Keyed DOM Reconciliation: inserting at the beginning preserves existing DOM nodes', () => {
+            const items = signal([{ id: 2 }, { id: 3 }])
+
+            const Comp = defineComponent({
+                setup() {
+                    return {
+                        items,
+                        template: '<div><span f-for="item in items" :key="item.id">{{ item().id }}</span></div>'
+                    }
+                }
+            })
+
+            const container = document.createElement('div')
+            Comp().render(container)
+
+            const div = container.querySelector('div')
+            const initialNodes = Array.from(div.children)
+            expect(initialNodes.map(n => n.textContent)).toEqual(['2', '3'])
+
+            // Insert at beginning
+            items([{ id: 1 }, { id: 2 }, { id: 3 }])
+
+            const finalNodes = Array.from(div.children)
+            expect(finalNodes.map(n => n.textContent)).toEqual(['1', '2', '3'])
+
+            // Verify the original nodes weren't recreated
+            expect(finalNodes[1]).toBe(initialNodes[0])
+            expect(finalNodes[2]).toBe(initialNodes[1])
+        })
+
+        it('Keyed DOM Reconciliation: removing items from the middle', () => {
+            const items = signal([{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }, { id: 5 }])
+
+            const Comp = defineComponent({
+                setup() {
+                    return {
+                        items,
+                        template: '<div><p f-for="item in items" :key="item.id">{{ item().id }}</p></div>'
+                    }
+                }
+            })
+
+            const container = document.createElement('div')
+            Comp().render(container)
+
+            const div = container.querySelector('div')
+            const initialNodes = Array.from(div.children)
+            expect(initialNodes.map(n => n.textContent)).toEqual(['1', '2', '3', '4', '5'])
+
+            // Remove 2 and 4
+            items([{ id: 1 }, { id: 3 }, { id: 5 }])
+
+            const finalNodes = Array.from(div.children)
+            expect(finalNodes.map(n => n.textContent)).toEqual(['1', '3', '5'])
+
+            // Verify remaining nodes are exact instances
+            expect(finalNodes[0]).toBe(initialNodes[0])
+            expect(finalNodes[1]).toBe(initialNodes[2])
+            expect(finalNodes[2]).toBe(initialNodes[4])
         })
     })
 })

@@ -6,6 +6,7 @@ export * from './compiler'
 export * from './directives'
 export * from './store'
 export * from './event-delegation'
+export * from './reconcile'
 
 declare global {
     type Signal<T = any> = import('./signal').Signal<T>
@@ -22,6 +23,7 @@ declare global {
     const useNestedStore: typeof import('./store').useNestedStore
     type StoreHook<T> = import('./store').StoreHook<T>
     const isDelegatedEvent: typeof import('./event-delegation').isDelegatedEvent
+    const reconcile: typeof import('./reconcile').reconcile
 }
 
 export as namespace Fusee
