@@ -67,6 +67,7 @@ export interface ResourceOptions {
 
 export type ResourceAccessor<T> = {
     (): T | undefined;
+    read(): T;
     isSignal: boolean;
     loading: Signal<boolean>;
     isFetching: Signal<boolean>;
@@ -76,6 +77,24 @@ export type ResourceAccessor<T> = {
 export type ResourceActions<T> = {
     mutate: (val: T) => void;
     refetch: () => void;
+}
+
+export type ResourceReturn<T, R = unknown> = [
+    ResourceAccessor<T>,
+    {
+        mutate: (val: T) => void;
+        refetch: () => void;
+    }
+];
+
+export interface SuspenseOptions {
+    onError?: (err: any) => void;
+}
+
+export interface SuspenseSignal<T> {
+    (): T;
+    pending: Signal<boolean>;
+    error: Signal<any>;
 }
 
 export type Resource<T> = [ResourceAccessor<T>, ResourceActions<T>]
@@ -94,8 +113,23 @@ export declare function watch<T extends any[]>(
 ): () => void
 export declare function inspect(...args: any[]): (() => void) | void
 export declare function onCleanup(fn: () => void): void
-export declare function resource<T, S = any>(fetcher: (source: S) => Promise<T>, options?: ResourceOptions): Resource<T>
-export declare function resource<T, S>(source: WatchSource<S>, fetcher: (source: S) => Promise<T>, options?: ResourceOptions): Resource<T>
+
+export function resource<T, R = any>(
+    fetcher: (input: R) => Promise<T>,
+    options?: { key?: string | number; staleTime?: number }
+): ResourceReturn<T, R>;
+
+export function resource<T, R>(
+    source: () => R,
+    fetcher: (input: R) => Promise<T>,
+    options?: { key?: string | number; staleTime?: number }
+): ResourceReturn<T, R>;
+
+export function createSuspense<T>(
+    renderFn: () => T,
+    fallbackFn: (() => T) | T,
+    options?: SuspenseOptions
+): [SuspenseSignal<T>, () => void];
 
 declare function setEffectHook(fn: (eff: any) => void): void
 

@@ -1,5 +1,16 @@
 import { describe, it, expect, vi } from 'vitest'
-import { resource, signal, batch } from '../core/signal.js'
+import { resource, signal, batch, createSuspense } from '../core/signal.js'
+
+function deferred() {
+    let resolve, reject;
+    const promise = new Promise((res, rej) => {
+        resolve = res;
+        reject = rej;
+    });
+    return { promise, resolve, reject };
+}
+
+const flushMicrotasks = () => new Promise((r) => queueMicrotask(() => r()));
 
 describe('resource()', () => {
 
@@ -10,7 +21,6 @@ describe('resource()', () => {
         expect(data.loading()).toBe(true)
         expect(data()).toBeUndefined()
 
-        // Wait for microtasks
         await new Promise(r => setTimeout(r, 0))
 
         expect(data.loading()).toBe(false)
@@ -217,4 +227,56 @@ describe('resource()', () => {
         expect(fetcher2).toHaveBeenCalledTimes(0)
         expect(fetches).toBe(1)
     })
+
+    it('resource.read() throws a Promise while loading, then returns data', async () => {
+        const d = deferred();
+        // Creăm o resursă care așteaptă promisiunea noastră
+        const [val] = resource(() => d.promise);
+
+        let thrown = null;
+        try {
+            val.read();
+        } catch (e) {
+            thrown = e;
+        }
+
+        // Verificăm că a "aruncat" o promisiune (mecanismul de Suspense)
+        expect(thrown).toBeInstanceOf(Promise);
+
+        // Rezolvăm promisiunea
+        d.resolve(42);
+
+        // Așteptăm să se propage schimbarea
+        await thrown;
+        await flushMicrotasks();
+
+        // Acum read() nu mai trebuie să arunce, ci să returneze valoarea
+        expect(val.read()).toBe(42);
+    });
+
+    it('createSuspense() shows fallback, then rerenders after Promise resolves', async () => {
+        const d = deferred();
+        const [user] = resource(() => d.promise);
+
+        // createSuspense prinde Promise-ul aruncat de user.read()
+        const [view, dispose] = createSuspense(
+            () => `User: ${user.read()}`,
+            () => 'Loading...'
+        );
+
+        // Inițial trebuie să fie în starea de fallback
+        expect(view()).toBe('Loading...');
+
+        // Rezolvăm datele
+        d.resolve('Ada');
+
+        // Așteptăm două cicluri de microtasks pentru a lăsa retryTick-ul să ruleze
+        await flushMicrotasks();
+        await flushMicrotasks();
+
+        // Acum vedem rezultatul final
+        expect(view()).toBe('User: Ada');
+
+        dispose();
+    });
 })

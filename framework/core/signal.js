@@ -433,6 +433,7 @@ export function resource(sourceOrFetcher, fetcherOrOptions, optionsObj) {
     const error = signal(undefined)
 
     let currentPromiseId = 0
+    let currentPromise = null
     const cache = new Map()
     const staleTime = typeof options.staleTime === 'number' ? options.staleTime : 0
 
@@ -468,43 +469,42 @@ export function resource(sourceOrFetcher, fetcherOrOptions, optionsObj) {
             isFetching(true)
         })
 
-        let promise;
+        let promise
         if (options.key !== undefined) {
-            const dedupeKey = String(options.key) + '_' + key;
-            promise = globalInFlightByKey.get(dedupeKey);
+            const dedupeKey = String(options.key) + '_' + key
+            promise = globalInFlightByKey.get(dedupeKey)
             if (!promise) {
-                promise = (async () => actualFetcher(input))();
-                globalInFlightByKey.set(dedupeKey, promise);
+                promise = (async () => actualFetcher(input))()
+                globalInFlightByKey.set(dedupeKey, promise)
                 promise.finally(() => {
                     if (globalInFlightByKey.get(dedupeKey) === promise) {
-                        globalInFlightByKey.delete(dedupeKey);
+                        globalInFlightByKey.delete(dedupeKey)
                     }
-                }).catch(() => {});
+                }).catch(() => {})
             }
-        } 
-        else {
-            let inFlightMap = globalInFlightByFetcher.get(actualFetcher);
+        } else {
+            let inFlightMap = globalInFlightByFetcher.get(actualFetcher)
             if (!inFlightMap) {
-                inFlightMap = new Map();
-                globalInFlightByFetcher.set(actualFetcher, inFlightMap);
+                inFlightMap = new Map()
+                globalInFlightByFetcher.set(actualFetcher, inFlightMap)
             }
-            promise = inFlightMap.get(key);
+            promise = inFlightMap.get(key)
             if (!promise) {
-                promise = (async () => actualFetcher(input))();
-                inFlightMap.set(key, promise);
+                promise = (async () => actualFetcher(input))()
+                inFlightMap.set(key, promise)
                 promise.finally(() => {
                     if (inFlightMap.get(key) === promise) {
-                        inFlightMap.delete(key);
+                        inFlightMap.delete(key)
                     }
-                }).catch(() => {});
+                }).catch(() => {})
             }
         }
 
+        currentPromise = promise
+
         try {
             const result = await promise
-            
-            if (id !== currentPromiseId) return 
-
+            if (id !== currentPromiseId) return
             cache.set(key, { data: result, updatedAt: Date.now() })
 
             batch(() => {
@@ -512,6 +512,8 @@ export function resource(sourceOrFetcher, fetcherOrOptions, optionsObj) {
                 loading(false)
                 isFetching(false)
             })
+
+            currentPromise = null
         } catch (err) {
             if (id !== currentPromiseId) return
 
@@ -520,6 +522,8 @@ export function resource(sourceOrFetcher, fetcherOrOptions, optionsObj) {
                 loading(false)
                 isFetching(false)
             })
+
+            currentPromise = null
         }
     }
 
@@ -540,12 +544,24 @@ export function resource(sourceOrFetcher, fetcherOrOptions, optionsObj) {
     accessor.isFetching = isFetching
     accessor.error = error
 
+    accessor.read = () => {
+        if (loading() && currentPromise) {
+            throw currentPromise
+        }
+        const err = error()
+        if (err !== undefined) {
+            throw err
+        }
+        return data()
+    }
+
     const mutate = (val) => {
         const input = source ? (typeof source === 'function' ? source() : source) : undefined
         const key = serializeKey(input)
         cache.set(key, { data: val, updatedAt: Date.now() })
         data(val)
     }
+
     const refetch = () => {
         const input = source ? (typeof source === 'function' ? source() : source) : undefined
         load(input, true)
@@ -560,4 +576,60 @@ function runWatchCleanup(cleanupRef) {
         cleanupRef.fn = null
         untrack(() => fn())
     }
+}
+
+export function createSuspense(renderFn, fallbackFn, options = {}) {
+    const out = signal(undefined)
+    const pending = signal(false)
+    const errSig = signal(undefined)
+
+    const retryTick = signal(0)
+    let token = 0
+
+    const dispose = effect(() => {
+        retryTick()
+        const myToken = ++token
+        let canceled = false
+        onCleanup(() => { canceled = true })
+
+        try {
+            pending(false)
+            errSig(undefined)
+            const v = renderFn()
+            out(v)
+        } catch (e) {
+            if (e instanceof Promise) {
+                pending(true)
+                errSig(undefined)
+                out(typeof fallbackFn === 'function' ? fallbackFn() : fallbackFn)
+
+                e.then(
+                    () => {
+                        if (canceled) return
+                        if (myToken !== token) return
+                        retryTick(retryTick() + 1)
+                    },
+                    (err) => {
+                        if (canceled) return
+                        if (myToken !== token) return
+                        errSig(err)
+                        pending(false)
+                        if (options.onError) options.onError(err)
+                        retryTick(retryTick() + 1)
+                    }
+                )
+
+                return
+            }
+
+            errSig(e)
+            pending(false)
+            if (options.onError) options.onError(e)
+        }
+    })
+
+    out.pending = pending
+    out.error = errSig
+
+    return [out, dispose]
 }
