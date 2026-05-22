@@ -1,4 +1,5 @@
 # Fusée Framework
+
 **v1.7.0 — Signals-First JS Framework | Atomic Reactivity | Peak Performance**
 
 Fusée is a custom, high-performance fine-grained reactive JavaScript framework built for speed and simplicity. It features a recursive, non-greedy compiler, a signals-based reactivity engine, Dependency Injection for components and a comprehensive CLI for instant application scaffolding.
@@ -18,11 +19,13 @@ create-fusee-app my-awesome-app
 # or simply
 fusee init my-awesome-app
 ```
+
 Follow the interactive prompt to choose your template (**JavaScript** or **TypeScript**) and launch your app instantly!
 
 ---
 
 ## File-Based Routing (Nuxt-style)
+
 Fusée now supports automated, file-based routing. No more manual route definitions!
 
 - **Pages**: Just drop a file in `app/pages/` and it becomes a route.
@@ -62,17 +65,17 @@ A typical Fusée project looks like this:
 
 ```javascript
 export const Welcome = defineComponent({
-    setup() {
-        const name = signal('World');
-        const count = signal(0);
-        const double = computed(() => count() * 2);
+  setup() {
+    const name = signal("World");
+    const count = signal(0);
+    const double = computed(() => count() * 2);
 
-        return {
-            name,
-            count,
-            double,
-            inc: () => count(count() + 1),
-            template: `
+    return {
+      name,
+      count,
+      double,
+      inc: () => count(count() + 1),
+      template: `
                 <div class="card">
                     <h2>Hello, {{ name }}!</h2>
                     <input f-model="name" placeholder="Name" />
@@ -85,9 +88,9 @@ export const Welcome = defineComponent({
                         Double: <strong>{{ double }}</strong>
                     </p>
                 </div>
-            `
-        };
-    }
+            `,
+    };
+  },
 });
 ```
 
@@ -97,7 +100,7 @@ export const Welcome = defineComponent({
 
 Fusée is built with a test-driven mindset to ensure the reliability of its reactivity engine and component lifecycle.
 
-- **Total Tests:** `468`
+- **Total Tests:** `518`
 - **Status:** `All Passed`
 - **Framework:** [Vitest](https://vitest.dev/)
 - **Environment:** JSDOM (Browser simulation)
@@ -119,14 +122,15 @@ npx vitest
 ```
 
 ### Test Coverage includes:
-*   **Reactivity Engine:** 100% (Signals, Batching, Computed, Watchers).
-*   **Component System:** Props, Slots, Async Components, and Lifecycle Hooks.
-*   **Dependency Injection:** Nested Provide/Inject and Shadowing.
-*   **Directives:** `f-if`, `f-for`, `f-model`, and Event Modifiers.
-*   **Events:** Event delegation and native event handling.
-*   **Memory Safety:** Explicit checks for memory leaks and automatic effect disposal.
-*   **Type Safety:** Comprehensive TypeScript definitions and type tests.
-*   **Integration Tests:** Advanced module combinations and edge cases.
+
+- **Reactivity Engine:** 100% (Signals, Batching, Computed, Watchers).
+- **Component System:** Props, Slots, Async Components, and Lifecycle Hooks.
+- **Dependency Injection:** Nested Provide/Inject and Shadowing.
+- **Directives:** `f-if`, `f-for`, `f-model`, and Event Modifiers.
+- **Events:** Event delegation and native event handling.
+- **Memory Safety:** Explicit checks for memory leaks and automatic effect disposal.
+- **Type Safety:** Comprehensive TypeScript definitions and type tests.
+- **Integration Tests:** Advanced module combinations and edge cases.
 
 ---
 

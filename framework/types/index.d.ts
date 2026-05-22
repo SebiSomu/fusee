@@ -7,6 +7,7 @@ export * from './directives'
 export * from './store'
 export * from './event-delegation'
 export * from './di'
+export * from './reconcile'
 
 declare global {
     type Signal<T = any> = import('./signal').Signal<T>
@@ -25,6 +26,7 @@ declare global {
     const isDelegatedEvent: typeof import('./event-delegation').isDelegatedEvent
     const InjectionToken: typeof import('./di').InjectionToken
     const provideGlobal: typeof import('./di').provideGlobal
+    const reconcile: typeof import('./reconcile').reconcile
 }
 
 export as namespace Fusee

@@ -96,7 +96,7 @@ function renderTable(rows, container) {
         </tr>
       </thead>
       <tbody>
-        <tr f-for="row in rows" :class="row.selected() ? 'selected' : ''">
+        <tr f-for="row in rows" :key="row.id" :class="row.selected() ? 'selected' : ''">
           <td>{{ row.id }}</td>
           <td>{{ row.label() }}</td>
           <td>
@@ -166,7 +166,7 @@ const benchmarks = {
       <table>
         <thead><tr><th>ID</th><th>Label</th></tr></thead>
         <tbody>
-          <tr f-for="row in rows" :class="row.selected() ? 'selected' : ''">
+          <tr f-for="row in rows" :key="row.id" :class="row.selected() ? 'selected' : ''">
             <td>{{ row.id }}</td>
             <td>{{ row.label() }}</td>
           </tr>
