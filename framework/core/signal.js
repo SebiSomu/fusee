@@ -28,6 +28,34 @@ export function batch(fn) {
     }
 }
 
+const asyncJobQueueHigh = []
+const asyncJobQueueLow = []
+let asyncJobFlushScheduled = false
+
+function flushAsyncJobs() {
+    asyncJobFlushScheduled = false
+
+    while (asyncJobQueueHigh.length || asyncJobQueueLow.length) {
+        const job = asyncJobQueueHigh.shift() || asyncJobQueueLow.shift()
+        try {
+            job()
+        } catch (e) {
+            console.warn('[framework] Async job error:', e)
+        }
+    }
+}
+
+export function scheduleAsyncJob(fn, opts = {}) {
+    const priority = opts.priority || 'high'
+    if (priority === 'low') asyncJobQueueLow.push(fn)
+    else asyncJobQueueHigh.push(fn)
+
+    if (!asyncJobFlushScheduled) {
+        asyncJobFlushScheduled = true
+        setTimeout(flushAsyncJobs, 0)
+    }
+}
+
 function scheduleEffect(effectFn) {
     if (batchDepth > 0) {
         pendingEffects.add(effectFn)
@@ -444,6 +472,14 @@ export function resource(sourceOrFetcher, fetcherOrOptions, optionsObj) {
         return String(input)
     }
 
+    function makeScheduledPromise(runFetcher) {
+        try {
+            return Promise.resolve(runFetcher())
+        } catch (e) {
+            return Promise.reject(e)
+        }
+    }
+
     async function load(input, force = false) {
         const key = serializeKey(input)
         const cached = force ? null : cache.get(key)
@@ -455,10 +491,12 @@ export function resource(sourceOrFetcher, fetcherOrOptions, optionsObj) {
                 error(undefined)
                 loading(false)
             })
-            if (!isStale) return
+            if (!isStale && !force) return
+            batch(() => { isFetching(true) })
         } else {
             batch(() => {
                 loading(true)
+                isFetching(true)
                 error(undefined)
             })
         }
@@ -470,12 +508,15 @@ export function resource(sourceOrFetcher, fetcherOrOptions, optionsObj) {
         })
 
         let promise
+
         if (options.key !== undefined) {
-            const dedupeKey = String(options.key) + '_' + key
+            const dedupeKey = options.key ? `key_${options.key}_${key}` : `fn_${actualFetcher.name}_${key}`;
             promise = globalInFlightByKey.get(dedupeKey)
+
             if (!promise) {
-                promise = (async () => actualFetcher(input))()
+                promise = makeScheduledPromise(() => actualFetcher(input))
                 globalInFlightByKey.set(dedupeKey, promise)
+
                 promise.finally(() => {
                     if (globalInFlightByKey.get(dedupeKey) === promise) {
                         globalInFlightByKey.delete(dedupeKey)
@@ -488,10 +529,12 @@ export function resource(sourceOrFetcher, fetcherOrOptions, optionsObj) {
                 inFlightMap = new Map()
                 globalInFlightByFetcher.set(actualFetcher, inFlightMap)
             }
+
             promise = inFlightMap.get(key)
             if (!promise) {
-                promise = (async () => actualFetcher(input))()
+                promise = makeScheduledPromise(() => actualFetcher(input))
                 inFlightMap.set(key, promise)
+
                 promise.finally(() => {
                     if (inFlightMap.get(key) === promise) {
                         inFlightMap.delete(key)
@@ -504,7 +547,9 @@ export function resource(sourceOrFetcher, fetcherOrOptions, optionsObj) {
 
         try {
             const result = await promise
+
             if (id !== currentPromiseId) return
+
             cache.set(key, { data: result, updatedAt: Date.now() })
 
             batch(() => {
@@ -543,7 +588,6 @@ export function resource(sourceOrFetcher, fetcherOrOptions, optionsObj) {
     accessor.loading = loading
     accessor.isFetching = isFetching
     accessor.error = error
-
     accessor.read = () => {
         if (loading() && currentPromise) {
             throw currentPromise

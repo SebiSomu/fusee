@@ -133,3 +133,15 @@ export function createSuspense<T>(
 
 declare function setEffectHook(fn: (eff: any) => void): void
 
+export type AsyncPriority = 'high' | 'low';
+export interface AsyncJobOptions {
+    priority?: AsyncPriority;
+}
+
+export function scheduleAsyncJob(fn: () => void, opts?: AsyncJobOptions): void;
+
+export interface ResourceOptions<T = any> {
+    key?: string | number;
+    staleTime?: number;
+    fetchPriority?: AsyncPriority;
+}
