@@ -60,11 +60,6 @@ export interface WatchOptions {
     equals?: (a: any, b: any) => boolean;
 }
 
-export interface ResourceOptions {
-    staleTime?: number;
-    key?: string | number;
-}
-
 export type ResourceAccessor<T> = {
     (): T | undefined;
     read(): T;
@@ -116,13 +111,13 @@ export declare function onCleanup(fn: () => void): void
 
 export function resource<T, R = any>(
     fetcher: (input: R) => Promise<T>,
-    options?: { key?: string | number; staleTime?: number }
+    options?: ResourceOptions
 ): ResourceReturn<T, R>;
 
 export function resource<T, R>(
     source: () => R,
     fetcher: (input: R) => Promise<T>,
-    options?: { key?: string | number; staleTime?: number }
+    options?: ResourceOptions
 ): ResourceReturn<T, R>;
 
 export function createSuspense<T>(

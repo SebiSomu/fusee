@@ -46,3 +46,4 @@ benchmark/
 .npmrc
 
 vite.config.js.timestamp-*
+npm_recovery_codes.txt

@@ -1,3 +1,5 @@
+import { getInFlightStore } from './async-context.js'
+
 let currentEffect = null
 let currentOwner = null
 let onEffectCreated = null
@@ -431,9 +433,6 @@ function hasWatchChanged(newValue, oldValue, isMultiSource, equals) {
     return !equals(newValue, oldValue)
 }
 
-const globalInFlightByKey = new Map()
-const globalInFlightByFetcher = new WeakMap()
-
 export function resource(sourceOrFetcher, fetcherOrOptions, optionsObj) {
     let source = null
     let actualFetcher = null
@@ -509,32 +508,30 @@ export function resource(sourceOrFetcher, fetcherOrOptions, optionsObj) {
 
         let promise
 
-        if (options.key !== undefined) {
-            const dedupeKey = options.key ? `key_${options.key}_${key}` : `fn_${actualFetcher.name}_${key}`;
-            promise = globalInFlightByKey.get(dedupeKey)
+        const { byKey, byFetcher } = getInFlightStore()
 
+        if (options.key !== undefined) {
+            const dedupeKey = `key_${options.key}_${key}`
+            promise = byKey.get(dedupeKey)
             if (!promise) {
                 promise = makeScheduledPromise(() => actualFetcher(input))
-                globalInFlightByKey.set(dedupeKey, promise)
-
+                byKey.set(dedupeKey, promise)
                 promise.finally(() => {
-                    if (globalInFlightByKey.get(dedupeKey) === promise) {
-                        globalInFlightByKey.delete(dedupeKey)
+                    if (byKey.get(dedupeKey) === promise) {
+                        byKey.delete(dedupeKey)
                     }
                 }).catch(() => {})
             }
         } else {
-            let inFlightMap = globalInFlightByFetcher.get(actualFetcher)
+            let inFlightMap = byFetcher.get(actualFetcher)
             if (!inFlightMap) {
                 inFlightMap = new Map()
-                globalInFlightByFetcher.set(actualFetcher, inFlightMap)
+                byFetcher.set(actualFetcher, inFlightMap)
             }
-
             promise = inFlightMap.get(key)
             if (!promise) {
                 promise = makeScheduledPromise(() => actualFetcher(input))
                 inFlightMap.set(key, promise)
-
                 promise.finally(() => {
                     if (inFlightMap.get(key) === promise) {
                         inFlightMap.delete(key)

@@ -1,6 +1,6 @@
 # Fusée Framework
 
-**v1.7.0 — Signals-First JS Framework | Atomic Reactivity | Peak Performance**
+**v1.8.0 — Signals-First JS Framework | Atomic Reactivity | Peak Performance**
 
 Fusée is a custom, high-performance fine-grained reactive JavaScript framework built for speed and simplicity. It features a recursive, non-greedy compiler, a signals-based reactivity engine, Dependency Injection for components and a comprehensive CLI for instant application scaffolding.
 
@@ -26,7 +26,7 @@ Follow the interactive prompt to choose your template (**JavaScript** or **TypeS
 
 ## File-Based Routing (Nuxt-style)
 
-Fusée now supports automated, file-based routing. No more manual route definitions!
+Fusée now supports automated, file-based routing!
 
 - **Pages**: Just drop a file in `app/pages/` and it becomes a route.
 - **Layouts**: Use `app/pages/_layout.js` to wrap your pages in consistent UI structures.
@@ -42,12 +42,14 @@ fusee generate page contact
 ## Key Features
 
 - **New Go-Powered CLI**: Blazing fast project scaffolding and resource generation.
-- **Signals-First Reactivity**: Modern atomic updates that ensure only the modified parts of the DOM are touched.
+- **Signals/Resources-First Reactivity**: Modern atomic updates that ensure only the modified parts of the DOM are touched.
 - **Nuxt-style File Routing**: Automated route discovery with layout support.
 - **Recursive Hybrid Compiler**: A robust architectural approach to node traversal.
 - **Optimized Directives**: Native support for `f-if`, `f-for`, `f-model`, `f-text`, `f-cloak` and more.
 - **Performance Shield (`f-once`)**: Isolate and stabilize static subtrees.
 - **Vite Integration**: Full support for the fastest development workflow and HMR.
+- **Dependency Injection**: Nested Provide/Inject and Shadowing.
+- **Memory Safety**: Explicit checks for memory leaks and automatic effect disposal.
 
 ---
 
@@ -100,7 +102,7 @@ export const Welcome = defineComponent({
 
 Fusée is built with a test-driven mindset to ensure the reliability of its reactivity engine and component lifecycle.
 
-- **Total Tests:** `518`
+- **Total Tests:** `550`
 - **Status:** `All Passed`
 - **Framework:** [Vitest](https://vitest.dev/)
 - **Environment:** JSDOM (Browser simulation)
