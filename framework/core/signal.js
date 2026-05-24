@@ -1,4 +1,5 @@
 import { getInFlightStore } from './async-context.js'
+import { _registerResourceCache, getHydratedEntries } from './hydration.js'
 
 let currentEffect = null
 let currentOwner = null
@@ -461,8 +462,12 @@ export function resource(sourceOrFetcher, fetcherOrOptions, optionsObj) {
 
     let currentPromiseId = 0
     let currentPromise = null
-    const cache = new Map()
     const staleTime = typeof options.staleTime === 'number' ? options.staleTime : 0
+
+    const resourceKey = options.key !== undefined ? String(options.key) : (actualFetcher.name || 'anonymous')
+    const hydratedEntries = getHydratedEntries(resourceKey)
+    const cache = hydratedEntries ? new Map(hydratedEntries) : new Map()
+    _registerResourceCache(resourceKey, cache)
 
     function serializeKey(input) {
         if (input === undefined) return 'undefined'
