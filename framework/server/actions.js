@@ -2,6 +2,7 @@ import { signal, batch } from '../core/signal.js'
 import { getCurrentInstance } from '../core/component.js'
 
 const ACTION_BASE_URL = '/__fusee/actions'
+const _actionHydrationRegistry = new Map()
 
 export function defineAction(fnOrName, opts = {}) {
     const name = opts.name
@@ -117,4 +118,56 @@ export function useAction(action, opts = {}) {
     }
 
     return { execute, pending, data, error, reset }
+}
+
+export function hydrateAction(actionName, data, opts = {}) {
+    const key = `action:${actionName}`
+    _actionHydrationRegistry.set(key, {
+        data,
+        timestamp: Date.now(),
+        staleTime: opts.staleTime ?? 0
+    })
+}
+
+export function getHydratedAction(actionName, staleTime) {
+    const key = `action:${actionName}`
+    const entry = _actionHydrationRegistry.get(key)
+    if (!entry) return undefined
+
+    if (staleTime !== undefined && (Date.now() - entry.timestamp) > staleTime) {
+        return undefined
+    }
+    if (entry.staleTime && (Date.now() - entry.timestamp) > entry.staleTime) {
+        return undefined
+    }
+
+    return entry.data
+}
+
+export function clearActionHydration() {
+    _actionHydrationRegistry.clear()
+}
+
+export function extractActionHydration() {
+    const snapshot = {}
+    for (const [key, entry] of _actionHydrationRegistry) {
+        snapshot[key] = {
+            data: entry.data,
+            timestamp: entry.timestamp,
+            staleTime: entry.staleTime
+        }
+    }
+    return snapshot
+}
+
+export function loadActionHydration(snapshot) {
+    if (!snapshot || typeof snapshot !== 'object') return
+
+    for (const [key, entry] of Object.entries(snapshot)) {
+        _actionHydrationRegistry.set(key, {
+            data: entry.data,
+            timestamp: entry.timestamp,
+            staleTime: entry.staleTime
+        })
+    }
 }

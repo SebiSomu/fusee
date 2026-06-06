@@ -9,7 +9,12 @@ import {
 import {
     defineAction as clientDefineAction,
     createActionProxy,
-    useAction as clientUseAction
+    useAction as clientUseAction,
+    hydrateAction,
+    getHydratedAction,
+    clearActionHydration,
+    extractActionHydration,
+    loadActionHydration
 } from '../server/actions.js'
 
 let _counter = 0
@@ -672,6 +677,103 @@ describe('server actions (actions.server.js)', () => {
             copy.push('__fake_action__')
 
             expect(getRegisteredActions().length).toBe(before)
+        })
+    })
+})
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// HYDRATION TESTS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+describe('action hydration', () => {
+    beforeEach(() => {
+        clearActionHydration()
+    })
+
+    describe('hydrateAction', () => {
+        it('stores action data with timestamp', () => {
+            hydrateAction('testAction', { id: 1, name: 'Test' })
+
+            const snapshot = extractActionHydration()
+            expect(snapshot['action:testAction']).toBeDefined()
+            expect(snapshot['action:testAction'].data).toEqual({ id: 1, name: 'Test' })
+            expect(snapshot['action:testAction'].timestamp).toBeGreaterThan(0)
+        })
+
+        it('accepts staleTime option', () => {
+            hydrateAction('testAction', { data: 'fresh' }, { staleTime: 5000 })
+
+            const snapshot = extractActionHydration()
+            expect(snapshot['action:testAction'].staleTime).toBe(5000)
+        })
+    })
+
+    describe('getHydratedAction', () => {
+        it('returns undefined for non-existent action', () => {
+            expect(getHydratedAction('nonexistent')).toBeUndefined()
+        })
+
+        it('returns data for hydrated action', () => {
+            hydrateAction('testAction', { id: 1, name: 'Test' })
+
+            const data = getHydratedAction('testAction')
+            expect(data).toEqual({ id: 1, name: 'Test' })
+        })
+
+        it('returns undefined for stale data', () => {
+            // Mock old timestamp
+            const oldTime = Date.now() - 10000
+            hydrateAction('testAction', { data: 'old' }, { staleTime: 5000 })
+
+            // Manually set old timestamp
+            const snapshot = extractActionHydration()
+            snapshot['action:testAction'].timestamp = oldTime
+
+            // Re-hydrate with old timestamp
+            loadActionHydration(snapshot)
+
+            expect(getHydratedAction('testAction')).toBeUndefined()
+        })
+
+        it('accepts staleTime override parameter', () => {
+            hydrateAction('testAction', { data: 'fresh' }, { staleTime: 10000 })
+
+            // Should return data with short staleTime check
+            expect(getHydratedAction('testAction', 5000)).toEqual({ data: 'fresh' })
+        })
+    })
+
+    describe('loadActionHydration', () => {
+        it('loads snapshot into registry', () => {
+            const snapshot = {
+                'action:loadedAction': {
+                    data: { loaded: true },
+                    timestamp: Date.now(),
+                    staleTime: 0
+                }
+            }
+
+            loadActionHydration(snapshot)
+
+            expect(getHydratedAction('loadedAction')).toEqual({ loaded: true })
+        })
+
+        it('handles empty snapshot', () => {
+            expect(() => loadActionHydration({})).not.toThrow()
+            expect(() => loadActionHydration(null)).not.toThrow()
+            expect(() => loadActionHydration(undefined)).not.toThrow()
+        })
+    })
+
+    describe('clearActionHydration', () => {
+        it('clears all hydration state', () => {
+            hydrateAction('action1', { data: 1 })
+            hydrateAction('action2', { data: 2 })
+
+            clearActionHydration()
+
+            expect(getHydratedAction('action1')).toBeUndefined()
+            expect(getHydratedAction('action2')).toBeUndefined()
         })
     })
 })
