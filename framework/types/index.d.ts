@@ -8,6 +8,8 @@ export * from './store'
 export * from './event-delegation'
 export * from './di'
 export * from './reconcile'
+export * from './actions'
+export * from './actions.server'
 
 declare global {
     type Signal<T = any> = import('./signal').Signal<T>

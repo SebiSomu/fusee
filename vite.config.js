@@ -48,6 +48,11 @@ export default defineConfig({
         typecheck: {
             enabled: true,
             include: ['framework/**/*.test-d.ts'],
+        },
+        resolve: {
+            alias: {
+                'fusee/actions.server': path.resolve('./framework/server/actions.js')
+            }
         }
     }
 })
