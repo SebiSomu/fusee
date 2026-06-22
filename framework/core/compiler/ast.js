@@ -10,7 +10,7 @@ export const NodeType = {
     EVENT: 'Event',
     DIRECTIVE: 'Directive',
     SLOT_OUTLET: 'SlotOutlet',
-    SLOT_CONTENT: 'SlotContent',
+    SLOT_CONTENT: 'SlotContent'
 }
 
 export function createLoc(start, end, source) {
