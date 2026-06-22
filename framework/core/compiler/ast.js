@@ -151,8 +151,7 @@ export function isDirective(node, name) {
 }
 
 export function isStaticText(node) {
-    return node?.type === NodeType.TEXT ||
-        (node?.type === NodeType.INTERPOLATION && node.expression?.isStatic)
+    return node?.type === NodeType.TEXT || (node?.type === NodeType.INTERPOLATION && node.expression?.isStatic)
 }
 
 export function findDirective(element, name) {
