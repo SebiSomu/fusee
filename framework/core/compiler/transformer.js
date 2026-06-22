@@ -1,5 +1,6 @@
 import {NodeType, createExpression, isDirective, findDirective, isStaticText, cloneNode,} from './ast.js'
-import { ErrorCode, CompileWarning } from './errors.js'
+import { CompileWarning } from './errors.js'
+import { ErrorCode } from './errors-list.js'
 
 export function transform(ast, options = {}) {
     const ctx = {
@@ -127,7 +128,10 @@ function chainConditionalsInChildren(children, ctx) {
 
         while (j < children.length) {
             const next = children[j]
-            if (!isElementOrComponent(next)) break
+            if (!isElementOrComponent(next)) {
+                j++
+                continue
+            }
 
             const elseIfDir = findDirective(next, 'else-if')
             const elseDir = findDirective(next, 'else')

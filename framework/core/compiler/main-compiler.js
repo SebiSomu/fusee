@@ -1,7 +1,7 @@
-import { tokenize }   from './lexer.js'
-import { parse }      from './parser.js'
-import { transform }  from './transformer.js'
-import { generate }   from './generator.js'
+import { tokenize } from './lexer.js'
+import { parse } from './parser.js'
+import { transform } from './transformer.js'
+import { generate } from './generator.js'
 import { CompileError, ErrorCollector } from './errors.js'
 
 export function compile(source, options = {}) {
