@@ -60,11 +60,7 @@ function markStaticPass(node, ctx) {
             return true
         }
 
-        const hasDynamic = node.props.some(p =>
-            p.type === NodeType.DIRECTIVE ||
-            p.type === NodeType.BINDING   ||
-            p.type === NodeType.EVENT
-        )
+        const hasDynamic = node.props.some(p => p.type === NodeType.DIRECTIVE || p.type === NodeType.BINDING || p.type === NodeType.EVENT)
 
         if (hasDynamic) {
             node.isStatic = false
@@ -72,13 +68,10 @@ function markStaticPass(node, ctx) {
             return false
         }
 
-        const hasInterpolatedAttr = node.props.some(
-            p => p.type === NodeType.ATTRIBUTE && typeof p.value === 'string' && p.value.includes('{{')
-        )
+        const hasInterpolatedAttr = node.props.some(p => p.type === NodeType.ATTRIBUTE && typeof p.value === 'string' && p.value.includes('{{'))
         if (hasInterpolatedAttr) {
             node.isStatic = false
-            if (node.children) 
-                node.children.forEach(c => markStaticPass(c, ctx))
+            if (node.children) node.children.forEach(c => markStaticPass(c, ctx))
             return false
         }
 
@@ -98,7 +91,8 @@ function markStaticPass(node, ctx) {
         node.isStatic = false
         if (node.slots) {
             for (const slotChildren of Object.values(node.slots)) {
-                if (Array.isArray(slotChildren)) slotChildren.forEach(c => markStaticPass(c, ctx))
+                if (Array.isArray(slotChildren)) 
+                    slotChildren.forEach(c => markStaticPass(c, ctx))
             }
         }
         return false
@@ -136,7 +130,7 @@ function chainConditionalsInChildren(children, ctx) {
             if (!isElementOrComponent(next)) break
 
             const elseIfDir = findDirective(next, 'else-if')
-            const elseDir   = findDirective(next, 'else')
+            const elseDir = findDirective(next, 'else')
 
             if (elseIfDir) {
                 branches.push({ condition: elseIfDir.expression, node: next })
@@ -151,9 +145,9 @@ function chainConditionalsInChildren(children, ctx) {
         }
 
         const ifNode = {
-            type:     'If',
+            type: 'If',
             branches,
-            loc:      node.loc,
+            loc: node.loc,
             isStatic: false,
         }
 
