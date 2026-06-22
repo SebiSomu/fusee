@@ -1,4 +1,5 @@
 export const ErrorCode = {
+    UNEXPECTED_CHAR: 'E001',
     UNTERMINATED_STRING: 'E002',
     UNTERMINATED_MUSTACHE: 'E003',
     UNTERMINATED_TAG: 'E004',
@@ -16,6 +17,8 @@ export const ErrorCode = {
     FOR_MISSING_KEY: 'T002',
     MODEL_ON_NON_INPUT: 'T003',
     COMPONENT_NOT_REGISTERED: 'T004',
+    UNKNOWN_IDENTIFIER: 'S001',
+    STATIC_FOR_KEY: 'S002',
     UNKNOWN_NODE_TYPE: 'G001',
 }
 
@@ -39,12 +42,14 @@ const ERROR_MESSAGES = {
     [ErrorCode.MODEL_ON_NON_INPUT]: 'f-model can only be used on <input>, <textarea> or <select>, got <{0}>',
     [ErrorCode.COMPONENT_NOT_REGISTERED]: 'Component "{0}" is used in the template but not registered',
     [ErrorCode.UNKNOWN_NODE_TYPE]: 'Unknown AST node type "{0}" encountered in generator',
+    [ErrorCode.UNKNOWN_IDENTIFIER]: 'Unknown identifier "{0}" in expression "{1}" — not found in component scope',
+    [ErrorCode.STATIC_FOR_KEY]: ':key="{0}" is a static literal — keys must be unique per item (use a dynamic expression like :key="item.id")',
 }
 
 export class CompileError extends Error {
     constructor(code, loc, source, ...args) {
         const template = ERROR_MESSAGES[code] ?? `Unknown compiler error (${code})`
-        const message = _interpolate(template, args)
+        const message  = _interpolate(template, args)
         super(message)
         this.name = 'CompileError'
         this.code = code

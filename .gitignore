@@ -47,3 +47,4 @@ benchmark/
 
 vite.config.js.timestamp-*
 *.txt
+parser.js
