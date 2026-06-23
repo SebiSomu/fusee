@@ -27,6 +27,7 @@
     "registry": "https://registry.npmjs.org/"
   },
   "devDependencies": {
+    "fast-glob": "^3.3.3",
     "jsdom": "^29.0.2",
     "typescript": "^6.0.2",
     "unplugin-auto-import": "^21.0.0",
