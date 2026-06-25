@@ -313,7 +313,7 @@ function _extractIdentifiers(expr) {
         .replace(/`[^`\\]*(?:\\.[^`\\]*)*`/g, '""')
 
     const found = new Set()
-    const RE = /\b([a-zA-Z_$][a-zA-Z0-9_$]*)\b/g
+    const RE = /(?<![a-zA-Z0-9_$])([a-zA-Z_$][a-zA-Z0-9_$]*)(?![a-zA-Z0-9_$])/g
     let m
 
     while ((m = RE.exec(stripped)) !== null) {

@@ -1,13 +1,13 @@
-import { tokenize } from './lexer.js'
-import { parse } from './parser.js'
-import { transform } from './transformer.js'
-import { generate } from './generator.js'
+import { tokenize }   from './lexer.js'
+import { parse }      from './parser.js'
+import { transform }  from './transformer.js'
+import { generate }   from './generator.js'
 import { CompileError, ErrorCollector } from './errors.js'
 
 export function compile(source, options = {}) {
     const filename = options.filename ?? '<template>'
     const components = new Set(options.components ?? [])
-    const collector = new ErrorCollector(source)
+    const collector  = new ErrorCollector(source)
 
     let tokens
     try {
@@ -25,8 +25,8 @@ export function compile(source, options = {}) {
 
     let warnings = []
     try {
-        const result = transform(ast, { components, source })
-        ast      = result.ast
+        const result = transform(ast, { components, source, scope: options.scope })
+        ast = result.ast
         warnings = result.warnings
     } catch (err) {
         _rethrow(err, filename)
@@ -61,6 +61,7 @@ export function transformOnly(ast, options = {}) {
     return transform(ast, {
         components: new Set(options.components ?? []),
         source: options.source ?? '',
+        scope: options.scope,
     })
 }
 
@@ -68,22 +69,42 @@ export function compileBatch(templates, sharedOptions = {}) {
     return templates.map(({ id, source }) => {
         try {
             const { code, warnings } = compile(source, { ...sharedOptions, filename: id })
-            return { 
-                id,
-                code,
-                warnings,
-                error: null
-            }
+            return { id, code, warnings, error: null }
         } catch (err) {
-            return { 
-                id,
-                code: null,
-                warnings: [],
-                error: err
-            }
+            return { id, code: null, warnings: [], error: err }
         }
     })
 }
+
+export function fuseePlugin(pluginOptions = {}) {
+    return {
+        name: 'vite-plugin-fusee',
+
+        transform(src, id) {
+            if (!id.endsWith('.fusee') && !id.endsWith('.fhtml')) return null
+
+            const { code, warnings } = compile(src, {
+                filename: id,
+                runtimePath: pluginOptions.runtimePath,
+                components: pluginOptions.components,
+                scope: pluginOptions.scope,
+            })
+
+            for (const w of warnings) {
+                this.warn(w.format(id))
+            }
+
+            return { code, map: null }
+        }
+    }
+}
+
+export { fileRouterPlugin } from './plugins/file-router-plugin.js'
+export { actionsPlugin } from './plugins/actions-plugin.js'
+export { routerPlugin } from './plugins/router-plugin.js'
+export { compileFileRoutes, generateRoutesModule, generateRouteTypes, validateRoutes as validateFileRoutes,} from './plugins/file-router-plugin.js'
+export { validateActions, generateClientStubs, generateServerRoutes, generateActionTypes,} from './plugins/actions-plugin.js'
+export { validateRoutes, generateRouterTypes,} from './plugins/router-plugin.js'
 
 function _rethrow(err, filename) {
     if (err instanceof CompileError) {

@@ -1,22 +1,56 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 import { tokenize, TokenType } from '../core/compiler/lexer.js'
 import { parse } from '../core/compiler/parser.js'
 import { transform } from '../core/compiler/transformer.js'
 import { generate } from '../core/compiler/generator.js'
-import { compile, parseOnly, compileBatch } from '../core/compiler/main-compiler.js'
+import { compile, parseOnly, compileBatch, fuseePlugin } from '../core/compiler/main-compiler.js'
 import { CompileError } from '../core/compiler/errors.js'
 import { ErrorCode } from '../core/compiler/errors-list.js'
 import { NodeType } from '../core/compiler/ast.js'
+
+import {
+    compileFileRoutes,
+    generateRoutesModule,
+    validateRoutes as validateFileRoutes,
+    generateRouteTypes,
+} from '../core/compiler/plugins/file-router-plugin.js'
+
+import {
+    validateActions,
+    generateClientStubs,
+    generateServerRoutes,
+    generateActionTypes,
+} from '../core/compiler/plugins/actions-plugin.js'
+
+import {
+    validateRoutes,
+    generateRouterTypes,
+} from '../core/compiler/plugins/router-plugin.js'
+
+// ─── helpers ──────────────────────────────────────────────────────────────────
+
+function ast(src, comps = []) {
+    const toks = tokenize(src)
+    return parse(toks, src, new Set(comps))
+}
+
+function transformWithScope(src, scope = [], comps = []) {
+    return transform(ast(src, comps), {
+        source: src,
+        components: new Set(comps),
+        scope,
+    })
+}
+
+function hasWarning(warnings, code) {
+    return warnings.some(w => w.code === code)
+}
 
 // helpers
 
 function lex(src) {
     return tokenize(src)
-}
-
-function ast(src, comps = []) {
-    return parse(lex(src), src, new Set(comps))
 }
 
 function fullAst(src, comps = []) {
@@ -941,6 +975,747 @@ describe('CompileError', () => {
                 const snippet = e._buildSnippet()
                 expect(snippet).toContain('~')
             }
+        }
+    })
+})
+
+describe('Transformer — semantic analysis', () => {
+
+    // ── scope opt-in ──────────────────────────────────────────────────────────
+
+    it('skips semantic analysis when no scope provided', () => {
+        const src = '<div :class="nonExistent"></div>'
+        const { warnings } = transform(ast(src), { source: src })
+        expect(hasWarning(warnings, ErrorCode.UNKNOWN_IDENTIFIER)).toBe(false)
+    })
+
+    it('runs semantic analysis when scope is provided', () => {
+        const src = '<div :class="nonExistent"></div>'
+        const { warnings } = transformWithScope(src, ['cls'])
+        expect(hasWarning(warnings, ErrorCode.UNKNOWN_IDENTIFIER)).toBe(true)
+    })
+
+    // ── known identifiers ─────────────────────────────────────────────────────
+
+    it('does NOT warn on identifier present in scope', () => {
+        const src = '<div :class="cls"></div>'
+        const { warnings } = transformWithScope(src, ['cls'])
+        expect(hasWarning(warnings, ErrorCode.UNKNOWN_IDENTIFIER)).toBe(false)
+    })
+
+    it('does NOT warn on JS globals (Math, console, etc.)', () => {
+        const src = '<p>{{ Math.max(a, b) }}</p>'
+        const { warnings } = transformWithScope(src, ['a', 'b'])
+        expect(hasWarning(warnings, ErrorCode.UNKNOWN_IDENTIFIER)).toBe(false)
+    })
+
+    it('does NOT warn on JS keywords (typeof, null, true, etc.)', () => {
+        const src = '<div f-if="typeof val !== undefined"></div>'
+        const { warnings } = transformWithScope(src, ['val'])
+        expect(hasWarning(warnings, ErrorCode.UNKNOWN_IDENTIFIER)).toBe(false)
+    })
+
+    it('does NOT warn on string literal content mistaken as identifier', () => {
+        const src = '<p>{{ "hello world" }}</p>'
+        const { warnings } = transformWithScope(src, [])
+        expect(hasWarning(warnings, ErrorCode.UNKNOWN_IDENTIFIER)).toBe(false)
+    })
+
+    it('does NOT warn on RHS of member access (obj.prop — only obj is checked)', () => {
+        const src = '<p>{{ user.name }}</p>'
+        const { warnings } = transformWithScope(src, ['user'])
+        expect(hasWarning(warnings, ErrorCode.UNKNOWN_IDENTIFIER)).toBe(false)
+    })
+
+    // ── unknown identifiers ───────────────────────────────────────────────────
+
+    it('warns on unknown identifier in interpolation', () => {
+        const src = '<p>{{ typoCount }}</p>'
+        const { warnings } = transformWithScope(src, ['count'])
+        const w = warnings.find(w => w.code === ErrorCode.UNKNOWN_IDENTIFIER)
+        expect(w).toBeTruthy()
+        expect(w.message).toContain('typoCount')
+    })
+
+    it('warns on unknown identifier in :binding', () => {
+        const src = '<div :class="isActve"></div>'
+        const { warnings } = transformWithScope(src, ['isActive'])
+        expect(hasWarning(warnings, ErrorCode.UNKNOWN_IDENTIFIER)).toBe(true)
+    })
+
+    it('warns on unknown identifier in @event expression', () => {
+        const src = '<button @click="handlClick"></button>'
+        const { warnings } = transformWithScope(src, ['handleClick'])
+        expect(hasWarning(warnings, ErrorCode.UNKNOWN_IDENTIFIER)).toBe(true)
+    })
+
+    it('warns on unknown identifier in f-if', () => {
+        const src = '<div f-if="isVisibl"></div>'
+        const { warnings } = transformWithScope(src, ['isVisible'])
+        expect(hasWarning(warnings, ErrorCode.UNKNOWN_IDENTIFIER)).toBe(true)
+    })
+
+    it('warns on unknown identifier in f-show', () => {
+        const src = '<div f-show="visibl"></div>'
+        const { warnings } = transformWithScope(src, ['visible'])
+        expect(hasWarning(warnings, ErrorCode.UNKNOWN_IDENTIFIER)).toBe(true)
+    })
+
+    // ── f-for scope extension ─────────────────────────────────────────────────
+
+    it('does NOT warn on f-for item variable used in children', () => {
+        const src = '<li f-for="item in items" :key="item.id">{{ item.name }}</li>'
+        const { warnings } = transformWithScope(src, ['items'])
+        expect(hasWarning(warnings, ErrorCode.UNKNOWN_IDENTIFIER)).toBe(false)
+    })
+
+    it('does NOT warn on f-for index variable used in children', () => {
+        const src = '<li f-for="(item, index) in items" :key="item.id">{{ index }}</li>'
+        const { warnings } = transformWithScope(src, ['items'])
+        expect(hasWarning(warnings, ErrorCode.UNKNOWN_IDENTIFIER)).toBe(false)
+    })
+
+    it('f-for item is NOT available outside the loop', () => {
+        const src = `
+            <ul><li f-for="item in items" :key="item.id">{{ item.name }}</li></ul>
+            <p>{{ item.name }}</p>
+        `
+        const { warnings } = transformWithScope(src, ['items'])
+        const unknowns = warnings.filter(w => w.code === ErrorCode.UNKNOWN_IDENTIFIER)
+        expect(unknowns.some(w => w.message.includes('item'))).toBe(true)
+    })
+
+    it('nested f-for each has independent scope', () => {
+        const src = `
+            <div f-for="group in groups" :key="group.id">
+                <span f-for="item in group.items" :key="item.id">{{ item.name }}</span>
+            </div>
+        `
+        const { warnings } = transformWithScope(src, ['groups'])
+        expect(hasWarning(warnings, ErrorCode.UNKNOWN_IDENTIFIER)).toBe(false)
+    })
+
+    // ── $event ────────────────────────────────────────────────────────────────
+
+    it('does NOT warn on $event in event handler expression', () => {
+        const src = '<input @input="handleInput($event)">'
+        const { warnings } = transformWithScope(src, ['handleInput', '$event'])
+        expect(hasWarning(warnings, ErrorCode.UNKNOWN_IDENTIFIER)).toBe(false)
+    })
+
+    // ── static :key in f-for ──────────────────────────────────────────────────
+
+    it('warns on static literal :key in f-for (S002)', () => {
+        const src = '<li f-for="item in items" :key="1">{{ item }}</li>'
+        const root = ast(src)
+        // Mark the key expression as _isForKey manually (generator does this)
+        const li    = root.children[0]
+        const keyB  = li.props.find(p => p.type === NodeType.BINDING && p.name === 'key')
+        if (keyB) keyB.expression._isForKey = true
+        const { warnings } = transform(root, { source: src, scope: ['items'] })
+        expect(hasWarning(warnings, ErrorCode.STATIC_FOR_KEY)).toBe(true)
+    })
+
+    // ── compile() integration with scope ──────────────────────────────────────
+
+    it('compile() passes scope to transformer', () => {
+        const src = '<div :class="typo"></div>'
+        const { warnings } = compile(src, { scope: ['cls'] })
+        expect(hasWarning(warnings, ErrorCode.UNKNOWN_IDENTIFIER)).toBe(true)
+    })
+
+    it('compile() with correct scope produces no UNKNOWN_IDENTIFIER', () => {
+        const src = '<div :class="cls">{{ msg }}</div>'
+        const { warnings } = compile(src, { scope: ['cls', 'msg'] })
+        expect(hasWarning(warnings, ErrorCode.UNKNOWN_IDENTIFIER)).toBe(false)
+    })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 8. FILE ROUTER PLUGIN
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('fileRouterPlugin — compileFileRoutes()', () => {
+
+    it('returns empty array for no files', () => {
+        const routes = compileFileRoutes([], { pagesDir: 'src/pages' })
+        expect(routes).toEqual([])
+    })
+
+    it('generates index route from index.js', () => {
+        const routes = compileFileRoutes(['src/pages/index.js'], { pagesDir: 'src/pages' })
+        expect(routes.some(r => r.path === '/')).toBe(true)
+    })
+
+    it('generates named route from about.js', () => {
+        const routes = compileFileRoutes(['src/pages/about.js'], { pagesDir: 'src/pages' })
+        expect(routes.some(r => r.path === '/about')).toBe(true)
+    })
+
+    it('generates dynamic route from [id].js', () => {
+        const routes = compileFileRoutes(['src/pages/users/[id].js'], { pagesDir: 'src/pages' })
+        const userRoute = routes.find(r => r.path === '/users' || r.children)
+        expect(JSON.stringify(routes)).toContain(':id')
+    })
+
+    it('generates catch-all route from [...slug].js', () => {
+        const routes = compileFileRoutes(['src/pages/[...slug].js'], { pagesDir: 'src/pages' })
+        expect(JSON.stringify(routes)).toContain('*')
+    })
+
+    it('generates nested routes from subdirectory', () => {
+        const files = [
+            'src/pages/index.js',
+            'src/pages/users/index.js',
+            'src/pages/users/[id].js',
+        ]
+        const routes = compileFileRoutes(files, { pagesDir: 'src/pages' })
+        expect(JSON.stringify(routes)).toContain('users')
+    })
+
+    it('sorts static routes before dynamic routes', () => {
+        const files = [
+            'src/pages/users/[id].js',
+            'src/pages/users/profile.js',
+        ]
+        const routes = compileFileRoutes(files, { pagesDir: 'src/pages' })
+        const flat = JSON.stringify(routes)
+        expect(flat.indexOf('profile')).toBeLessThan(flat.indexOf(':id'))
+    })
+
+    it('sorts wildcard * last', () => {
+        const files = [
+            'src/pages/[...404].js',
+            'src/pages/about.js',
+        ]
+        const routes = compileFileRoutes(files, { pagesDir: 'src/pages' })
+        const paths = routes.map(r => r.path)
+        expect(paths.indexOf('/about')).toBeLessThan(paths.indexOf('*'))
+    })
+
+    it('creates layout route with children from _layout.js', () => {
+        const files = [
+            'src/pages/_layout.js',
+            'src/pages/index.js',
+            'src/pages/about.js',
+        ]
+        const routes = compileFileRoutes(files, { pagesDir: 'src/pages' })
+        expect(routes.length).toBe(1)
+        expect(routes[0].children).toBeDefined()
+        expect(routes[0].children.length).toBeGreaterThan(0)
+    })
+})
+
+describe('fileRouterPlugin — generateRoutesModule()', () => {
+
+    it('produces valid JS with import statements', () => {
+        const routes = compileFileRoutes(['src/pages/index.js'], { pagesDir: 'src/pages' })
+        const mod = generateRoutesModule(routes, 'src/pages')
+        expect(mod).toContain('import(')
+        expect(mod).toContain('export const routes')
+    })
+
+    it('includes all page file paths as dynamic imports', () => {
+        const files = ['src/pages/index.js', 'src/pages/about.js']
+        const routes = compileFileRoutes(files, { pagesDir: 'src/pages' })
+        const mod = generateRoutesModule(routes, 'src/pages')
+        expect(mod).toContain('index.js')
+        expect(mod).toContain('about.js')
+    })
+
+    it('exports default routes', () => {
+        const routes = compileFileRoutes(['src/pages/index.js'], { pagesDir: 'src/pages' })
+        const mod = generateRoutesModule(routes, 'src/pages')
+        expect(mod).toContain('export default routes')
+    })
+
+    it('does not contain runtime file-router.js import', () => {
+        const routes = compileFileRoutes(['src/pages/index.js'], { pagesDir: 'src/pages' })
+        const mod = generateRoutesModule(routes, 'src/pages')
+        expect(mod).not.toContain('generateRoutes')
+    })
+})
+
+describe('fileRouterPlugin — validateRoutes()', () => {
+
+    it('returns no errors for valid routes', () => {
+        const routes = [
+            { path: '/' },
+            { path: '/about' },
+            { path: '/users/:id' },
+        ]
+        const { errors, warnings } = validateFileRoutes(routes)
+        expect(errors).toHaveLength(0)
+    })
+
+    it('errors on duplicate static paths', () => {
+        const routes = [
+            { path: '/about' },
+            { path: '/about' },
+        ]
+        const { errors } = validateFileRoutes(routes)
+        expect(errors.length).toBeGreaterThan(0)
+        expect(errors[0]).toContain('/about')
+    })
+
+    it('warns on conflicting dynamic segments at same level', () => {
+        const routes = [
+            { path: ':id' },
+            { path: ':userId' },
+        ]
+        const { warnings } = validateFileRoutes(routes)
+        expect(warnings.length).toBeGreaterThan(0)
+    })
+
+    it('warns on layout with no children', () => {
+        const routes = [
+            { path: '/admin', children: [] },
+        ]
+        const { warnings } = validateFileRoutes(routes)
+        expect(warnings.some(w => w.includes('no child'))).toBe(true)
+    })
+})
+
+describe('fileRouterPlugin — generateRouteTypes()', () => {
+
+    it('generates AppRoute type union', () => {
+        const routes = compileFileRoutes(['src/pages/index.js', 'src/pages/about.js'], { pagesDir: 'src/pages' })
+        const types = generateRouteTypes(routes)
+        expect(types).toContain('export type AppRoute')
+        expect(types).toContain('"/"')
+        expect(types).toContain('"/about"')
+    })
+
+    it('generates RouteParams for dynamic segments', () => {
+        const routes = compileFileRoutes(['src/pages/users/[id].js'], { pagesDir: 'src/pages' })
+        const types = generateRouteTypes(routes)
+        expect(types).toContain('RouteParams')
+        expect(types).toContain('id: string')
+    })
+
+    it('generates ParamsFor<T> helper', () => {
+        const routes = compileFileRoutes(['src/pages/index.js'], { pagesDir: 'src/pages' })
+        const types = generateRouteTypes(routes)
+        expect(types).toContain('ParamsFor')
+    })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 9. ACTIONS PLUGIN
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('actionsPlugin — validateActions()', () => {
+
+    it('returns no errors when all client actions exist on server', () => {
+        const server = [{ name: 'saveUser', exportName: 'saveUser' }]
+        const client = ['saveUser']
+        const { errors } = validateActions(server, client)
+        expect(errors).toHaveLength(0)
+    })
+
+    it('errors on client action with no server counterpart', () => {
+        const server = [{ name: 'saveUser', exportName: 'saveUser' }]
+        const client = ['saveUser', 'deleteUser']
+        const { errors } = validateActions(server, client)
+        expect(errors.length).toBeGreaterThan(0)
+        expect(errors[0]).toContain('deleteUser')
+    })
+
+    it('warns on server action unused by client', () => {
+        const server = [
+            { name: 'saveUser', exportName: 'saveUser' },
+            { name: 'archiveUser', exportName: 'archiveUser' },
+        ]
+        const client = ['saveUser']
+        const { warnings } = validateActions(server, client)
+        expect(warnings.some(w => w.includes('archiveUser'))).toBe(true)
+    })
+
+    it('returns no warnings when client list is empty (no client file)', () => {
+        const server = [{ name: 'saveUser', exportName: 'saveUser' }]
+        const client = []
+        const { warnings, errors } = validateActions(server, client)
+        expect(errors).toHaveLength(0)
+        expect(warnings).toHaveLength(0)
+    })
+
+    it('handles multiple actions correctly', () => {
+        const server = ['getPost', 'savePost', 'deletePost'].map(n => ({ name: n, exportName: n }))
+        const client = ['getPost', 'savePost', 'deletePost']
+        const { errors, warnings } = validateActions(server, client)
+        expect(errors).toHaveLength(0)
+        expect(warnings).toHaveLength(0)
+    })
+})
+
+describe('actionsPlugin — generateClientStubs()', () => {
+
+    const actions = [
+        { name: 'saveUser', exportName: 'saveUser' },
+        { name: 'getPost', exportName: 'getPost' },
+    ]
+
+    it('generates createActionProxy for each action', () => {
+        const out = generateClientStubs(actions)
+        expect(out).toContain('createActionProxy("saveUser"')
+        expect(out).toContain('createActionProxy("getPost"')
+    })
+
+    it('exports each action by name', () => {
+        const out = generateClientStubs(actions)
+        expect(out).toContain('export const saveUser')
+        expect(out).toContain('export const getPost')
+    })
+
+    it('re-exports useAction', () => {
+        const out = generateClientStubs(actions)
+        expect(out).toContain('export { useAction }')
+    })
+
+    it('uses custom baseUrl when provided', () => {
+        const out = generateClientStubs(actions, { baseUrl: '/api/actions' })
+        expect(out).toContain('/api/actions')
+    })
+
+    it('does not contain defineAction — zero boilerplate', () => {
+        const out = generateClientStubs(actions)
+        expect(out).not.toContain('defineAction')
+    })
+})
+
+describe('actionsPlugin — generateServerRoutes()', () => {
+
+    const actions = [
+        { name: 'saveUser', exportName: 'saveUser' },
+        { name: 'getPost', exportName: 'getPost' },
+    ]
+
+    it('generates actionHandlers map', () => {
+        const out = generateServerRoutes(actions)
+        expect(out).toContain('actionHandlers')
+        expect(out).toContain('"saveUser"')
+        expect(out).toContain('"getPost"')
+    })
+
+    it('generates mountActionRoutes for Express', () => {
+        const out = generateServerRoutes(actions)
+        expect(out).toContain('mountActionRoutes')
+        expect(out).toContain('app.post(')
+    })
+
+    it('generates dispatchAction for fetch API', () => {
+        const out = generateServerRoutes(actions)
+        expect(out).toContain('dispatchAction')
+        expect(out).toContain('new URL(request.url)')
+    })
+
+    it('uses custom baseUrl', () => {
+        const out = generateServerRoutes(actions, { baseUrl: '/api/actions' })
+        expect(out).toContain('/api/actions')
+    })
+})
+
+describe('actionsPlugin — generateActionTypes()', () => {
+
+    const actions = [
+        { name: 'saveUser', exportName: 'saveUser' },
+        { name: 'getPost', exportName: 'getPost' },
+    ]
+
+    it('generates ActionName union type', () => {
+        const out = generateActionTypes(actions)
+        expect(out).toContain('export type ActionName')
+        expect(out).toContain('"saveUser"')
+        expect(out).toContain('"getPost"')
+    })
+
+    it('generates ActionProxy type', () => {
+        const out = generateActionTypes(actions)
+        expect(out).toContain('ActionProxy')
+    })
+
+    it('generates UseActionResult type', () => {
+        const out = generateActionTypes(actions)
+        expect(out).toContain('UseActionResult')
+        expect(out).toContain('pending')
+        expect(out).toContain('execute')
+    })
+
+    it('declares each action as ActionProxy', () => {
+        const out = generateActionTypes(actions)
+        expect(out).toContain('export declare const saveUser: ActionProxy')
+        expect(out).toContain('export declare const getPost: ActionProxy')
+    })
+
+    it('handles empty actions list', () => {
+        const out = generateActionTypes([])
+        expect(out).toContain('ActionName = never')
+    })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 10. ROUTER PLUGIN
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('routerPlugin — validateRoutes()', () => {
+
+    it('passes valid flat route tree', () => {
+        const routes = [
+            { path: '/' },
+            { path: '/about' },
+            { path: '/contact' },
+        ]
+        const { errors, warnings } = validateRoutes(routes)
+        expect(errors).toHaveLength(0)
+        expect(warnings).toHaveLength(0)
+    })
+
+    it('errors on duplicate path at same level', () => {
+        const routes = [
+            { path: '/about' },
+            { path: '/about' },
+        ]
+        const { errors } = validateRoutes(routes)
+        expect(errors.length).toBeGreaterThan(0)
+        expect(errors[0]).toContain('/about')
+    })
+
+    it('errors on route defined after wildcard *', () => {
+        const routes = [
+            { path: '*' },
+            { path: '/unreachable' },
+        ]
+        const { errors } = validateRoutes(routes)
+        expect(errors.length).toBeGreaterThan(0)
+        expect(errors[0]).toContain('unreachable')
+    })
+
+    it('errors on duplicate wildcard *', () => {
+        const routes = [
+            { path: '*' },
+            { path: '*' },
+        ]
+        const { errors } = validateRoutes(routes)
+        expect(errors.length).toBeGreaterThan(0)
+    })
+
+    it('warns on conflicting dynamic segments at same level', () => {
+        const routes = [
+            { path: ':id' },
+            { path: ':userId' },
+        ]
+        const { warnings } = validateRoutes(routes)
+        expect(warnings.some(w => w.includes('id') && w.includes('userId'))).toBe(true)
+    })
+
+    it('warns on layout with empty children array', () => {
+        const routes = [
+            { path: '/dashboard', children: [] },
+        ]
+        const { warnings } = validateRoutes(routes)
+        expect(warnings.some(w => w.includes('no child'))).toBe(true)
+    })
+
+    it('validates nested children recursively', () => {
+        const routes = [
+            {
+                path: '/admin',
+                children: [
+                    { path: 'users' },
+                    { path: 'users' },
+                ]
+            }
+        ]
+        const { errors } = validateRoutes(routes)
+        expect(errors.length).toBeGreaterThan(0)
+    })
+
+    it('allows same path at different nesting levels', () => {
+        const routes = [
+            { path: '/users', children: [{ path: 'profile' }] },
+            { path: '/settings', children: [{ path: 'profile' }] },
+        ]
+        const { errors } = validateRoutes(routes)
+        expect(errors).toHaveLength(0)
+    })
+})
+
+describe('routerPlugin — generateRouterTypes()', () => {
+
+    it('generates AppRoute union with all paths', () => {
+        const routes = [
+            { path: '/' },
+            { path: '/about' },
+            { path: '/users/:id' },
+        ]
+        const types = generateRouterTypes(routes)
+        expect(types).toContain('export type AppRoute')
+        expect(types).toContain('"/"')
+        expect(types).toContain('"/about"')
+        expect(types).toContain('"/users/:id"')
+    })
+
+    it('generates RouteParams with dynamic segment types', () => {
+        const routes = [{ path: '/users/:id' }]
+        const types = generateRouterTypes(routes)
+        expect(types).toContain('RouteParams')
+        expect(types).toContain('id: string')
+    })
+
+    it('generates multiple params for deeply dynamic routes', () => {
+        const routes = [{ path: '/users/:userId/posts/:postId' }]
+        const types = generateRouterTypes(routes)
+        expect(types).toContain('userId: string')
+        expect(types).toContain('postId: string')
+    })
+
+    it('generates ParamsFor<T> helper type', () => {
+        const routes = [{ path: '/users/:id' }]
+        const types = generateRouterTypes(routes)
+        expect(types).toContain('ParamsFor<T extends AppRoute>')
+    })
+
+    it('generates typed navigate() declaration', () => {
+        const routes = [{ path: '/' }]
+        const types = generateRouterTypes(routes)
+        expect(types).toContain('declare function navigate(path: AppRoute)')
+    })
+
+    it('generates useRouteParams() declaration', () => {
+        const routes = [{ path: '/' }]
+        const types = generateRouterTypes(routes)
+        expect(types).toContain('useRouteParams')
+    })
+
+    it('handles nested routes recursively', () => {
+        const routes = [
+            {
+                path: '/admin',
+                children: [
+                    { path: 'users' },
+                    { path: 'settings' },
+                ]
+            }
+        ]
+        const types = generateRouterTypes(routes)
+        expect(types).toContain('/admin')
+        expect(types).toContain('users')
+        expect(types).toContain('settings')
+    })
+
+    it('generates AppRoute = "/" fallback for empty routes', () => {
+        const types = generateRouterTypes([])
+        expect(types).toContain("'/'")
+    })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 11. fuseePlugin (Vite plugin)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('fuseePlugin — Vite transform plugin', () => {
+
+    function makePlugin(opts = {}) {
+        return fuseePlugin(opts)
+    }
+
+    it('has correct plugin name', () => {
+        const plugin = makePlugin()
+        expect(plugin.name).toBe('vite-plugin-fusee')
+    })
+
+    it('has a transform hook', () => {
+        const plugin = makePlugin()
+        expect(typeof plugin.transform).toBe('function')
+    })
+
+    it('returns null for non-.fusee files', () => {
+        const plugin = makePlugin()
+        const ctx    = { warn: vi.fn() }
+        const result = plugin.transform.call(ctx, '<div></div>', 'App.vue')
+        expect(result).toBeNull()
+    })
+
+    it('returns null for .js files', () => {
+        const plugin = makePlugin()
+        const ctx    = { warn: vi.fn() }
+        const result = plugin.transform.call(ctx, '<div></div>', 'main.js')
+        expect(result).toBeNull()
+    })
+
+    it('compiles .fusee files and returns code + map', () => {
+        const plugin = makePlugin()
+        const ctx    = { warn: vi.fn() }
+        const result = plugin.transform.call(ctx, '<div class="app"></div>', 'App.fusee')
+        expect(result).not.toBeNull()
+        expect(result.code).toContain('export function render')
+        expect(result.map).toBeNull()
+    })
+
+    it('compiles .fhtml files', () => {
+        const plugin = makePlugin()
+        const ctx    = { warn: vi.fn() }
+        const result = plugin.transform.call(ctx, '<p>{{ msg }}</p>', 'template.fhtml')
+        expect(result).not.toBeNull()
+        expect(result.code).toContain('hText(')
+    })
+
+    it('calls this.warn() for each compiler warning', () => {
+        const plugin = makePlugin()
+        const warnFn = vi.fn()
+        const ctx    = { warn: warnFn }
+        plugin.transform.call(ctx, '<li f-for="item in list"></li>', 'List.fusee')
+        expect(warnFn).toHaveBeenCalled()
+        expect(warnFn.mock.calls[0][0]).toContain('T002')
+    })
+
+    it('uses custom runtimePath in generated code', () => {
+        const plugin = makePlugin({ runtimePath: '../runtime/h.js' })
+        const ctx    = { warn: vi.fn() }
+        const result = plugin.transform.call(ctx, '<div></div>', 'App.fusee')
+        expect(result.code).toContain("from '../runtime/h.js'")
+    })
+
+    it('passes scope option to transformer', () => {
+        const plugin = makePlugin({ scope: ['count'] })
+        const warnFn = vi.fn()
+        const ctx    = { warn: warnFn }
+        plugin.transform.call(ctx, '<p>{{ typo }}</p>', 'App.fusee')
+        expect(warnFn).toHaveBeenCalled()
+        const msg = warnFn.mock.calls[0][0]
+        expect(msg).toContain('S001')
+    })
+
+    it('passes components option to parser', () => {
+        const plugin = makePlugin({ components: ['MyBtn'] })
+        const ctx    = { warn: vi.fn() }
+        const result = plugin.transform.call(ctx, '<MyBtn></MyBtn>', 'App.fusee')
+        expect(result.code).toContain('createComponent("MyBtn"')
+    })
+
+    it('does not throw on valid template', () => {
+        const plugin = makePlugin()
+        const ctx    = { warn: vi.fn() }
+        expect(() =>
+            plugin.transform.call(ctx, '<div class="ok"><p>{{ msg }}</p></div>', 'App.fusee')
+        ).not.toThrow()
+    })
+
+    it('throws CompileError on invalid template (mismatched tag)', () => {
+        const plugin = makePlugin()
+        const ctx    = { warn: vi.fn() }
+        expect(() =>
+            plugin.transform.call(ctx, '<div></span>', 'Broken.fusee')
+        ).toThrow(CompileError)
+    })
+
+    it('error message contains filename when transform throws', () => {
+        const plugin = makePlugin()
+        const ctx    = { warn: vi.fn() }
+        try {
+            plugin.transform.call(ctx, '<div></span>', 'MyComponent.fusee')
+        } catch (e) {
+            expect(e.message).toContain('MyComponent.fusee')
         }
     })
 })
