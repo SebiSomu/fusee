@@ -1,4 +1,4 @@
-import { effect, batch } from '../core/signal.js'
+import { effect, batch, signal } from '../core/signal.js'
 import { createEventHandler, registerDelegatedEvent, isDelegatedEvent } from '../core/event-delegation.js'
 
 export { effect as _effect, batch as _batch }
@@ -107,29 +107,31 @@ export function hFor(sourceGetter, renderItem, keyFn) {
     const effects = []
 
     let keyedMap = new Map()
-    let prevKeys = []
 
     const cleanup = effect(() => {
         const list = sourceGetter() ?? []
         const parent = anchor.parentNode
-        const newKeys = list.map((item, i) => keyFn(item, i))
 
         if (!parent) {
-            prevKeys = newKeys
             return
         }
 
         const newMap = new Map()
-        for (let i = 0; i < list.length; i++) {
-            const key = newKeys[i]
-            const item = list[i]
-            const exists = keyedMap.get(key)
+        const newKeys = []
 
+        for (let i = 0; i < list.length; i++) {
+            const item = list[i]
+            const tempSignal = signal(item)
+            const key = keyFn(tempSignal, i)
+            newKeys.push(key)
+
+            const exists = keyedMap.get(key)
             if (exists) {
+                exists.itemSignal(item)
                 newMap.set(key, exists)
             } else {
-                const fnode = renderItem(item, i)
-                newMap.set(key, { fnode, key })
+                const fnode = renderItem(tempSignal, i)
+                newMap.set(key, { fnode, key, itemSignal: tempSignal })
             }
         }
 
@@ -152,7 +154,6 @@ export function hFor(sourceGetter, renderItem, keyFn) {
         }
 
         keyedMap = newMap
-        prevKeys = newKeys
     })
 
     effects.push(cleanup)
@@ -403,24 +404,6 @@ function _resolveComponentProps(rawProps) {
     }
 
     return resolved
-}
-
-export function mount(renderFn, ctx, components, container) {
-    const fnodes  = renderFn(ctx, components)
-    const effects = []
-
-    for (const fnode of fnodes) {
-        if (!fnode?.node) continue
-        container.appendChild(fnode.node)
-        if (fnode.effects) effects.push(...fnode.effects)
-    }
-
-    return {
-        unmount() {
-            _unmountNodes(fnodes)
-            container.innerHTML = ''
-        }
-    }
 }
 
 export function mount(renderFn, ctx, components, container) {

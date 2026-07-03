@@ -25,6 +25,7 @@ class Generator {
             "_effect",
             "_batch",
         ]);
+        this.localScopes = [];
     }
 
     generate() {
@@ -50,7 +51,7 @@ class Generator {
             ...(hoistedDecls.length ? [...hoistedDecls, ""] : []),
             `export function render(_ctx, _components) {`,
             `    return [`,
-            ...children.map((l) => `        ${l}`),
+            children.map((l) => `        ${l}`).join(",\n"),
             `    ]`,
             `}`,
         ];
@@ -301,6 +302,10 @@ class Generator {
         this._imports.add("hFor");
 
         const { item, source, index } = forDir.arg;
+        const sourceJs = this._wrapExpr(source);
+
+        this.localScopes.push(new Set([item, index].filter(Boolean)));
+
         const innerProps = node.props.filter(
             (p) => !(p.type === NodeType.DIRECTIVE && p.name === "for"),
         );
@@ -312,17 +317,47 @@ class Generator {
         const itemParam = index ? `${item}, ${index}` : item;
         const itemParamStr = `(${itemParam})`;
         const innerJs = this._genNode(innerNode);
+        const keyJs = this._wrapExpr(keyExpr);
 
-        return `hFor(\n        () => ${this._wrapExpr(source)},\n        ${itemParamStr} => ${innerJs},\n        ${itemParamStr} => ${this._wrapExpr(keyExpr)}\n    )`;
+        this.localScopes.pop();
+
+        return `hFor(\n        () => ${sourceJs},\n        ${itemParamStr} => ${innerJs},\n        ${itemParamStr} => ${keyJs}\n    )`;
+    }
+
+    isLocal(id) {
+        return this.localScopes.some((scope) => scope.has(id));
     }
 
     _wrapExpr(expr) {
         if (expr.includes("_ctx.")) return expr;
         if (/^[a-zA-Z_$][a-zA-Z0-9_$.]*$/.test(expr.trim())) {
             const id = expr.trim();
+            if (this.isLocal(id)) return id;
             return `(typeof _ctx.${id} === 'function' && _ctx.${id}.isSignal ? _ctx.${id}() : _ctx.${id})`;
         }
 
-        return `((_c) => ${expr})(_ctx)`;
+        return this._rewriteExpr(expr);
+    }
+
+    _rewriteExpr(expr) {
+        const GLOBALS = new Set([
+            'true', 'false', 'null', 'undefined', 'NaN', 'Infinity',
+            'Array', 'Object', 'String', 'Number', 'Boolean', 'Date',
+            'Math', 'JSON', 'Promise', 'Map', 'Set', 'Symbol',
+            'parseInt', 'parseFloat', 'isNaN', 'isFinite', 'console',
+            'typeof', 'instanceof', 'void', 'delete', 'new', 'return',
+            'if', 'else', 'for', 'while', 'do', 'switch', 'case',
+            'break', 'continue', 'function', 'class', 'const', 'let',
+            'var', 'import', 'export', 'default', 'this',
+        ]);
+
+        return expr.replace(
+            /(?<![.\w$])([a-zA-Z_$][a-zA-Z0-9_$]*)(?!\s*:)(?=\s*[\(\.\,\)\]\s+\|\&\!\?\+\-\*\/\%\=\<\>]|$)/g,
+            (match, id) => {
+                if (GLOBALS.has(id)) return match;
+                if (this.isLocal(id)) return match;
+                return `_ctx.${id}`;
+            }
+        );
     }
 }
