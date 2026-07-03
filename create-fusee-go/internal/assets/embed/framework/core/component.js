@@ -1,5 +1,7 @@
 import { effect, setEffectHook, batch } from './signal.js'
 import { mountTemplate } from './compiler.js'
+import { rootInjector, runInContext, replaceActiveInjector, EnvironmentInjector } from './di.js'
+export { inject } from './di.js'
 
 let currentInstance = null
 
@@ -129,20 +131,25 @@ export function onUnmount(fn) {
 
 export function defineComponent(options) {
     return function ComponentFactory(props = {}, { listeners = {}, slots = {}, parent = null } = {}) {
+        const parentInjector = (parent && parent._injector) || rootInjector;
+
         const instance = {
             props: options.props ? resolveProps(options.props, props) : props,
             _mountHooks: [],
             _unmountHooks: [],
             _effects: [],
             _element: null,
-            _provides: {},
             _parent: parent,
+            _injector: parentInjector,
+            _ownsInjector: false
         }
 
         const emit = createEmit(listeners)
 
         currentInstance = instance
-        const result = options.setup(instance.props, { emit, slots })
+        const result = runInContext(instance._injector, () => {
+            return options.setup(instance.props, { emit, slots });
+        });
         instance.state = result
         result._instance = instance
         currentInstance = null
@@ -150,17 +157,41 @@ export function defineComponent(options) {
         function render(container) {
             instance._element = container
 
-            const resolvedTemplate = resolveSlots(result.template, slots)
+            if (options.render) {
+                const nodes = options.render(result, options.components || {})
+                container.innerHTML = ''
+                
+                function mountNode(fnode) {
+                    if (!fnode || !fnode.node) return
+                    container.appendChild(fnode.node)
+                    
+                    if (fnode.effects) {
+                        instance._effects.push(...fnode.effects)
+                    }
+                    
+                    if (fnode.children) {
+                        for (const child of fnode.children) {
+                            mountNode(child)
+                        }
+                    }
+                }
+                
+                for (const node of nodes) {
+                    mountNode(node)
+                }
+            } else {
+                const resolvedTemplate = resolveSlots(result.template, slots)
+                const { effects } = mountTemplate(
+                    resolvedTemplate,
+                    container,
+                    result,
+                    options.components || {}
+                )
+                instance._effects.push(...effects)
+            }
 
-            const { effects } = mountTemplate(
-                resolvedTemplate,
-                container,
-                result,
-                options.components || {}
-            )
-
-            instance._effects.push(...effects)
-            for (const hook of instance._mountHooks) hook()
+            for (const hook of instance._mountHooks) 
+                hook()
 
             return instance
         }
@@ -183,17 +214,21 @@ export function defineComponent(options) {
 }
 
 export function provide(key, value) {
-    if (!currentInstance) return
-    currentInstance._provides[key] = value
-}
-
-export function inject(key) {
-    let parent = currentInstance?._parent
-    while (parent) {
-        if (key in parent._provides) return parent._provides[key];
-        parent = parent._parent;
+    if (!currentInstance) return;
+    
+    if (!currentInstance._ownsInjector) {
+        currentInstance._injector = new EnvironmentInjector([], currentInstance._injector);
+        currentInstance._ownsInjector = true;
+        replaceActiveInjector(currentInstance._injector);
     }
-    return null;
+    
+    if (value === undefined && key && key.provide) {
+        currentInstance._injector.provide(key);
+    } else if (value && typeof value === 'object' && (value.useClass || value.useFactory || value.useExisting)) {
+        currentInstance._injector.provide({ provide: key, ...value });
+    } else {
+        currentInstance._injector.provide({ provide: key, useValue: value });
+    }
 }
 
 export function defineAsyncComponent(loaderOrOptions) {
@@ -202,14 +237,17 @@ export function defineAsyncComponent(loaderOrOptions) {
         : loaderOrOptions
 
     return function AsyncComponentFactory(props = {}, { listeners = {}, slots = {}, parent = null } = {}) {
+        const parentInjector = (parent && parent._injector) || rootInjector;
+
         const instance = {
             props,
             _mountHooks: [],
             _unmountHooks: [],
             _effects: [],
             _element: null,
-            _provides: {},
             _parent: parent,
+            _injector: parentInjector,
+            _ownsInjector: false
         }
 
         let childApi = null

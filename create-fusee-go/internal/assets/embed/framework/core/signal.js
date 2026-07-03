@@ -1,3 +1,6 @@
+import { getInFlightStore } from './async-context.js'
+import { _registerResourceCache, getHydratedEntries } from './hydration.js'
+
 let currentEffect = null
 let currentOwner = null
 let onEffectCreated = null
@@ -25,6 +28,34 @@ export function batch(fn) {
                 for (const eff of toRun) eff()
             }
         }
+    }
+}
+
+const asyncJobQueueHigh = []
+const asyncJobQueueLow = []
+let asyncJobFlushScheduled = false
+
+function flushAsyncJobs() {
+    asyncJobFlushScheduled = false
+
+    while (asyncJobQueueHigh.length || asyncJobQueueLow.length) {
+        const job = asyncJobQueueHigh.shift() || asyncJobQueueLow.shift()
+        try {
+            job()
+        } catch (e) {
+            console.warn('[framework] Async job error:', e)
+        }
+    }
+}
+
+export function scheduleAsyncJob(fn, opts = {}) {
+    const priority = opts.priority || 'high'
+    if (priority === 'low') asyncJobQueueLow.push(fn)
+    else asyncJobQueueHigh.push(fn)
+
+    if (!asyncJobFlushScheduled) {
+        asyncJobFlushScheduled = true
+        setTimeout(flushAsyncJobs, 0)
     }
 }
 
@@ -403,10 +434,248 @@ function hasWatchChanged(newValue, oldValue, isMultiSource, equals) {
     return !equals(newValue, oldValue)
 }
 
+export function resource(sourceOrFetcher, fetcherOrOptions, optionsObj) {
+    let source = null
+    let actualFetcher = null
+    let options = {}
+
+    if (arguments.length === 1) {
+        actualFetcher = sourceOrFetcher
+    } else if (arguments.length === 2) {
+        if (typeof fetcherOrOptions === 'function') {
+            source = sourceOrFetcher
+            actualFetcher = fetcherOrOptions
+        } else {
+            actualFetcher = sourceOrFetcher
+            options = fetcherOrOptions || {}
+        }
+    } else if (arguments.length >= 3) {
+        source = sourceOrFetcher
+        actualFetcher = fetcherOrOptions
+        options = optionsObj || {}
+    }
+
+    const data = signal(undefined)
+    const loading = signal(false)
+    const isFetching = signal(false)
+    const error = signal(undefined)
+
+    let currentPromiseId = 0
+    let currentPromise = null
+    const staleTime = typeof options.staleTime === 'number' ? options.staleTime : 0
+
+    const resourceKey = options.key !== undefined ? String(options.key) : (actualFetcher.name || 'anonymous')
+    const hydratedEntries = getHydratedEntries(resourceKey)
+    const cache = hydratedEntries ? new Map(hydratedEntries) : new Map()
+    _registerResourceCache(resourceKey, cache)
+
+    function serializeKey(input) {
+        if (input === undefined) return 'undefined'
+        if (input === null) return 'null'
+        if (typeof input === 'object') return JSON.stringify(input)
+        return String(input)
+    }
+
+    function makeScheduledPromise(runFetcher) {
+        try {
+            return Promise.resolve(runFetcher())
+        } catch (e) {
+            return Promise.reject(e)
+        }
+    }
+
+    async function load(input, force = false) {
+        const key = serializeKey(input)
+        const cached = force ? null : cache.get(key)
+        const isStale = !cached || (Date.now() - cached.updatedAt > staleTime)
+
+        if (cached) {
+            batch(() => {
+                data(cached.data)
+                error(undefined)
+                loading(false)
+            })
+            if (!isStale && !force) return
+            batch(() => { isFetching(true) })
+        } else {
+            batch(() => {
+                loading(true)
+                isFetching(true)
+                error(undefined)
+            })
+        }
+
+        const id = ++currentPromiseId
+
+        batch(() => {
+            isFetching(true)
+        })
+
+        let promise
+
+        const { byKey, byFetcher } = getInFlightStore()
+
+        if (options.key !== undefined) {
+            const dedupeKey = `key_${options.key}_${key}`
+            promise = byKey.get(dedupeKey)
+            if (!promise) {
+                promise = makeScheduledPromise(() => actualFetcher(input))
+                byKey.set(dedupeKey, promise)
+                promise.finally(() => {
+                    if (byKey.get(dedupeKey) === promise) {
+                        byKey.delete(dedupeKey)
+                    }
+                }).catch(() => {})
+            }
+        } else {
+            let inFlightMap = byFetcher.get(actualFetcher)
+            if (!inFlightMap) {
+                inFlightMap = new Map()
+                byFetcher.set(actualFetcher, inFlightMap)
+            }
+            promise = inFlightMap.get(key)
+            if (!promise) {
+                promise = makeScheduledPromise(() => actualFetcher(input))
+                inFlightMap.set(key, promise)
+                promise.finally(() => {
+                    if (inFlightMap.get(key) === promise) {
+                        inFlightMap.delete(key)
+                    }
+                }).catch(() => {})
+            }
+        }
+
+        currentPromise = promise
+
+        try {
+            const result = await promise
+
+            if (id !== currentPromiseId) return
+
+            cache.set(key, { data: result, updatedAt: Date.now() })
+
+            batch(() => {
+                data(result)
+                loading(false)
+                isFetching(false)
+            })
+
+            currentPromise = null
+        } catch (err) {
+            if (id !== currentPromiseId) return
+
+            batch(() => {
+                error(err)
+                loading(false)
+                isFetching(false)
+            })
+
+            currentPromise = null
+        }
+    }
+
+    if (source) {
+        effect(() => {
+            const input = typeof source === 'function' ? source() : source
+            if (input !== null && input !== false && input !== undefined) {
+                load(input)
+            }
+        })
+    } else {
+        load()
+    }
+
+    const accessor = () => data()
+    accessor.isSignal = true
+    accessor.loading = loading
+    accessor.isFetching = isFetching
+    accessor.error = error
+    accessor.read = () => {
+        if (loading() && currentPromise) {
+            throw currentPromise
+        }
+        const err = error()
+        if (err !== undefined) {
+            throw err
+        }
+        return data()
+    }
+
+    const mutate = (val) => {
+        const input = source ? (typeof source === 'function' ? source() : source) : undefined
+        const key = serializeKey(input)
+        cache.set(key, { data: val, updatedAt: Date.now() })
+        data(val)
+    }
+
+    const refetch = () => {
+        const input = source ? (typeof source === 'function' ? source() : source) : undefined
+        load(input, true)
+    }
+
+    return [accessor, { mutate, refetch }]
+}
+
 function runWatchCleanup(cleanupRef) {
     if (typeof cleanupRef.fn === 'function') {
         const fn = cleanupRef.fn
         cleanupRef.fn = null
         untrack(() => fn())
     }
+}
+
+export function createSuspense(renderFn, fallbackFn, options = {}) {
+    const out = signal(undefined)
+    const pending = signal(false)
+    const errSig = signal(undefined)
+
+    const retryTick = signal(0)
+    let token = 0
+
+    const dispose = effect(() => {
+        retryTick()
+        const myToken = ++token
+        let canceled = false
+        onCleanup(() => { canceled = true })
+
+        try {
+            pending(false)
+            errSig(undefined)
+            const v = renderFn()
+            out(v)
+        } catch (e) {
+            if (e instanceof Promise) {
+                pending(true)
+                errSig(undefined)
+                out(typeof fallbackFn === 'function' ? fallbackFn() : fallbackFn)
+
+                e.then(
+                    () => {
+                        if (canceled) return
+                        if (myToken !== token) return
+                        retryTick(retryTick() + 1)
+                    },
+                    (err) => {
+                        if (canceled) return
+                        if (myToken !== token) return
+                        errSig(err)
+                        pending(false)
+                        if (options.onError) options.onError(err)
+                        retryTick(retryTick() + 1)
+                    }
+                )
+
+                return
+            }
+
+            errSig(e)
+            pending(false)
+            if (options.onError) options.onError(e)
+        }
+    })
+
+    out.pending = pending
+    out.error = errSig
+
+    return [out, dispose]
 }

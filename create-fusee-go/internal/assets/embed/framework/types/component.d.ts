@@ -23,8 +23,9 @@ export type ComponentInstance = {
     _unmountHooks: (() => void)[]
     _effects: import('./signal').EffectRunner[]
     _element: HTMLElement | null
-    _provides: Record<string, any>
     _parent: ComponentInstance | null
+    _injector: import('./di').Injector
+    _ownsInjector: boolean
 }
 
 export type ComponentResult = {
@@ -54,8 +55,8 @@ export declare function onUnmount(fn: () => void): void
 export declare function parseSlots(slotHTML: string): Slots
 export declare function getCurrentInstance(): ComponentInstance | null
 
-export declare function provide<T>(key: string, value: T): void
-export declare function inject<T>(key: string): T | null
+export declare function provide(keyOrProvider: any, value?: any): void
+export { inject } from './di'
 
 type InferPropType<T> = T extends StringConstructor ? string :
     T extends NumberConstructor ? number :
