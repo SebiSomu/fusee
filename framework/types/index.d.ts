@@ -32,3 +32,7 @@ declare global {
 }
 
 export as namespace Fusee
+
+declare module '*.template.html' {
+    export const render: (_ctx: any, _components: any) => any[]
+}

@@ -54,6 +54,7 @@ export declare function fuseePlugin(options?: FuseePluginOptions): {
 export { fileRouterPlugin } from './plugins/file-router-plugin.js'
 export { actionsPlugin } from './plugins/actions-plugin.js'
 export { routerPlugin } from './plugins/router-plugin.js'
+export { fuseeCompilerPlugin } from './plugins/compiler-plugin.js'
 export { compileFileRoutes, generateRoutesModule, generateRouteTypes, validateRoutes as validateFileRoutes } from './plugins/file-router-plugin.js'
 export { validateActions, generateClientStubs, generateServerRoutes, generateActionTypes } from './plugins/actions-plugin.js'
 export { validateRoutes, generateRouterTypes } from './plugins/router-plugin.js'
