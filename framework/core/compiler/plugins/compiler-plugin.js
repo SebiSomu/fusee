@@ -1,4 +1,4 @@
-import { compile } from '../core/compiler/main-compiler.js';
+import { compile } from '../main-compiler.js';
 import fs from 'node:fs';
 import path from 'node:path';
 

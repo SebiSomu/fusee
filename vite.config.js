@@ -2,7 +2,7 @@ import { defineConfig } from 'vite'
 import path from 'path'
 import AutoImport from 'unplugin-auto-import/vite'
 import { FuseePreset } from './framework/auto-import-preset.js'
-import { fuseeCompilerPlugin } from './framework/plugins/compiler-plugin.js'
+import { fuseeCompilerPlugin } from './framework/core/compiler/plugins/compiler-plugin.js'
 
 export default defineConfig({
     root: '.',
@@ -20,6 +20,10 @@ export default defineConfig({
             '@app': path.resolve(__dirname, './app'),
             '@shared/config': path.resolve(__dirname, '../shared-config/index.ts')
         }
+    },
+
+    optimizeDeps: {
+        exclude: ['fusee-framework']
     },
 
     server: {

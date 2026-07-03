@@ -8,6 +8,8 @@ export const FuseePreset = {
         'defineStore', 'resetStore', 'clearStores',
         'registerStorePlugin', 'useNestedStore',
         'storeToRefs', 'storeToState', 'storeToGetters',
-        'MutationType'
+        'MutationType',
+        'provide', 'inject', 'provideGlobal', 'InjectionToken',
+        'defineComposable', 'assertSetupContext'
     ]
 }

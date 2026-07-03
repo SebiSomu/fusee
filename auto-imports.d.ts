@@ -6,11 +6,14 @@
 // biome-ignore lint: disable
 export {}
 declare global {
+  const InjectionToken: typeof import('fusee-framework').InjectionToken
   const MutationType: typeof import('fusee-framework').MutationType
+  const assertSetupContext: typeof import('fusee-framework').assertSetupContext
   const batch: typeof import('fusee-framework').batch
   const clearStores: typeof import('fusee-framework').clearStores
   const computed: typeof import('fusee-framework').computed
   const defineComponent: typeof import('fusee-framework').defineComponent
+  const defineComposable: typeof import('fusee-framework').defineComposable
   const defineStore: typeof import('fusee-framework').defineStore
   const directive: typeof import('fusee-framework').directive
   const effect: typeof import('fusee-framework').effect
@@ -23,6 +26,7 @@ declare global {
   const onMount: typeof import('fusee-framework').onMount
   const onUnmount: typeof import('fusee-framework').onUnmount
   const provide: typeof import('fusee-framework').provide
+  const provideGlobal: typeof import('fusee-framework').provideGlobal
   const registerStorePlugin: typeof import('fusee-framework').registerStorePlugin
   const resetStore: typeof import('fusee-framework').resetStore
   const signal: typeof import('fusee-framework').signal

@@ -37,7 +37,7 @@ export function evaluateExpression(expr, context, extraContext = {}, unwrapSigna
             ).join('\n')
             let wrappedExpr = expr
             for (const id of keysToUnwrap) {
-                wrappedExpr = wrappedExpr.replace(new RegExp('\\b' + id + '\\b(?![\\.\\(])', 'g'), '__' + id)
+                wrappedExpr = wrappedExpr.replace(new RegExp('\\b' + id + '\\b(?!\\(|\\.loading\\b|\\.error\\b|\\.isFetching\\b)', 'g'), '__' + id)
             }
             body = (unwrapStatements ? unwrapStatements + '\n' : '') + `return ${wrappedExpr}`
         }
