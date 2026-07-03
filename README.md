@@ -1,6 +1,6 @@
 # Fusée Framework
 
-**v1.9.0 — Signals-First JS Framework | Atomic Reactivity | Peak Performance**
+**v1.9.1 — Signals-First JS Framework | Atomic Reactivity | Peak Performance**
 
 Fusée is a custom, high-performance fine-grained reactive JavaScript framework built for speed and simplicity. It features a recursive, non-greedy compiler, a signals-based reactivity engine, Dependency Injection for components and a comprehensive CLI for instant application scaffolding.
 
