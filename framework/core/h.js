@@ -107,6 +107,7 @@ export function hFor(sourceGetter, renderItem, keyFn) {
     const effects = []
 
     let keyedMap = new Map()
+    const keyEvaluatorSignal = signal(null)
 
     const cleanup = effect(() => {
         const list = sourceGetter() ?? []
@@ -121,17 +122,21 @@ export function hFor(sourceGetter, renderItem, keyFn) {
 
         for (let i = 0; i < list.length; i++) {
             const item = list[i]
-            const tempSignal = signal(item)
-            const key = keyFn(tempSignal, i)
+            
+            keyEvaluatorSignal(item)
+            const key = keyFn(keyEvaluatorSignal, i)
             newKeys.push(key)
 
             const exists = keyedMap.get(key)
             if (exists) {
-                exists.itemSignal(item)
+                if (exists.itemSignal() !== item) {
+                    exists.itemSignal(item)
+                }
                 newMap.set(key, exists)
             } else {
-                const fnode = renderItem(tempSignal, i)
-                newMap.set(key, { fnode, key, itemSignal: tempSignal })
+                const itemSignal = signal(item)
+                const fnode = renderItem(itemSignal, i)
+                newMap.set(key, { fnode, key, itemSignal })
             }
         }
 
