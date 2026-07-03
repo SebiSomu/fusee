@@ -59,10 +59,7 @@ function _validateLevel(routes, prefix, warnings, errors) {
         const fullPath = (prefix + '/' + route.path).replace(/\/+/g, '/') || '/'
 
         if (hasWildcard && route.path !== '*') {
-            errors.push(
-                `Route "${fullPath}" is defined after a wildcard "*" at the same level — ` +
-                `it will never be reached`
-            )
+            errors.push(`Route "${fullPath}" is defined after a wildcard "*" at the same level — it will never be reached`)
         }
 
         if (route.path === '*') {
@@ -77,10 +74,7 @@ function _validateLevel(routes, prefix, warnings, errors) {
 
         if (!segment.startsWith(':') && !segment.startsWith('*')) {
             if (seenStatic.has(route.path)) {
-                errors.push(
-                    `Duplicate route path "${fullPath}" — ` +
-                    `defined more than once at the same level`
-                )
+                errors.push(`Duplicate route path "${fullPath}" — defined more than once at the same level`)
             } else {
                 seenStatic.set(route.path, route)
             }
@@ -118,7 +112,7 @@ export function generateRouterTypes(routes) {
 
     _collectPaths(routes, '', allPaths, paramMap)
 
-    const staticPaths  = allPaths.filter(p => !p.includes(':') && p !== '*')
+    const staticPaths = allPaths.filter(p => !p.includes(':') && p !== '*')
     const dynamicPaths = allPaths.filter(p => p.includes(':'))
 
     const pathUnion = [...staticPaths, ...dynamicPaths]
