@@ -2,10 +2,12 @@ import { defineConfig } from 'vite'
 import path from 'path'
 import AutoImport from 'unplugin-auto-import/vite'
 import { FuseePreset } from './framework/auto-import-preset.js'
+import { fuseeCompilerPlugin } from './framework/plugins/compiler-plugin.js'
 
 export default defineConfig({
     root: '.',
     plugins: [
+        fuseeCompilerPlugin(),
         AutoImport({
             imports: [FuseePreset],
             dts: true,
@@ -16,6 +18,7 @@ export default defineConfig({
         alias: {
             'fusee-framework': path.resolve(__dirname, './framework'),
             '@app': path.resolve(__dirname, './app'),
+            '@shared/config': path.resolve(__dirname, '../shared-config/index.ts')
         }
     },
 
