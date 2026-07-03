@@ -157,17 +157,41 @@ export function defineComponent(options) {
         function render(container) {
             instance._element = container
 
-            const resolvedTemplate = resolveSlots(result.template, slots)
+            if (options.render) {
+                const nodes = options.render(result, options.components || {})
+                container.innerHTML = ''
+                
+                function mountNode(fnode) {
+                    if (!fnode || !fnode.node) return
+                    container.appendChild(fnode.node)
+                    
+                    if (fnode.effects) {
+                        instance._effects.push(...fnode.effects)
+                    }
+                    
+                    if (fnode.children) {
+                        for (const child of fnode.children) {
+                            mountNode(child)
+                        }
+                    }
+                }
+                
+                for (const node of nodes) {
+                    mountNode(node)
+                }
+            } else {
+                const resolvedTemplate = resolveSlots(result.template, slots)
+                const { effects } = mountTemplate(
+                    resolvedTemplate,
+                    container,
+                    result,
+                    options.components || {}
+                )
+                instance._effects.push(...effects)
+            }
 
-            const { effects } = mountTemplate(
-                resolvedTemplate,
-                container,
-                result,
-                options.components || {}
-            )
-
-            instance._effects.push(...effects)
-            for (const hook of instance._mountHooks) hook()
+            for (const hook of instance._mountHooks) 
+                hook()
 
             return instance
         }
