@@ -171,11 +171,11 @@ export function hFor(sourceGetter, renderItem, keyFn) {
     }
 }
 
-export function hSlot(slots, name, fallback = [], props = {}) {
+export function hSlot(slots, name, fallback = []) {
     const anchor = document.createComment(`slot:${name}`)
     const effects = []
     const slotFn = slots?.[name]
-    const nodes = typeof slotFn === 'function' ? slotFn(props) : fallback
+    const nodes = typeof slotFn === 'function' ? slotFn() : fallback
     return {
         node: anchor,
         effects,
@@ -191,7 +191,28 @@ export function createComponent(name, ComponentFn, rawProps = {}, rawSlots = {})
         return { node: placeholder, effects: [] }
     }
 
-    const resolvedProps = _resolveComponentProps(rawProps)
+    // FALLTHROUGH LOGIC: Separăm props vs fallthrough attrs
+    const declaredProps = ComponentFn.props || [] 
+    const componentProps = {}
+    const fallthroughAttrs = {}
+
+    for (const [key, value] of Object.entries(rawProps)) {
+        if (key.startsWith('on:')) continue
+
+        // Dacă componenta declară explicit props, separăm strict
+        if (declaredProps.length > 0 && declaredProps.includes(key)) {
+            componentProps[key] = value
+        } 
+        // Dacă nu le declară, le trimitem pe toate componentei, dar nu facem fallthrough
+        else if (declaredProps.length === 0) {
+            componentProps[key] = value
+        } 
+        else {
+            fallthroughAttrs[key] = value
+        }
+    }
+
+    const resolvedProps = _resolveComponentProps(componentProps)
     const listeners = {}
     const slots = {}
 
@@ -213,6 +234,12 @@ export function createComponent(name, ComponentFn, rawProps = {}, rawSlots = {})
     const root = container.firstElementChild ?? container
 
     const effects = []
+    
+    // APLICĂ FALLTHROUGH PE RĂDĂCINĂ
+    if (Object.keys(fallthroughAttrs).length > 0) {
+        _applyProps(root, fallthroughAttrs, effects)
+    }
+
     effects.push(() => api.unmount())
 
     return { node: root, effects, _component: api }
@@ -233,6 +260,20 @@ function _applyProps(el, props, effects) {
                 el.addEventListener(eventName, wrappedHandler)
                 cleanup = () => el.removeEventListener(eventName, wrappedHandler)
             }
+            effects.push(cleanup)
+            continue
+        }
+
+        // SUPORT PENTRU F-BIND (OBIECT SPREAD)
+        if (key === 'f-bind') {
+            const cleanup = effect(() => {
+                const attrs = typeof value === 'function' ? value() : value
+                if (attrs && typeof attrs === 'object') {
+                    for (const [k, v] of Object.entries(attrs)) {
+                        _applyAttr(el, k, v)
+                    }
+                }
+            })
             effects.push(cleanup)
             continue
         }
