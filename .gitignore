@@ -47,3 +47,5 @@ benchmark/
 
 vite.config.js.timestamp-*
 *.txt
+
+fusee-benchmarks

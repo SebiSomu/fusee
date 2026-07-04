@@ -107,6 +107,7 @@ export function hFor(sourceGetter, renderItem, keyFn) {
     const effects = []
 
     let keyedMap = new Map()
+    let oldKeys  = []
     const keyEvaluatorSignal = signal(null)
 
     const cleanup = effect(() => {
@@ -117,15 +118,33 @@ export function hFor(sourceGetter, renderItem, keyFn) {
             return
         }
 
+        const newKeys = new Array(list.length)
+        for (let i = 0; i < list.length; i++) {
+            keyEvaluatorSignal(list[i])
+            newKeys[i] = keyFn(keyEvaluatorSignal, i)
+        }
+
+        if (oldKeys.length === newKeys.length) {
+            let identical = true
+            for (let i = 0; i < newKeys.length; i++) {
+                if (oldKeys[i] !== newKeys[i]) { identical = false; break }
+            }
+            if (identical) {
+                for (let i = 0; i < list.length; i++) {
+                    const entry = keyedMap.get(newKeys[i])
+                    if (entry.itemSignal() !== list[i]) {
+                        entry.itemSignal(list[i])
+                    }
+                }
+                return
+            }
+        }
+
         const newMap = new Map()
-        const newKeys = []
 
         for (let i = 0; i < list.length; i++) {
             const item = list[i]
-            
-            keyEvaluatorSignal(item)
-            const key = keyFn(keyEvaluatorSignal, i)
-            newKeys.push(key)
+            const key  = newKeys[i]
 
             const exists = keyedMap.get(key)
             if (exists) {
@@ -146,19 +165,35 @@ export function hFor(sourceGetter, renderItem, keyFn) {
             }
         }
 
-        for (let i = newKeys.length - 1; i >= 0; i--) {
-            const key = newKeys[i]
-            const entry = newMap.get(key)
-            const ref = i === newKeys.length - 1 ? anchor : newMap.get(newKeys[i + 1])?.fnode?.node
+        const newEntries = newKeys.map(k => newMap.get(k))
+        const oldIndexOf = new Map()
+        oldKeys.forEach((k, i) => oldIndexOf.set(k, i))
 
-            if (ref && entry.fnode.node.nextSibling !== ref) {
-                parent.insertBefore(entry.fnode.node, ref ?? anchor)
-            } else if (!entry.fnode.node.parentNode) {
-                parent.insertBefore(entry.fnode.node, anchor)
+        const posMap = newEntries.map(entry => {
+            const idx = oldIndexOf.get(entry.key)
+            return idx === undefined ? -1 : idx
+        })
+
+        const lisIndices = _getLIS(posMap)
+        let lisPtr = lisIndices.length - 1
+
+        for (let i = newEntries.length - 1; i >= 0; i--) {
+            const entry = newEntries[i]
+            const ref = i === newEntries.length - 1 ? anchor : newEntries[i + 1].fnode.node
+            const inLis = lisPtr >= 0 && i === lisIndices[lisPtr]
+
+            if (inLis) {
+                lisPtr--
+                if (!entry.fnode.node.parentNode) {
+                    parent.insertBefore(entry.fnode.node, ref)
+                }
+            } else if (entry.fnode.node.nextSibling !== ref || !entry.fnode.node.parentNode) {
+                parent.insertBefore(entry.fnode.node, ref)
             }
         }
 
         keyedMap = newMap
+        oldKeys  = newKeys
     })
 
     effects.push(cleanup)
@@ -169,6 +204,41 @@ export function hFor(sourceGetter, renderItem, keyFn) {
         _isFor: true,
         _getNodes: () => [...keyedMap.values()].map(e => e.fnode),
     }
+}
+
+function _getLIS(arr) {
+    const p = arr.slice()
+    const result = []
+
+    for (let i = 0; i < arr.length; i++) {
+        if (arr[i] === -1) continue
+
+        if (result.length === 0 || arr[result[result.length - 1]] < arr[i]) {
+            p[i] = result.length ? result[result.length - 1] : -1
+            result.push(i)
+            continue
+        }
+
+        let lo = 0, hi = result.length - 1
+        while (lo < hi) {
+            const mid = (lo + hi) >> 1
+            if (arr[result[mid]] < arr[i]) lo = mid + 1
+            else hi = mid
+        }
+        if (arr[i] < arr[result[lo]]) {
+            p[i] = lo > 0 ? result[lo - 1] : -1
+            result[lo] = i
+        }
+    }
+
+    let u = result.length
+    let v = u > 0 ? result[u - 1] : -1
+    const seq = new Array(u)
+    while (u-- > 0) {
+        seq[u] = v
+        v = p[v]
+    }
+    return seq
 }
 
 export function hSlot(slots, name, fallback = []) {
