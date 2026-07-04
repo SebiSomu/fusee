@@ -200,6 +200,7 @@ class Parser {
             (p) => p.type === NodeType.ATTRIBUTE && p.name === "name",
         );
         const slotName = nameAttr?.value ?? "default";
+        const passProps = props.filter((p) => p !== nameAttr);
         let fallback = [];
         if (!selfClosing) {
             this.stack.push("slot");
@@ -207,7 +208,8 @@ class Parser {
             this.stack.pop();
             if (this._peek()?.type === TokenType.TAG_OPEN_CLOSE) {
                 this._advance();
-                if (this._peek()?.type === TokenType.TAG_CLOSE) this._advance();
+                if (this._peek()?.type === TokenType.TAG_CLOSE) 
+                    this._advance();
             }
         }
 
@@ -215,11 +217,14 @@ class Parser {
             slotName,
             fallback,
             createLoc(startLoc, this._startLoc()),
+            passProps,
         );
     }
 
     _buildSlotContent(slotAttr, props, startLoc, selfClosing) {
         const slotName = slotAttr.value ?? "default";
+        const scopeAttr = props.find((p) => p.type === NodeType.ATTRIBUTE && p.name === "slot-scope");
+        const slotProps = scopeAttr?.value ?? null;
         let children = [];
 
         if (!selfClosing) {
@@ -236,17 +241,21 @@ class Parser {
             slotName,
             children,
             createLoc(startLoc, this._startLoc()),
+            slotProps,
         );
     }
 
     _extractSlots(children) {
-        const slots = { default: [] };
+        const slots = { default: { children: [], slotProps: null } };
 
         for (const child of children) {
             if (child.type === NodeType.SLOT_CONTENT) {
-                slots[child.slotName] = child.children;
+                slots[child.slotName] = {
+                    children: child.children,
+                    slotProps: child.slotProps,
+                };
             } else {
-                slots.default.push(child);
+                slots.default.children.push(child);
             }
         }
 

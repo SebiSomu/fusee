@@ -91,9 +91,9 @@ function markStaticPass(node, ctx) {
     if (node.type === NodeType.COMPONENT) {
         node.isStatic = false
         if (node.slots) {
-            for (const slotChildren of Object.values(node.slots)) {
-                if (Array.isArray(slotChildren)) 
-                    slotChildren.forEach(c => markStaticPass(c, ctx))
+            for (const slot of Object.values(node.slots)) {
+                if (slot?.children) 
+                    slot.children.forEach(c => markStaticPass(c, ctx))
             }
         }
         return false
@@ -221,10 +221,11 @@ function analyseScope(node, ctx, localScope) {
             }
 
             if (node.slots) {
-                for (const slotChildren of Object.values(node.slots)) {
-                    if (Array.isArray(slotChildren)) {
-                        for (const c of slotChildren) 
-                            analyseScope(c, ctx, childScope)
+                for (const slot of Object.values(node.slots)) {
+                    if (slot?.children) {
+                        const slotScope = _extendScopeFromSlotProps(childScope, slot.slotProps)
+                        for (const c of slot.children) 
+                            analyseScope(c, ctx, slotScope)
                     }
                 }
             }
@@ -343,6 +344,20 @@ function _extendScopeFromFor(parentScope, forArg) {
     return extended
 }
 
+function _extendScopeFromSlotProps(parentScope, pattern) {
+    if (!pattern) 
+        return parentScope
+
+    const extended = new Set(parentScope)
+    const RE = /[a-zA-Z_$][a-zA-Z0-9_$]*/g
+    let m
+
+    while ((m = RE.exec(pattern)) !== null) 
+        extended.add(m[0])
+
+    return extended
+}
+
 const JS_GLOBALS = new Set([
     'Math', 'Object', 'Array', 'String', 'Number', 'Boolean', 'Symbol', 
     'Date', 'RegExp', 'Map', 'Set', 'WeakMap', 'WeakSet', 'WeakRef',
@@ -378,9 +393,9 @@ function walkChildren(node, visitor) {
     }
 
     if (node.slots) {
-        for (const slotChildren of Object.values(node.slots)) {
-            if (Array.isArray(slotChildren)) {
-                for (const c of slotChildren) 
+        for (const slot of Object.values(node.slots)) {
+            if (slot?.children) {
+                for (const c of slot.children) 
                     walkChildren(c, visitor)
             }
         }

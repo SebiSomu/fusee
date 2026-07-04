@@ -108,20 +108,22 @@ export function createDirective(name, expression = null, arg = null, loc = null)
     }
 }
 
-export function createSlotOutlet(slotName = 'default', fallback = [], loc = null) {
+export function createSlotOutlet(slotName = 'default', fallback = [], loc = null, props = []) {
     return {
         type: NodeType.SLOT_OUTLET,
         slotName,
         fallback,
+        props,
         loc
     }
 }
 
-export function createSlotContent(slotName = 'default', children = [], loc = null) {
+export function createSlotContent(slotName = 'default', children = [], loc = null, slotProps = null) {
     return {
         type: NodeType.SLOT_CONTENT,
         slotName,
         children,
+        slotProps,
         loc
     }
 }

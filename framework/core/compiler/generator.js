@@ -135,7 +135,24 @@ class Generator {
         this._imports.add("hSlot");
         const name = JSON.stringify(node.slotName);
         const fallback = this._genChildrenArray(node.fallback);
-        return `hSlot(_ctx._slots, ${name}, ${fallback})`;
+        const props = this._genSlotOutletProps(node.props);
+        return `hSlot(_ctx._slots, ${name}, ${fallback}, ${props})`;
+    }
+
+    _genSlotOutletProps(props) {
+        if (!props || props.length === 0) return "{}";
+
+        const entries = [];
+
+        for (const prop of props) {
+            if (prop.type === NodeType.ATTRIBUTE) {
+                entries.push(`${JSON.stringify(prop.name)}: ${JSON.stringify(prop.value ?? true)}`);
+            } else if (prop.type === NodeType.BINDING) {
+                entries.push(`${JSON.stringify(prop.name)}: ${this._wrapExpr(prop.expression.content)}`);
+            }
+        }
+
+        return `{ ${entries.join(", ")} }`;
     }
 
     _genIf(node) {
@@ -276,12 +293,29 @@ class Generator {
     _genSlots(slots) {
         if (!slots || Object.keys(slots).length === 0) return "{}";
 
-        const entries = Object.entries(slots).map(([name, children]) => {
-            const childrenJs = this._genChildrenArray(children);
-            return `${JSON.stringify(name)}: () => ${childrenJs}`;
+        const entries = Object.entries(slots).map(([name, slot]) => {
+            const paramNames = this._extractSlotParamNames(slot.slotProps);
+            if (paramNames.length) this.localScopes.push(new Set(paramNames));
+
+            const childrenJs = this._genChildrenArray(slot.children);
+
+            if (paramNames.length) this.localScopes.pop();
+
+            const param = slot.slotProps ? `(${slot.slotProps})` : "()";
+            return `${JSON.stringify(name)}: ${param} => ${childrenJs}`;
         });
 
         return `{ ${entries.join(", ")} }`;
+    }
+
+    _extractSlotParamNames(pattern) {
+        if (!pattern) return [];
+        const ids = new Set();
+        const RE = /[a-zA-Z_$][a-zA-Z0-9_$]*/g;
+        let m;
+        while ((m = RE.exec(pattern)) !== null) 
+            ids.add(m[0]);
+        return [...ids];
     }
 
     _genChildrenArray(children) {

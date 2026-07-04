@@ -171,11 +171,11 @@ export function hFor(sourceGetter, renderItem, keyFn) {
     }
 }
 
-export function hSlot(slots, name, fallback = []) {
+export function hSlot(slots, name, fallback = [], props = {}) {
     const anchor = document.createComment(`slot:${name}`)
     const effects = []
     const slotFn = slots?.[name]
-    const nodes = typeof slotFn === 'function' ? slotFn() : fallback
+    const nodes = typeof slotFn === 'function' ? slotFn(props) : fallback
     return {
         node: anchor,
         effects,
