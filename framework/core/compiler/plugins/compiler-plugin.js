@@ -32,12 +32,7 @@ export function fuseeCompilerPlugin() {
                     const namedMatch = fullImport.match(/\{\s*render\s+as\s+([\w$]+)\s*\}/);
                     const defaultMatch = fullImport.match(/import\s+([\w$]+)\s+from/);
                     const localName = namedMatch ? namedMatch[1] : (defaultMatch ? defaultMatch[1] : 'render');
-
-                    const inlined = compiledCode.replace(
-                        'export function render(',
-                        `function ${localName}(`
-                    );
-
+                    const inlined = compiledCode.replace('export function render(', `function ${localName}(`);
                     result = result.replace(fullImport, inlined);
                 }
             }

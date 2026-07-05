@@ -3,7 +3,7 @@ import { parse } from './parser.js'
 import { transform } from './transformer.js'
 import { generate } from './generator.js'
 import { CompileError, ErrorCollector } from './errors.js'
-import { compileModule } from './compileModule.js'
+import { compileModule } from './compile-module.js'
 
 export { compileModule }
 

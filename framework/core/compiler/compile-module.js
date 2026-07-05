@@ -6,6 +6,12 @@ const RUNE_TO_RUNTIME = {
     signal: 'signal',
     computed: 'computed',
     effect: 'effect',
+    watch: 'watch',
+    batch: 'batch',
+    untrack: 'untrack',
+    resource: 'resource',
+    provide: 'provide',
+    inject: 'inject',
 }
 
 export function compileModule(source, options = {}) {
@@ -23,7 +29,7 @@ export function compileModule(source, options = {}) {
     }
 
     const s = new MagicString(source)
-    const runes = new Map()   
+    const runes = new Map()
     const warnings = []
 
     collectRuneDeclarations(ast, runes, warnings)
@@ -66,8 +72,8 @@ function collectRuneDeclarations(ast, runes, warnings) {
 
         ExpressionStatement(node) {
             const rune = matchRuneCall(node.expression)
-            if (rune && rune.kind === 'effect') {
-                runes.set(node.expression, { kind: 'effect', callNode: node.expression, bare: true })
+            if (rune) {
+                runes.set(node.expression, { kind: rune.kind, callNode: node.expression, bare: true })
             }
         },
     })
@@ -97,9 +103,11 @@ function rewriteRuneDeclarations(ast, s, runes) {
 
         if (entry.kind === 'computed') {
             const arg = entry.callNode.arguments[0]
-            if (arg) s.appendLeft(arg.start, '() => ')
+            if (arg && arg.type !== 'ArrowFunctionExpression' && arg.type !== 'FunctionExpression') {
+                s.appendLeft(arg.start, '() => ')
+            }
         }
-        
+
         const decl = findParentVariableDeclaration(ast, entry.declaratorNode)
         if (decl && decl.declarations.length === 1 && decl.kind !== 'const') {
             s.overwrite(decl.start, decl.start + decl.kind.length, 'const')
@@ -175,26 +183,57 @@ function bindingDeclares(pattern, name) {
 function rewriteRuneUsages(ast, s, runes, warnings) {
     const visitOccurrence = (node, ancestors) => {
         if (!runes.has(node.name)) return
+        const runeEntry = runes.get(node.name)
         const parent = ancestors[ancestors.length - 2]
         if (!parent) return
         if (parent.type === 'VariableDeclarator' && parent.id === node) return
-
-        if (isShadowed(node.name, ancestors, runes.get(node.name).declaratorNode)) return
-
+        if (isShadowed(node.name, ancestors, runeEntry.declaratorNode)) return
         if (parent.type === 'MemberExpression' && parent.property === node && !parent.computed) return
-
         if (parent.type === 'Property' && parent.key === node && !parent.computed && !parent.shorthand) return
-
         if (parent.type === 'ObjectPattern' || parent.type === 'ArrayPattern') {
             warnings.push(`Cannot use rune "${node.name}" as a destructuring target — skipping.`)
             return
         }
 
-        if (
-            (parent.type === 'FunctionDeclaration' || parent.type === 'FunctionExpression' || parent.type === 'ArrowFunctionExpression') && parent.params.includes(node) ||
-            parent.type === 'CatchClause' && parent.param === node
-        ) {
+        if (((parent.type === 'FunctionDeclaration' || parent.type === 'FunctionExpression' || parent.type === 'ArrowFunctionExpression') && parent.params.includes(node)) || (parent.type === 'CatchClause' && parent.param === node)) {
             return
+        }
+        let inReturnStatement = false
+        let inObjectLiteralValue = false
+
+        for (let i = ancestors.length - 1; i >= 0; i--) {
+            const ancestor = ancestors[i]
+            if (ancestor.type === 'ReturnStatement') {
+                inReturnStatement = true
+                break
+            }
+            if (ancestor.type === 'Property' && ancestor.value === node) {
+                inObjectLiteralValue = true
+                break
+            }
+            
+            if (ancestor.type === 'Property' && ancestor.shorthand && ancestor.key === node) {
+                inObjectLiteralValue = true
+                break
+            }
+            if (ancestor.type === 'ArrayExpression' && ancestor.elements.includes(node)) {
+                inObjectLiteralValue = true
+                break
+            }
+        }
+
+        if (inReturnStatement || inObjectLiteralValue) {
+            let isAssignmentLeft = false
+            for (let i = ancestors.length - 1; i >= 0; i--) {
+                const ancestor = ancestors[i]
+                if (ancestor.type === 'AssignmentExpression' && ancestor.left === node) {
+                    isAssignmentLeft = true
+                    break
+                }
+            }
+            if (!isAssignmentLeft) {
+                return
+            }
         }
 
         if (parent.type === 'Property' && parent.shorthand) {
@@ -202,24 +241,26 @@ function rewriteRuneUsages(ast, s, runes, warnings) {
             return
         }
 
-        if (parent.type === 'AssignmentExpression' && parent.left === node) {
-            if (parent.operator === '=') {
-                s.overwrite(node.start, parent.right.start, `${node.name}(`)
-            } else {
-                const op = parent.operator.slice(0, -1)
-                s.overwrite(node.start, parent.right.start, `${node.name}(${node.name}() ${op} `)
+        if (['signal', 'resource'].includes(runeEntry.kind)) {
+            if (parent.type === 'AssignmentExpression' && parent.left === node) {
+                if (parent.operator === '=') {
+                    s.overwrite(node.start, parent.right.start, `${node.name}(`)
+                } else {
+                    const op = parent.operator.slice(0, -1)
+                    s.overwrite(node.start, parent.right.start, `${node.name}(${node.name}() ${op} `)
+                }
+                s.appendRight(parent.end, ')')
+                return
             }
-            s.appendRight(parent.end, ')')
-            return
-        }
 
-        if (parent.type === 'UpdateExpression' && parent.argument === node) {
-            const op = parent.operator[0]
-            s.overwrite(parent.start, parent.end, `${node.name}(${node.name}() ${op} 1)`)
-            return
-        }
+            if (parent.type === 'UpdateExpression' && parent.argument === node) {
+                const op = parent.operator[0]
+                s.overwrite(parent.start, parent.end, `${node.name}(${node.name}() ${op} 1)`)
+                return
+            }
 
-        s.appendLeft(node.end, '()')
+            s.appendLeft(node.end, '()')
+        }
     }
 
     walkAncestor(ast, {

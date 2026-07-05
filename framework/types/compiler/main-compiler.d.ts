@@ -2,6 +2,7 @@ import type { RootNode } from './ast.js'
 import type { Token } from './lexer.js'
 import type { CompileWarning } from './errors.js'
 import type { CompileError } from './errors.js'
+import type { CompileModuleOptions, CompileModuleResult } from './rune-compiler.js'
 
 export interface CompileOptions {
     components?: string[] | Set<string>
