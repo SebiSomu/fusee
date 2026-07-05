@@ -1,500 +1,283 @@
-import { effect, batch, signal } from '../core/signal.js'
-import { createEventHandler, registerDelegatedEvent, isDelegatedEvent } from '../core/event-delegation.js'
+import { effect, batch, signal, untrack } from '../core/signal.js';
+import { createEventHandler, registerDelegatedEvent, isDelegatedEvent } from '../core/event-delegation.js';
 
-export { effect as _effect, batch as _batch }
+export { effect as _effect, batch as _batch };
 
-function isGetter(v) {
-    return typeof v === 'function' && !v.isSignal
+export function _template(html) {
+    const t = document.createElement('template');
+    t.innerHTML = html;
+    return t.content.firstChild;
 }
 
-const SENSITIVE_ATTRS  = new Set(['href', 'src', 'srcset', 'formaction', 'xlink:href', 'data'])
-const DANGEROUS_SCHEME = /^(javascript|data|vbscript|file):/i
+export function _createTextNode(text) {
+    return document.createTextNode(text);
+}
 
-function sanitize(name, value) {
-    if (SENSITIVE_ATTRS.has(name.toLowerCase())) {
-        const trimmed = String(value).trim()
-        if (DANGEROUS_SCHEME.test(trimmed)) {
-            console.warn(`[fusée] Blocked potential XSS on "${name}": "${value}"`)
-            return 'about:blank'
-        }
+export function _walk(node, path) {
+    let current = node;
+    for (let i = 0; i < path.length; i++) {
+        current = current.childNodes[path[i]];
     }
-    return value
+    return current;
 }
 
-export function h(tag, props = {}, children = [], isStatic = false) {
-    const el = document.createElement(tag)
-    const effects = []
-
-    if (!isStatic) {
-        _applyProps(el, props, effects)
+export function _setClass(el, value) {
+    const val = typeof value === 'function' ? value() : value;
+    if (typeof val === 'string') {
+        el.className = val;
+    } else if (Array.isArray(val)) {
+        el.className = val.filter(Boolean).join(' ');
+    } else if (val && typeof val === 'object') {
+        el.className = Object.entries(val).filter(([, v]) => !!v).map(([k]) => k).join(' ');
     } else {
-        _applyStaticProps(el, props)
-    }
-
-    const childNodes = _mountChildren(el, children, effects)
-
-    return {
-        node: el,
-        effects,
-        props,
-        children: childNodes,
-        _tag: tag,
+        el.className = '';
     }
 }
 
-export function hText(value) {
-    const node = document.createTextNode('')
-    const effects = []
-
-    if (typeof value === 'function') {
-        const cleanup = effect(() => {
-            node.textContent = String(value() ?? '')
-        })
-        effects.push(cleanup)
+export function _setStyle(el, value) {
+    const val = typeof value === 'function' ? value() : value;
+    if (val !== null && typeof val === 'object') {
+        for (const k in val) el.style[k] = val[k];
     } else {
-        node.textContent = String(value ?? '')
-    }
-
-    return { node, effects }
-}
-
-export function hIf(branches) {
-    const anchor  = document.createComment('f-if')
-    const effects = []
-
-    let currentNodes  = []
-    let currentBranch = -1
-
-    const cleanup = effect(() => {
-        let matchIdx = -1
-        for (let i = 0; i < branches.length; i++) {
-            const [cond] = branches[i]
-            if (cond === null || cond()) { matchIdx = i; break }
-        }
-
-        if (matchIdx === currentBranch) return
-
-        _unmountNodes(currentNodes)
-        currentNodes  = []
-        currentBranch = matchIdx
-
-        if (matchIdx === -1) return
-
-        const [, getChildren] = branches[matchIdx]
-        const children = getChildren()
-        const parent   = anchor.parentNode
-
-        if (parent) {
-            for (const fnode of children) {
-                parent.insertBefore(fnode.node, anchor)
-                currentNodes.push(fnode)
-            }
-        }
-    })
-
-    effects.push(cleanup)
-
-    return {
-        node: anchor,
-        effects,
-        _ifBranchNodes: () => currentNodes,
-        _isIf: true,
+        el.style.cssText = String(val ?? '');
     }
 }
 
-export function hFor(sourceGetter, renderItem, keyFn) {
-    const anchor  = document.createComment('f-for')
-    const effects = []
+const SENSITIVE_ATTRS = new Set(['href', 'src', 'srcset', 'formaction', 'xlink:href', 'data']);
+export function _setAttr(el, name, value) {
+    const val = typeof value === 'function' ? value() : value;
+    
+    if (name in el && typeof el[name] !== 'undefined' && name !== 'type' && name !== 'class' && name !== 'style') {
+        try {
+            el[name] = val;
+            return;
+        } catch (_) {}
+    }
 
-    let keyedMap = new Map()
-    let oldKeys  = []
-    const keyEvaluatorSignal = signal(null)
+    if (typeof val === 'boolean') {
+        val ? el.setAttribute(name, '') : el.removeAttribute(name);
+        return;
+    }
 
-    const cleanup = effect(() => {
-        const list = sourceGetter() ?? []
-        const parent = anchor.parentNode
+    if (val == null) {
+        el.removeAttribute(name);
+        return;
+    }
 
-        if (!parent) {
-            return
+    let strVal = String(val);
+    if (SENSITIVE_ATTRS.has(name.toLowerCase()) && /^(javascript|data|vbscript|file):/i.test(strVal.trim())) {
+        console.warn(`[fusée] Blocked potential XSS on "${name}": "${strVal}"`);
+        strVal = 'about:blank';
+    }
+
+    el.setAttribute(name, strVal);
+}
+
+export function _on(el, eventName, handler, modifiers = []) {
+    const handlerState = { timeoutId: null, throttleTimeoutId: null, lastRun: 0 };
+    const wrappedHandler = createEventHandler(handler, modifiers, null, null, handlerState);
+
+    if (isDelegatedEvent(eventName)) {
+        registerDelegatedEvent(el, eventName, wrappedHandler, { modifiers, handlerState });
+    } else {
+        el.addEventListener(eventName, wrappedHandler);
+    }
+}
+
+export function _insert(parent, accessor, marker = null, current = null) {
+    if (typeof accessor === 'function') {
+        effect(() => {
+            current = _insert(parent, accessor(), marker, current);
+        });
+        return current;
+    }
+
+    if (accessor == null) accessor = '';
+
+    if (Array.isArray(accessor)) {
+        if (current && Array.isArray(current)) {
+            current.forEach(node => node && node.parentNode && node.parentNode.removeChild(node));
+        } else if (current && current.parentNode) {
+            current.parentNode.removeChild(current);
         }
+        
+        const fragment = document.createDocumentFragment();
+        const nodes = accessor.map(a => {
+            const n = a instanceof Node ? a : document.createTextNode(String(a));
+            fragment.appendChild(n);
+            return n;
+        });
+        parent.insertBefore(fragment, marker);
+        return nodes;
+    }
 
-        const newKeys = new Array(list.length)
-        for (let i = 0; i < list.length; i++) {
-            keyEvaluatorSignal(list[i])
-            newKeys[i] = keyFn(keyEvaluatorSignal, i)
-        }
+    const node = accessor instanceof Node ? accessor : document.createTextNode(String(accessor));
 
-        if (oldKeys.length === newKeys.length) {
-            let identical = true
-            for (let i = 0; i < newKeys.length; i++) {
-                if (oldKeys[i] !== newKeys[i]) { identical = false; break }
-            }
-            if (identical) {
-                for (let i = 0; i < list.length; i++) {
-                    const entry = keyedMap.get(newKeys[i])
-                    if (entry.itemSignal() !== list[i]) {
-                        entry.itemSignal(list[i])
-                    }
-                }
-                return
-            }
-        }
-
-        const newMap = new Map()
-
-        for (let i = 0; i < list.length; i++) {
-            const item = list[i]
-            const key  = newKeys[i]
-
-            const exists = keyedMap.get(key)
-            if (exists) {
-                if (exists.itemSignal() !== item) {
-                    exists.itemSignal(item)
-                }
-                newMap.set(key, exists)
+    if (current) {
+        if (Array.isArray(current)) {
+            current.slice(1).forEach(c => c.parentNode && c.parentNode.removeChild(c));
+            if (current[0] && current[0].parentNode) {
+                parent.replaceChild(node, current[0]);
             } else {
-                const itemSignal = signal(item)
-                const fnode = renderItem(itemSignal, i)
-                newMap.set(key, { fnode, key, itemSignal })
+                parent.insertBefore(node, marker);
+            }
+        } else if (current.parentNode) {
+            parent.replaceChild(node, current);
+        }
+    } else {
+        parent.insertBefore(node, marker);
+    }
+
+    return node;
+}
+
+export function _hIf(branches) {
+    const anchor = document.createComment('f-if');
+    let currentNodes = null;
+    let currentBranch = -1;
+
+    effect(() => {
+        let matchIdx = -1;
+        for (let i = 0; i < branches.length; i++) {
+            const [cond] = branches[i];
+            if (cond === null || cond()) { matchIdx = i; break; }
+        }
+
+        if (matchIdx === currentBranch) return;
+        currentBranch = matchIdx;
+
+        if (currentNodes) {
+            const arr = Array.isArray(currentNodes) ? currentNodes : [currentNodes];
+            arr.forEach(n => n.parentNode && n.parentNode.removeChild(n));
+            currentNodes = null;
+        }
+
+        if (matchIdx !== -1) {
+            const [, getChildren] = branches[matchIdx];
+            untrack(() => {
+                const result = getChildren();
+                currentNodes = _insert(anchor.parentNode, result, anchor);
+            });
+        }
+    });
+
+    return anchor;
+}
+
+export function _hFor(sourceGetter, renderItem, keyFn) {
+    const anchor = document.createComment('f-for');
+    let keyedMap = new Map();
+    let oldKeys = [];
+
+    effect(() => {
+        const list = sourceGetter() ?? [];
+        const parent = anchor.parentNode;
+        if (!parent) return;
+
+        const newKeys = new Array(list.length);
+        const keyEvaluatorSignal = signal(null);
+
+        for (let i = 0; i < list.length; i++) {
+            keyEvaluatorSignal(list[i]);
+            newKeys[i] = keyFn(keyEvaluatorSignal, i);
+        }
+
+        const newMap = new Map();
+
+        for (let i = 0; i < list.length; i++) {
+            const item = list[i];
+            const key = newKeys[i];
+            const exists = keyedMap.get(key);
+
+            if (exists) {
+                if (exists.itemSignal() !== item) exists.itemSignal(item);
+                newMap.set(key, exists);
+            } else {
+                const itemSignal = signal(item);
+                const node = untrack(() => renderItem(itemSignal, i));
+                newMap.set(key, { node, key, itemSignal });
             }
         }
 
         for (const [key, entry] of keyedMap) {
-            if (!newMap.has(key)) {
-                _unmountNodes([entry.fnode])
+            if (!newMap.has(key) && entry.node) {
+                const nodes = Array.isArray(entry.node) ? entry.node : [entry.node];
+                nodes.forEach(n => n.parentNode && n.parentNode.removeChild(n));
             }
         }
 
-        const newEntries = newKeys.map(k => newMap.get(k))
-        const oldIndexOf = new Map()
-        oldKeys.forEach((k, i) => oldIndexOf.set(k, i))
-
-        const posMap = newEntries.map(entry => {
-            const idx = oldIndexOf.get(entry.key)
-            return idx === undefined ? -1 : idx
-        })
-
-        const lisIndices = _getLIS(posMap)
-        let lisPtr = lisIndices.length - 1
-
+        const newEntries = newKeys.map(k => newMap.get(k));
         for (let i = newEntries.length - 1; i >= 0; i--) {
-            const entry = newEntries[i]
-            const ref = i === newEntries.length - 1 ? anchor : newEntries[i + 1].fnode.node
-            const inLis = lisPtr >= 0 && i === lisIndices[lisPtr]
+            const entry = newEntries[i];
+            const refNode = i === newEntries.length - 1 ? anchor : (Array.isArray(newEntries[i + 1].node) ? newEntries[i + 1].node[0] : newEntries[i + 1].node);
+            
+            const targetNodes = Array.isArray(entry.node) ? entry.node : [entry.node];
+            const lastTarget = targetNodes[targetNodes.length - 1];
 
-            if (inLis) {
-                lisPtr--
-                if (!entry.fnode.node.parentNode) {
-                    parent.insertBefore(entry.fnode.node, ref)
-                }
-            } else if (entry.fnode.node.nextSibling !== ref || !entry.fnode.node.parentNode) {
-                parent.insertBefore(entry.fnode.node, ref)
+            if (lastTarget.nextSibling !== refNode || !lastTarget.parentNode) {
+                targetNodes.forEach(n => parent.insertBefore(n, refNode));
             }
         }
 
-        keyedMap = newMap
-        oldKeys  = newKeys
-    })
+        keyedMap = newMap;
+        oldKeys = newKeys;
+    });
 
-    effects.push(cleanup)
-
-    return {
-        node: anchor,
-        effects,
-        _isFor: true,
-        _getNodes: () => [...keyedMap.values()].map(e => e.fnode),
-    }
+    return anchor;
 }
 
-function _getLIS(arr) {
-    const p = arr.slice()
-    const result = []
-
-    for (let i = 0; i < arr.length; i++) {
-        if (arr[i] === -1) continue
-
-        if (result.length === 0 || arr[result[result.length - 1]] < arr[i]) {
-            p[i] = result.length ? result[result.length - 1] : -1
-            result.push(i)
-            continue
-        }
-
-        let lo = 0, hi = result.length - 1
-        while (lo < hi) {
-            const mid = (lo + hi) >> 1
-            if (arr[result[mid]] < arr[i]) lo = mid + 1
-            else hi = mid
-        }
-        if (arr[i] < arr[result[lo]]) {
-            p[i] = lo > 0 ? result[lo - 1] : -1
-            result[lo] = i
-        }
-    }
-
-    let u = result.length
-    let v = u > 0 ? result[u - 1] : -1
-    const seq = new Array(u)
-    while (u-- > 0) {
-        seq[u] = v
-        v = p[v]
-    }
-    return seq
-}
-
-export function hSlot(slots, name, fallback = []) {
-    const anchor = document.createComment(`slot:${name}`)
-    const effects = []
-    const slotFn = slots?.[name]
-    const nodes = typeof slotFn === 'function' ? slotFn() : fallback
-    return {
-        node: anchor,
-        effects,
-        _slotNodes: nodes,
-        _isSlot: true,
-    }
-}
-
-export function createComponent(name, ComponentFn, rawProps = {}, rawSlots = {}) {
+export function _createComponent(name, ComponentFn, resolvedProps = {}, options = {}) {
     if (!ComponentFn) {
-        console.warn(`[fusée] Component "${name}" is not registered`)
-        const placeholder = document.createComment(`missing:${name}`)
-        return { node: placeholder, effects: [] }
+        console.warn(`[fusée] Component "${name}" is not registered`);
+        return document.createComment(`missing:${name}`);
     }
 
-    const resolvedProps = _resolveComponentProps(rawProps)
-    const listeners = {}
-    const slots = {}
+    const container = document.createElement('div');
+    container.setAttribute('data-fusee-component', name);
 
-    for (const [key, value] of Object.entries(rawProps)) {
-        if (key.startsWith('on:')) {
-            listeners[key.slice(3)] = value
-        }
+    const api = ComponentFn(resolvedProps, options);
+    
+    untrack(() => api.render(container));
+    
+    const rootNodes = Array.from(container.childNodes);
+    if (rootNodes.length === 0) return document.createComment(`empty:${name}`);
+    
+    if (api.unmount) {
+        rootNodes[0]._fuseeUnmount = api.unmount; 
     }
-
-    for (const [slotName, slotFn] of Object.entries(rawSlots)) {
-        slots[slotName] = slotFn
-    }
-
-    const container = document.createElement('div')
-    container.setAttribute('data-fusee-component', name)
-
-    const api = ComponentFn(resolvedProps, { listeners, slots })
-    api.render(container)
-    const root = container.firstElementChild ?? container
-
-    const effects = []
-    effects.push(() => api.unmount())
-
-    return { node: root, effects, _component: api }
+    
+    return rootNodes.length === 1 ? rootNodes[0] : rootNodes;
 }
 
-function _applyProps(el, props, effects) {
-    for (const [key, value] of Object.entries(props)) {
-        if (key.startsWith('@')) {
-            const eventName = key.slice(1)
-            const { handler, modifiers = [] } = value
-            const handlerState = { timeoutId: null, throttleTimeoutId: null, lastRun: 0 }
-            const wrappedHandler = createEventHandler(handler, modifiers, null, null, handlerState)
+export function _hSlot(slots, name, fallbackFn) {
+    const anchor = document.createComment(`slot:${name}`);
+    const slotFn = slots?.[name];
+    
+    effect(() => {
+        const nodes = typeof slotFn === 'function' ? slotFn() : fallbackFn();
+        _insert(anchor.parentNode, nodes, anchor);
+    });
 
-            let cleanup
-            if (isDelegatedEvent(eventName)) {
-                cleanup = registerDelegatedEvent(el, eventName, wrappedHandler, { modifiers, handlerState })
-            } else {
-                el.addEventListener(eventName, wrappedHandler)
-                cleanup = () => el.removeEventListener(eventName, wrappedHandler)
-            }
-            effects.push(cleanup)
-            continue
-        }
-
-        if (key === 'f-show') {
-            const cleanup = effect(() => {
-                el.style.display = value() ? '' : 'none'
-            })
-            effects.push(cleanup)
-            continue
-        }
-
-        if (key === 'f-html') {
-            const cleanup = effect(() => {
-                el.innerHTML = String(value() ?? '')
-            })
-            effects.push(cleanup)
-            continue
-        }
-
-        if (key === 'f-model') {
-            const sig = value()
-            const cleanup = effect(() => {
-                const v = typeof sig === 'function' ? sig() : sig
-                if (el.value !== String(v ?? '')) el.value = String(v ?? '')
-            })
-            effects.push(cleanup)
-            continue
-        }
-
-        if (key === 'f-ref') {
-            el.dispatchEvent(new CustomEvent('fusee:ref', {
-                detail: { name: value },
-                bubbles: true,
-            }))
-            continue
-        }
-
-        if (key === 'f-once') continue
-
-        if (typeof value !== 'function') {
-            _applyAttr(el, key, value)
-            continue
-        }
-
-        const attrName = key
-        const getter = value
-        const cleanup = effect(() => {
-            _applyAttr(el, attrName, getter())
-        })
-        effects.push(cleanup)
-    }
-}
-
-function _applyStaticProps(el, props) {
-    for (const [key, value] of Object.entries(props)) {
-        if (key.startsWith('@') || key.startsWith('f-')) 
-            continue
-        if (typeof value !== 'function') 
-            _applyAttr(el, key, value)
-    }
-}
-
-function _applyAttr(el, name, value) {
-    if (name === 'class') {
-        const cls = _resolveClass(value)
-        if (cls) el.className = cls
-        else el.removeAttribute('class')
-        return
-    }
-
-    if (name === 'style') {
-        if (value !== null && typeof value === 'object') {
-            for (const k in value) el.style[k] = value[k]
-        } else {
-            el.style.cssText = String(value ?? '')
-        }
-        return
-    }
-
-    if (name in el && typeof el[name] !== 'undefined' && name !== 'type') {
-        try {
-            el[name] = value
-            return
-        } catch (_) {
-            return
-        }
-    }
-
-    if (typeof value === 'boolean') {
-        value ? el.setAttribute(name, '') : el.removeAttribute(name)
-        return
-    }
-
-    if (value == null) {
-        el.removeAttribute(name)
-        return
-    }
-
-    el.setAttribute(name, sanitize(name, String(value)))
-}
-
-function _resolveClass(value) {
-    if (typeof value === 'string') 
-        return value
-    if (Array.isArray(value)) 
-        return value.filter(Boolean).join(' ')
-    if (value && typeof value === 'object') 
-        return Object.entries(value).filter(([, v]) => !!v).map(([k]) => k).join(' ')
-    return String(value ?? '')
-}
-
-function _mountChildren(parent, children, parentEffects) {
-    const mounted = []
-
-    for (const fnode of children) {
-        if (!fnode || !fnode.node) continue
-
-        parent.appendChild(fnode.node)
-
-        if (fnode._isSlot && fnode._slotNodes) {
-            for (const sn of fnode._slotNodes) {
-                if (sn?.node) parent.insertBefore(sn.node, null)
-            }
-        }
-
-        if (fnode.effects) parentEffects.push(...fnode.effects)
-        mounted.push(fnode)
-    }
-
-    return mounted
-}
-
-function _unmountNodes(fnodes) {
-    for (const fnode of fnodes) {
-        if (!fnode) continue
-
-        if (fnode.effects) {
-            for (let i = fnode.effects.length - 1; i >= 0; i--) {
-                const cleanup = fnode.effects[i]
-                if (typeof cleanup === 'function') cleanup()
-            }
-        }
-
-        if (fnode.node?.parentNode) {
-            fnode.node.parentNode.removeChild(fnode.node)
-        }
-
-        if (fnode._ifBranchNodes) {
-            _unmountNodes(fnode._ifBranchNodes())
-        }
-
-        if (fnode._getNodes) {
-            _unmountNodes(fnode._getNodes())
-        }
-    }
-}
-
-function _resolveComponentProps(rawProps) {
-    const resolved = {}
-
-    for (const [key, value] of Object.entries(rawProps)) {
-        if (key.startsWith('on:')) continue
-
-        if (isGetter(value)) {
-            Object.defineProperty(resolved, key, {
-                get: value,
-                enumerable: true,
-                configurable: true,
-            })
-        } else {
-            resolved[key] = value
-        }
-    }
-
-    return resolved
+    return anchor;
 }
 
 export function mount(renderFn, ctx, components, container) {
-    const fnodes  = renderFn(ctx, components)
-    const effects = []
+    let unmountHandler = null;
+    
+    const rootNodes = untrack(() => {
+        const result = renderFn(ctx, components);
+        return Array.isArray(result) ? result : [result];
+    });
 
-    for (const fnode of fnodes) {
-        if (!fnode?.node) continue
-        container.appendChild(fnode.node)
-        if (fnode.effects) effects.push(...fnode.effects)
-    }
+    rootNodes.forEach(node => {
+        if (node) container.appendChild(node);
+        if (node && node._fuseeUnmount) unmountHandler = node._fuseeUnmount;
+    });
 
     return {
         unmount() {
-            _unmountNodes(fnodes)
-            container.innerHTML = ''
+            if (unmountHandler) unmountHandler();
+            container.innerHTML = '';
         }
-    }
+    };
 }

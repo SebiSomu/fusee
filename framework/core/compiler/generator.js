@@ -2,330 +2,297 @@ import { NodeType } from "./ast.js";
 import { ErrorCode } from "./errors-list.js";
 import { throwError } from "./errors.js";
 
+const RUNTIME = "fusee/runtime/h.js";
+
 export function generate(ast, options = {}) {
-    const gen = new Generator(ast, options);
+    const gen = new SolidGenerator(ast, options);
     return gen.generate();
 }
 
-const RUNTIME = "fusee/runtime/h.js";
-
-class Generator {
+class SolidGenerator {
     constructor(ast, options) {
         this.ast = ast;
         this.source = options.source ?? "";
         this.runtimePath = options.runtimePath ?? RUNTIME;
-        this.indent = 0;
-        this.lines = [];
-        this._hoistedIdx = 0;
-        this._hoistedMap = new Map();
-        this._imports = new Set([
-            "h",
-            "hText",
-            "createComponent",
-            "_effect",
-            "_batch",
-        ]);
+        this.templates = [];
+        this.imports = new Set();
         this.localScopes = [];
     }
 
     generate() {
-        if (this.ast._hoisted) {
-            for (const node of this.ast._hoisted) {
-                const name = `_s${this._hoistedIdx++}`;
-                this._hoistedMap.set(node, name);
-            }
+        const rootNodes = this.ast.children || [];
+        if (rootNodes.length === 0) {
+            return `export function render() { return null; }`;
         }
 
-        const bodyLines = [];
-        const children = this._genChildren(this.ast.children);
+        const bodyCode = this._genChildrenArray(rootNodes, true);
+        const importList = this.imports.size > 0 ? `import { ${[...this.imports].join(", ")} } from '${this.runtimePath}';\n` : "";
+        const templatesCode = this.templates.map((html, idx) => 
+            `const _tmpl$${idx + 1} = /*#__PURE__*/ _template(\`${html}\`);`
+        ).join("\n");
 
-        const hoistedDecls = [];
-        for (const [node, name] of this._hoistedMap) {
-            hoistedDecls.push(`const ${name} = ${this._genNode(node, true)}`);
-        }
-
-        const importList = [...this._imports].join(", ");
-        const output = [
-            `import { ${importList} } from '${this.runtimePath}'`,
-            "",
-            ...(hoistedDecls.length ? [...hoistedDecls, ""] : []),
-            `export function render(_ctx, _components) {`,
-            `    return [`,
-            children.map((l) => `        ${l}`).join(",\n"),
-            `    ]`,
-            `}`,
-        ];
-
-        return output.join("\n");
+        return `${importList}\n${templatesCode}\n\nexport function render(_ctx, _components) {\n    return ${bodyCode};\n}`;
     }
 
-    _genChildren(children) {
-        if (!children || children.length === 0) return [];
-        return children.flatMap((child) => {
-            const forDir = child.props?.find?.(
-                (p) => p.type === NodeType.DIRECTIVE && p.name === "for",
-            );
-            if (forDir) return [this._genForNode(child, forDir)];
-            return [this._genNode(child)];
+    _genChildrenArray(children, isRoot = false) {
+        if (!children || children.length === 0) return "null";
+
+        const elements = children.map(child => {
+            const forDir = child.props?.find?.(p => p.type === NodeType.DIRECTIVE && p.name === "for");
+            if (forDir) return this._genForNode(child, forDir);
+            return this._compileBlock(child);
         });
+
+        if (elements.length === 1) return elements[0];
+        
+        return `[\n        ${elements.join(",\n        ")}\n    ]`;
     }
 
-    _genNode(node, inHoist = false) {
-        if (!inHoist && this._hoistedMap.has(node)) {
-            return this._hoistedMap.get(node);
+    _compileBlock(node) {
+        if (node.type === "If") return this._genIf(node);
+        if (node.type === NodeType.COMPONENT) return this._genComponent(node);
+        if (node.type === NodeType.SLOT_OUTLET) return this._genSlotOutlet(node);
+
+        if (node.type === NodeType.TEXT) {
+            this.imports.add("_createTextNode");
+            return `_createTextNode(${JSON.stringify(node.content)})`;
         }
 
-        switch (node.type) {
-            case NodeType.TEXT:
-                return this._genText(node);
-            case NodeType.INTERPOLATION:
-                return this._genInterpolation(node);
-            case NodeType.ELEMENT:
-                return this._genElement(node);
-            case NodeType.COMPONENT:
-                return this._genComponent(node);
-            case NodeType.SLOT_OUTLET:
-                return this._genSlotOutlet(node);
-            case "If":
-                return this._genIf(node);
-            default:
-                throwError(
-                    ErrorCode.UNKNOWN_NODE_TYPE,
-                    node.loc,
-                    this.source,
-                    node.type,
-                );
+        if (node.type === NodeType.INTERPOLATION) {
+            this.imports.add("_createTextNode");
+            this.imports.add("_effect");
+            const expr = this._wrapExpr(node.expression.content);
+            if (node.expression.isStatic) {
+                return `_createTextNode(String(${expr}))`;
+            }
+            return `(() => { const _t = _createTextNode(""); _effect(() => _t.nodeValue = String(${expr} ?? "")); return _t; })()`;
+        }
+
+        const ctx = {
+            html: "",
+            hydrations: [],
+            path: []
+        };
+
+        this._walkNode(node, ctx, 0);
+
+        this.templates.push(ctx.html);
+        const tmplId = this.templates.length;
+        this.imports.add("_template");
+
+        if (ctx.hydrations.length === 0) {
+            return `_tmpl$${tmplId}.cloneNode(true)`;
+        }
+
+        this.imports.add("_walk");
+        
+        let block = `(() => {\n        const _el$1 = _tmpl$${tmplId}.cloneNode(true);\n`;
+        
+        ctx.hydrations.forEach(hyd => {
+            if (hyd.path.length > 0) {
+                block += `        const ${hyd.id} = _walk(_el$1, [${hyd.path.join(", ")}]);\n`;
+            } else {
+                block += `        const ${hyd.id} = _el$1;\n`;
+            }
+            hyd.actions.forEach(action => {
+                block += `        ${action}\n`;
+            });
+        });
+
+        block += `        return _el$1;\n    })()`;
+        return block;
+    }
+
+    _walkNode(node, ctx, childIdx) {
+        const isRoot = ctx.path.length === 0;
+        const currentPath = [...ctx.path];
+        if (!isRoot) currentPath.push(childIdx);
+
+        if (node.type === NodeType.ELEMENT) {
+            const elId = `_el$${ctx.hydrations.length + 2}`;
+            const hydration = { id: elId, path: currentPath, actions: [] };
+            let isDynamic = false;
+
+            ctx.html += `<${node.tag}`;
+
+            for (const prop of node.props || []) {
+                if (prop.type === NodeType.ATTRIBUTE) {
+                    ctx.html += ` ${prop.name}="${prop.value}"`;
+                } else if (prop.type === NodeType.BINDING) {
+                    isDynamic = true;
+                    const expr = this._wrapExpr(prop.expression.content);
+                    if (prop.name === "class") {
+                        this.imports.add("_setClass");
+                        hydration.actions.push(`_effect(() => _setClass(${elId}, ${expr}));`);
+                    } else if (prop.name === "style") {
+                        this.imports.add("_setStyle");
+                        hydration.actions.push(`_effect(() => _setStyle(${elId}, ${expr}));`);
+                    } else if (prop.name === "key") {
+                    } else {
+                        this.imports.add("_setAttr");
+                        hydration.actions.push(`_effect(() => _setAttr(${elId}, "${prop.name}", ${expr}));`);
+                    }
+                } else if (prop.type === NodeType.EVENT) {
+                    isDynamic = true;
+                    this.imports.add("_on");
+                    const expr = this._genHandlerExpr(prop.expression.content);
+                    const mods = JSON.stringify(prop.modifiers);
+                    hydration.actions.push(`_on(${elId}, "${prop.name}", ${expr}, ${mods});`);
+                } else if (prop.type === NodeType.DIRECTIVE) {
+                    isDynamic = true;
+                    this._genDirectiveAction(prop, elId, hydration.actions);
+                }
+            }
+
+            ctx.html += `>`;
+
+            if (isDynamic) {
+                ctx.hydrations.push(hydration);
+            }
+
+            if (node.children && node.children.length > 0) {
+                const savedPath = ctx.path;
+                ctx.path = currentPath;
+                node.children.forEach((child, i) => {
+                    this._walkNode(child, ctx, i);
+                });
+                ctx.path = savedPath;
+            }
+
+            if (!node.selfClosing) {
+                ctx.html += `</${node.tag}>`;
+            }
+
+        } else if (node.type === NodeType.TEXT) {
+            ctx.html += node.content;
+            
+        } else if (node.type === NodeType.INTERPOLATION) {
+            ctx.html += ``;
+            const elId = `_el$${ctx.hydrations.length + 2}`;
+            const expr = this._wrapExpr(node.expression.content);
+            this.imports.add("_insert");
+            this.imports.add("_effect");
+            
+            ctx.hydrations.push({
+                id: elId,
+                path: currentPath,
+                actions: [
+                    `_insert(${elId}.parentNode, () => ${expr}, ${elId});`
+                ]
+            });
+        } else {
+            ctx.html += ``;
+            const elId = `_el$${ctx.hydrations.length + 2}`;
+            const blockCode = this._compileBlock(node);
+            this.imports.add("_insert");
+            ctx.hydrations.push({
+                id: elId,
+                path: currentPath,
+                actions: [
+                    `_insert(${elId}.parentNode, () => ${blockCode}, ${elId});`
+                ]
+            });
         }
     }
 
-    _genText(node) {
-        return `hText(${JSON.stringify(node.content)})`;
-    }
-
-    _genInterpolation(node) {
-        this._imports.add("_effect");
-        const expr = node.expression.content;
-        if (node.expression.isStatic) {
-            return `hText(String(${expr}))`;
+    _genDirectiveAction(dir, elId, actions) {
+        if (dir.name === 'show') {
+            this.imports.add("_effect");
+            const expr = this._wrapExpr(dir.expression.content);
+            actions.push(`_effect(() => ${elId}.style.display = (${expr}) ? '' : 'none');`);
+        } else if (dir.name === 'model') {
+            this.imports.add("_effect");
+            this.imports.add("_on");
+            const expr = dir.expression.content;
+            actions.push(`_effect(() => ${elId}.value = String(_ctx.${expr}() ?? ''));`);
+            actions.push(`_on(${elId}, "input", ($e) => { _ctx.${expr}($e.target.value) }, []);`);
+        } else if (dir.name === 'html') {
+            this.imports.add("_effect");
+            const expr = this._wrapExpr(dir.expression.content);
+            actions.push(`_effect(() => ${elId}.innerHTML = String(${expr} ?? ''));`);
+        } else if (dir.name === 'ref') {
+            const name = dir.expression.content.trim();
+            actions.push(`${elId}.dispatchEvent(new CustomEvent('fusee:ref', { detail: { name: "${name}" }, bubbles: true }));`);
         }
-        return `hText(() => String(${this._wrapExpr(expr)}))`;
-    }
-
-    _genElement(node) {
-        const tag = JSON.stringify(node.tag);
-        const props = this._genProps(node.props);
-        const children = this._genChildrenArray(node.children);
-        const args = [tag, props, children];
-
-        if (node.isStatic) args.push("true");
-
-        return `h(${args.join(", ")})`;
-    }
-
-    _genComponent(node) {
-        this._imports.add("createComponent");
-
-        const name = JSON.stringify(node.name);
-        const props = this._genComponentProps(node.props);
-        const slots = this._genSlots(node.slots);
-        return `createComponent(${name}, _components[${name}], ${props}, ${slots})`;
-    }
-
-    _genSlotOutlet(node) {
-        this._imports.add("hSlot");
-        const name = JSON.stringify(node.slotName);
-        const fallback = this._genChildrenArray(node.fallback);
-        return `hSlot(_ctx._slots, ${name}, ${fallback})`;
     }
 
     _genIf(node) {
-        this._imports.add("hIf");
-
-        const branches = node.branches.map((branch) => {
-            const cond = branch.condition
-                ? this._wrapExpr(branch.condition.content)
-                : "true";
+        this.imports.add("_hIf");
+        const branches = node.branches.map(branch => {
+            const cond = branch.condition ? this._wrapExpr(branch.condition.content) : "true";
             const children = this._genChildrenArray(branch.node.children ?? []);
             return `[() => ${cond}, () => ${children}]`;
         });
-
-        return `hIf([\n        ${branches.join(",\n        ")}\n    ])`;
+        return `_hIf([\n        ${branches.join(",\n        ")}\n    ])`;
     }
 
-    _genProps(props) {
-        if (!props || props.length === 0) return "{}";
+    _genForNode(node, forDir) {
+        this.imports.add("_hFor");
+        const { item, source, index } = forDir.arg;
+        const sourceJs = this._wrapExpr(source);
 
-        const entries = [];
+        this.localScopes.push(new Set([item, index].filter(Boolean)));
 
-        for (const prop of props) {
-            switch (prop.type) {
-                case NodeType.ATTRIBUTE:
-                    entries.push(this._genAttrEntry(prop));
-                    break;
-                case NodeType.BINDING:
-                    entries.push(this._genBindingEntry(prop));
-                    break;
-                case NodeType.EVENT:
-                    entries.push(this._genEventEntry(prop));
-                    break;
-                case NodeType.DIRECTIVE:
-                    this._genDirectiveEntries(prop, entries);
-                    break;
+        const innerProps = node.props.filter(p => !(p.type === NodeType.DIRECTIVE && p.name === "for"));
+        const innerNode = { ...node, props: innerProps };
+        const keyBinding = innerProps.find(p => p.type === NodeType.BINDING && p.name === "key");
+        const keyExpr = keyBinding ? keyBinding.expression.content : "undefined";
+        
+        const itemParam = index ? `${item}, ${index}` : item;
+        const innerJs = this._compileBlock(innerNode);
+        const keyJs = this._wrapExpr(keyExpr);
+
+        this.localScopes.pop();
+
+        return `_hFor(() => ${sourceJs}, (${itemParam}) => ${innerJs}, (${itemParam}) => ${keyJs})`;
+    }
+
+    _genComponent(node) {
+        this.imports.add("_createComponent");
+        const name = JSON.stringify(node.name);
+        
+        let propsObj = "{";
+        let listenersObj = "{";
+        
+        for (const prop of node.props || []) {
+            if (prop.type === NodeType.ATTRIBUTE) {
+                propsObj += `"${prop.name}": ${JSON.stringify(prop.value ?? true)}, `;
+            } else if (prop.type === NodeType.BINDING) {
+                propsObj += `get "${prop.name}"() { return ${this._wrapExpr(prop.expression.content)}; }, `;
+            } else if (prop.type === NodeType.EVENT) {
+                listenersObj += `"${prop.name}": ${this._genHandlerExpr(prop.expression.content)}, `;
             }
         }
+        propsObj += "}";
+        listenersObj += "}";
 
-        return `{\n        ${entries.join(",\n        ")}\n    }`;
-    }
-
-    _genAttrEntry(prop) {
-        return `${JSON.stringify(prop.name)}: ${JSON.stringify(prop.value ?? true)}`;
-    }
-
-    _genBindingEntry(prop) {
-        const expr = this._wrapExpr(prop.expression.content);
-        if (prop.isProp) {
-            return `${JSON.stringify("prop:" + prop.name)}: () => ${expr}`;
+        let slotsObj = "{";
+        if (node.slots) {
+            for (const [sName, sChildren] of Object.entries(node.slots)) {
+                slotsObj += `"${sName}": () => ${this._genChildrenArray(sChildren)}, `;
+            }
         }
-        return `${JSON.stringify(prop.name)}: () => ${expr}`;
+        slotsObj += "}";
+
+        return `_createComponent(${name}, _components[${name}], ${propsObj}, { listeners: ${listenersObj}, slots: ${slotsObj} })`;
     }
 
-    _genEventEntry(prop) {
-        const key = JSON.stringify("@" + prop.name);
-        const expr = prop.expression.content;
-        const mods = JSON.stringify(prop.modifiers);
-        const handlerJs = this._genHandlerExpr(expr);
-        return `${key}: { handler: ${handlerJs}, modifiers: ${mods} }`;
+    _genSlotOutlet(node) {
+        this.imports.add("_hSlot");
+        const name = JSON.stringify(node.slotName);
+        const fallback = this._genChildrenArray(node.fallback);
+        return `_hSlot(_ctx._slots, ${name}, () => ${fallback})`;
     }
 
     _genHandlerExpr(expr) {
         if (/^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(expr.trim())) {
             return `_ctx.${expr.trim()}`;
         }
-        return `($event) => { ${expr} }`;
-    }
-
-    _genDirectiveEntries(dir, entries) {
-        switch (dir.name) {
-            case "if":
-            case "else-if":
-            case "else":
-                break;
-            case "for":
-                break;
-            case "show": {
-                const expr = this._wrapExpr(dir.expression.content);
-                entries.push(`'f-show': () => ${expr}`);
-                break;
-            }
-
-            case "model": {
-                const expr = dir.expression.content;
-                entries.push(`'f-model': () => _ctx.${expr}`);
-                entries.push(
-                    `'@input': { handler: ($e) => { _ctx.${expr}($e.target.value) }, modifiers: [] }`,
-                );
-                break;
-            }
-
-            case "html": {
-                const expr = this._wrapExpr(dir.expression.content);
-                entries.push(`'f-html': () => ${expr}`);
-                break;
-            }
-
-            case "ref": {
-                const name = dir.expression.content.trim();
-                entries.push(`'f-ref': ${JSON.stringify(name)}`);
-                break;
-            }
-
-            case "once":
-                entries.push(`'f-once': true`);
-                break;
-
-            default:
-                entries.push(
-                    `${JSON.stringify("f-" + dir.name)}: ${dir.expression ? `() => ${this._wrapExpr(dir.expression.content)}` : "true"}`,
-                );
-        }
-    }
-
-    _genComponentProps(props) {
-        if (!props || props.length === 0) return "{}";
-
-        const entries = [];
-
-        for (const prop of props) {
-            if (prop.type === NodeType.ATTRIBUTE) {
-                entries.push(
-                    `${JSON.stringify(prop.name)}: ${JSON.stringify(prop.value ?? true)}`,
-                );
-            } else if (prop.type === NodeType.BINDING) {
-                entries.push(
-                    `${JSON.stringify(prop.name)}: () => ${this._wrapExpr(prop.expression.content)}`,
-                );
-            } else if (prop.type === NodeType.EVENT) {
-                const handlerJs = this._genHandlerExpr(prop.expression.content);
-                entries.push(`${JSON.stringify("on:" + prop.name)}: ${handlerJs}`);
-            }
-        }
-
-        return `{ ${entries.join(", ")} }`;
-    }
-
-    _genSlots(slots) {
-        if (!slots || Object.keys(slots).length === 0) return "{}";
-
-        const entries = Object.entries(slots).map(([name, children]) => {
-            const childrenJs = this._genChildrenArray(children);
-            return `${JSON.stringify(name)}: () => ${childrenJs}`;
-        });
-
-        return `{ ${entries.join(", ")} }`;
-    }
-
-    _genChildrenArray(children) {
-        if (!children || children.length === 0) return "[]";
-        const expanded = children.flatMap((child) => {
-            const forDir = child.props?.find?.(
-                (p) => p.type === NodeType.DIRECTIVE && p.name === "for",
-            );
-            if (forDir) return [this._genForNode(child, forDir)];
-            return [this._genNode(child)];
-        });
-
-        if (expanded.length === 1) return `[${expanded[0]}]`;
-        return `[\n        ${expanded.join(",\n        ")}\n    ]`;
-    }
-
-    _genForNode(node, forDir) {
-        this._imports.add("hFor");
-
-        const { item, source, index } = forDir.arg;
-        const sourceJs = this._wrapExpr(source);
-
-        this.localScopes.push(new Set([item, index].filter(Boolean)));
-
-        const innerProps = node.props.filter(
-            (p) => !(p.type === NodeType.DIRECTIVE && p.name === "for"),
-        );
-        const innerNode = { ...node, props: innerProps };
-        const keyBinding = innerProps.find(
-            (p) => p.type === NodeType.BINDING && p.name === "key",
-        );
-        const keyExpr = keyBinding ? keyBinding.expression.content : "undefined";
-        const itemParam = index ? `${item}, ${index}` : item;
-        const itemParamStr = `(${itemParam})`;
-        const innerJs = this._genNode(innerNode);
-        const keyJs = this._wrapExpr(keyExpr);
-
-        this.localScopes.pop();
-
-        return `hFor(\n        () => ${sourceJs},\n        ${itemParamStr} => ${innerJs},\n        ${itemParamStr} => ${keyJs}\n    )`;
+        return `($event) => { ${this._wrapExpr(expr)} }`;
     }
 
     isLocal(id) {
-        return this.localScopes.some((scope) => scope.has(id));
+        return this.localScopes.some(scope => scope.has(id));
     }
 
     _wrapExpr(expr) {
@@ -335,7 +302,6 @@ class Generator {
             if (this.isLocal(id)) return id;
             return `(typeof _ctx.${id} === 'function' && _ctx.${id}.isSignal ? _ctx.${id}() : _ctx.${id})`;
         }
-
         return this._rewriteExpr(expr);
     }
 
