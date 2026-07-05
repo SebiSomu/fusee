@@ -1,8 +1,11 @@
-import { tokenize }   from './lexer.js'
-import { parse }      from './parser.js'
-import { transform }  from './transformer.js'
-import { generate }   from './generator.js'
+import { tokenize } from './lexer.js'
+import { parse } from './parser.js'
+import { transform } from './transformer.js'
+import { generate } from './generator.js'
 import { CompileError, ErrorCollector } from './errors.js'
+import { compileModule } from './compileModule.js'
+
+export { compileModule }
 
 export function compile(source, options = {}) {
     const filename = options.filename ?? '<template>'

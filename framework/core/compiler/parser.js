@@ -36,6 +36,7 @@ const VOID_ELEMENTS = new Set([
     "track",
     "wbr",
 ]);
+
 const FOR_RE =
     /^(?:\(\s*([^,)]+?)\s*(?:,\s*([^)]+?)\s*)?\))\s+in\s+(.+)$|^([^\s,]+)\s+in\s+(.+)$/;
 
@@ -170,7 +171,8 @@ class Parser {
                     closeTok.value,
                 );
             }
-            if (this._peek()?.type === TokenType.TAG_CLOSE) this._advance();
+            if (this._peek()?.type === TokenType.TAG_CLOSE) 
+                this._advance();
         } else {
             throwError(
                 ErrorCode.MISSING_CLOSING_TAG,
