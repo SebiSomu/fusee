@@ -44,6 +44,13 @@ function markStaticPass(node, ctx) {
 
     if (node.type === NodeType.EXPRESSION) {
         node.isStatic = isLiteralExpression(node.content)
+        if (!node.isStatic) {
+            // Detect pure getter: a single identifier that will be a signal read
+            const trimmed = node.content.trim()
+            node.isPureGetter = /^[a-zA-Z_$][a-zA-Z0-9_$.]*$/.test(trimmed)
+            // Detect simple computed: binary ops with only identifiers + literals
+            node.isSimpleComputed = !node.isPureGetter && isSimpleComputedExpr(trimmed)
+        }
         return node.isStatic
     }
 
@@ -396,3 +403,17 @@ const LITERAL_RE = /^(?:true|false|null|undefined|-?\d[\d._]*(?:n)?|'[^']*'|"[^"
 function isLiteralExpression(expr) {
     return LITERAL_RE.test(expr.trim())
 }
+
+/**
+ * Detect "simple computed" expressions: binary/ternary ops with only
+ * identifiers, literals, and basic operators (no function calls, no array/object literals).
+ * Examples: `a + b`, `x > 0`, `isActive ? 'on' : 'off'`
+ */
+const SIMPLE_COMPUTED_RE = /^[a-zA-Z_$0-9\s\.\+\-\*\/\%\<\>\=\!\&\|\?\:\'\"\`\,\(\)]+$/
+function isSimpleComputedExpr(expr) {
+    // Must not contain function calls (identifier followed by parenthesis)
+    if (/[a-zA-Z_$]\s*\(/.test(expr)) return false
+    // Must not contain array/object literals
+    if (/[\[\{]/.test(expr)) return false
+    return SIMPLE_COMPUTED_RE.test(expr)
+}

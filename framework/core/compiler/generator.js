@@ -49,6 +49,14 @@ class SolidGenerator {
     }
 
     _compileBlock(node) {
+        const forDir = node.props?.find?.(p => p.type === NodeType.DIRECTIVE && p.name === "for");
+        if (forDir && !node._compiledAsFor) {
+            node._compiledAsFor = true;
+            const res = this._genForNode(node, forDir);
+            node._compiledAsFor = false;
+            return res;
+        }
+
         if (node.type === "If") return this._genIf(node);
         if (node.type === NodeType.COMPONENT) return this._genComponent(node);
         if (node.type === NodeType.SLOT_OUTLET) return this._genSlotOutlet(node);
@@ -59,19 +67,23 @@ class SolidGenerator {
         }
 
         if (node.type === NodeType.INTERPOLATION) {
-            this.imports.add("_createTextNode");
-            this.imports.add("_effect");
             const expr = this._wrapExpr(node.expression.content);
             if (node.expression.isStatic) {
+                this.imports.add("_createTextNode");
                 return `_createTextNode(String(${expr}))`;
             }
-            return `(() => { const _t = _createTextNode(""); _effect(() => _t.nodeValue = String(${expr} ?? "")); return _t; })()`;
+            // Granular text update: create text node + single effect
+            this.imports.add("_createTextNode");
+            this.imports.add("_setText");
+            this.imports.add("_effect");
+            return `(() => { const _t = _createTextNode(""); _effect(() => _setText(_t, ${expr})); return _t; })()`;
         }
 
         const ctx = {
             html: "",
             hydrations: [],
-            path: []
+            path: [],
+            childIndex: 0
         };
 
         this._walkNode(node, ctx, 0);
@@ -108,6 +120,23 @@ class SolidGenerator {
         const currentPath = [...ctx.path];
         if (!isRoot) currentPath.push(childIdx);
 
+        // Check if node has f-for directive (unless we are compiling the block itself)
+        const forDir = node.props?.find?.(p => p.type === NodeType.DIRECTIVE && p.name === "for");
+        if (forDir && !node._compiledAsFor) {
+            ctx.html += `<!>`;
+            const elId = `_el$${ctx.hydrations.length + 2}`;
+            const blockCode = this._compileBlock(node);
+            this.imports.add("_insert");
+            ctx.hydrations.push({
+                id: elId,
+                path: currentPath,
+                actions: [
+                    `_insert(${elId}.parentNode, () => ${blockCode}, ${elId});`
+                ]
+            });
+            return;
+        }
+
         if (node.type === NodeType.ELEMENT) {
             const elId = `_el$${ctx.hydrations.length + 2}`;
             const hydration = { id: elId, path: currentPath, actions: [] };
@@ -121,16 +150,34 @@ class SolidGenerator {
                 } else if (prop.type === NodeType.BINDING) {
                     isDynamic = true;
                     const expr = this._wrapExpr(prop.expression.content);
+                    const isStaticExpr = prop.expression.isStatic;
+
                     if (prop.name === "class") {
                         this.imports.add("_setClass");
-                        hydration.actions.push(`_effect(() => _setClass(${elId}, ${expr}));`);
+                        if (isStaticExpr) {
+                            hydration.actions.push(`_setClass(${elId}, ${expr});`);
+                        } else {
+                            this.imports.add("_effect");
+                            hydration.actions.push(`_effect(() => _setClass(${elId}, ${expr}));`);
+                        }
                     } else if (prop.name === "style") {
                         this.imports.add("_setStyle");
-                        hydration.actions.push(`_effect(() => _setStyle(${elId}, ${expr}));`);
+                        if (isStaticExpr) {
+                            hydration.actions.push(`_setStyle(${elId}, ${expr});`);
+                        } else {
+                            this.imports.add("_effect");
+                            hydration.actions.push(`_effect(() => _setStyle(${elId}, ${expr}));`);
+                        }
                     } else if (prop.name === "key") {
+                        // key binding is consumed by f-for, not applied to DOM
                     } else {
                         this.imports.add("_setAttr");
-                        hydration.actions.push(`_effect(() => _setAttr(${elId}, "${prop.name}", ${expr}));`);
+                        if (isStaticExpr) {
+                            hydration.actions.push(`_setAttr(${elId}, "${prop.name}", ${expr});`);
+                        } else {
+                            this.imports.add("_effect");
+                            hydration.actions.push(`_effect(() => _setAttr(${elId}, "${prop.name}", ${expr}));`);
+                        }
                     }
                 } else if (prop.type === NodeType.EVENT) {
                     isDynamic = true;
@@ -167,21 +214,35 @@ class SolidGenerator {
             ctx.html += node.content;
             
         } else if (node.type === NodeType.INTERPOLATION) {
-            ctx.html += ``;
+            // Emit a comment marker in the template for dynamic text
+            ctx.html += `<!>`;
             const elId = `_el$${ctx.hydrations.length + 2}`;
             const expr = this._wrapExpr(node.expression.content);
-            this.imports.add("_insert");
-            this.imports.add("_effect");
-            
-            ctx.hydrations.push({
-                id: elId,
-                path: currentPath,
-                actions: [
-                    `_insert(${elId}.parentNode, () => ${expr}, ${elId});`
-                ]
-            });
+
+            if (node.expression.isStatic) {
+                // Static interpolation: set text once, no effect
+                this.imports.add("_insert");
+                ctx.hydrations.push({
+                    id: elId,
+                    path: currentPath,
+                    actions: [
+                        `_insert(${elId}.parentNode, String(${expr}), ${elId});`
+                    ]
+                });
+            } else {
+                // Dynamic interpolation: wrap in effect for granular updates
+                this.imports.add("_insert");
+                ctx.hydrations.push({
+                    id: elId,
+                    path: currentPath,
+                    actions: [
+                        `_insert(${elId}.parentNode, () => ${expr}, ${elId});`
+                    ]
+                });
+            }
         } else {
-            ctx.html += ``;
+            // Component / If / other dynamic blocks
+            ctx.html += `<!>`;
             const elId = `_el$${ctx.hydrations.length + 2}`;
             const blockCode = this._compileBlock(node);
             this.imports.add("_insert");
@@ -244,6 +305,7 @@ class SolidGenerator {
 
         this.localScopes.pop();
 
+        // Key function receives item directly (Solid pattern)
         return `_hFor(() => ${sourceJs}, (${itemParam}) => ${innerJs}, (${itemParam}) => ${keyJs})`;
     }
 
@@ -258,7 +320,12 @@ class SolidGenerator {
             if (prop.type === NodeType.ATTRIBUTE) {
                 propsObj += `"${prop.name}": ${JSON.stringify(prop.value ?? true)}, `;
             } else if (prop.type === NodeType.BINDING) {
-                propsObj += `get "${prop.name}"() { return ${this._wrapExpr(prop.expression.content)}; }, `;
+                // Reactive props via getters (Solid-style)
+                if (prop.expression.isStatic) {
+                    propsObj += `"${prop.name}": ${this._wrapExpr(prop.expression.content)}, `;
+                } else {
+                    propsObj += `get "${prop.name}"() { return ${this._wrapExpr(prop.expression.content)}; }, `;
+                }
             } else if (prop.type === NodeType.EVENT) {
                 listenersObj += `"${prop.name}": ${this._genHandlerExpr(prop.expression.content)}, `;
             }
@@ -299,7 +366,8 @@ class SolidGenerator {
         if (expr.includes("_ctx.")) return expr;
         if (/^[a-zA-Z_$][a-zA-Z0-9_$.]*$/.test(expr.trim())) {
             const id = expr.trim();
-            if (this.isLocal(id)) return id;
+            const rootVar = id.split('.')[0];
+            if (this.isLocal(rootVar)) return id;
             return `(typeof _ctx.${id} === 'function' && _ctx.${id}.isSignal ? _ctx.${id}() : _ctx.${id})`;
         }
         return this._rewriteExpr(expr);

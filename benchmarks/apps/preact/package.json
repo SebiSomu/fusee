@@ -1,0 +1,16 @@
+{
+  "name": "bench-preact",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "preview": "vite preview --port 4006 --strictPort"
+  },
+  "dependencies": {
+    "preact": "^10.24.0"
+  },
+  "devDependencies": {
+    "@preact/preset-vite": "^2.9.1",
+    "vite": "^5.4.0"
+  }
+}

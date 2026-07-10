@@ -612,36 +612,39 @@ describe('Generator', () => {
 
     // ── static text ───────────────────────────────────────────────────────────
 
-    it('generates hText for plain text', () => {
+    it('generates template for plain text', () => {
         const out = code('<p>hello</p>')
-        expect(out).toContain('hText("hello")')
+        expect(out).toContain('_template(`<p>hello</p>`)')
+        expect(out).toContain('cloneNode(true)')
     })
 
     // ── elements ──────────────────────────────────────────────────────────────
 
-    it('generates h() call for element', () => {
+    it('generates _template for element', () => {
         const out = code('<div></div>')
-        expect(out).toContain('h("div"')
+        expect(out).toContain('_template(`<div></div>`)')
     })
 
-    it('generates h() with static class attr', () => {
+    it('generates template with static class attr', () => {
         const out = code('<div class="foo"></div>')
-        expect(out).toContain('"class": "foo"')
+        expect(out).toContain('_template(`<div class="foo"></div>`)')
     })
 
-    it('generates getter for dynamic binding :class', () => {
+    it('generates getter/effect for dynamic binding :class', () => {
         const out = code('<div :class="cls"></div>')
-        expect(out).toMatch(/"class":\s*\(\)\s*=>/)
+        expect(out).toContain('_setClass(')
+        expect(out).toContain('_effect(() => _setClass(')
     })
 
     it('generates event handler for @click', () => {
         const out = code('<button @click="handleClick"></button>')
-        expect(out).toContain('"@click"')
+        expect(out).toContain('_on(')
         expect(out).toContain('_ctx.handleClick')
     })
 
     it('generates inline handler for @click with expression', () => {
         const out = code('<button @click="doSomething()"></button>')
+        expect(out).toContain('_on(')
         expect(out).toContain('$event')
     })
 
@@ -652,100 +655,101 @@ describe('Generator', () => {
 
     // ── interpolation ─────────────────────────────────────────────────────────
 
-    it('generates reactive hText for {{ expr }}', () => {
+    it('generates reactive _insert for {{ expr }}', () => {
         const out = code('<p>{{ count }}</p>')
-        expect(out).toMatch(/hText\(\(\)\s*=>/)
+        expect(out).toContain('_insert(')
+        expect(out).toContain('() =>')
     })
 
-    it('generates static hText for literal interpolation {{ "hi" }}', () => {
+    it('generates static _insert for literal interpolation {{ "hi" }}', () => {
         const out = code('<p>{{ "hi" }}</p>')
-        expect(out).toContain('hText(String("hi"))')
+        expect(out).toContain('_insert(')
+        expect(out).toContain('String(')
     })
 
     // ── directives ────────────────────────────────────────────────────────────
 
     it('generates f-show entry', () => {
         const out = code('<div f-show="visible"></div>')
-        expect(out).toContain("'f-show'")
+        expect(out).toContain('.style.display =')
     })
 
     it('generates f-model with getter and @input handler', () => {
         const out = code('<input f-model="name">')
-        expect(out).toContain("'f-model'")
-        expect(out).toContain("'@input'")
+        expect(out).toContain('.value = String(')
+        expect(out).toContain('"input"')
         expect(out).toContain('$e.target.value')
     })
 
     it('generates f-html entry', () => {
         const out = code('<div f-html="rawHtml"></div>')
-        expect(out).toContain("'f-html'")
+        expect(out).toContain('.innerHTML = String(')
     })
 
     it('generates f-ref entry', () => {
         const out = code('<input f-ref="inputEl">')
-        expect(out).toContain("'f-ref': \"inputEl\"")
+        expect(out).toContain("CustomEvent('fusee:ref'")
+        expect(out).toContain('"inputEl"')
     })
 
-    it('generates f-once flag', () => {
+    it('generates f-once template without effects', () => {
         const out = code('<div f-once></div>')
-        expect(out).toContain("'f-once': true")
+        expect(out).not.toContain('_effect')
     })
 
     // ── f-for ─────────────────────────────────────────────────────────────────
 
-    it('generates hFor for f-for list', () => {
+    it('generates _hFor for f-for list', () => {
         const out = code('<li f-for="item in list" :key="item.id"></li>')
-        expect(out).toContain('hFor(')
+        expect(out).toContain('_hFor(')
     })
 
-    it('hFor receives source getter', () => {
+    it('_hFor receives source getter', () => {
         const out = code('<li f-for="item in items" :key="item.id"></li>')
-        expect(out).toMatch(/hFor\(\s*\(\)\s*=>/)
+        expect(out).toMatch(/_hFor\(\(\)\s*=>/)
     })
 
-    it('hFor callback includes item param', () => {
+    it('_hFor callback includes item param', () => {
         const out = code('<li f-for="item in items" :key="item.id"></li>')
         expect(out).toMatch(/\(item\)\s*=>/)
     })
 
-    it('hFor callback includes (item, index) when declared', () => {
+    it('_hFor callback includes (item, index) when declared', () => {
         const out = code('<li f-for="(item, index) in items" :key="item.id"></li>')
         expect(out).toMatch(/\(item,\s*index\)\s*=>/)
     })
 
     // ── f-if ──────────────────────────────────────────────────────────────────
 
-    it('generates hIf for f-if', () => {
+    it('generates _hIf for f-if', () => {
         const out = code('<div f-if="show">A</div><div f-else>B</div>')
-        expect(out).toContain('hIf(')
+        expect(out).toContain('_hIf(')
     })
 
-    it('hIf has correct branch count for if/else-if/else', () => {
+    it('_hIf has correct branch count for if/else-if/else', () => {
         const out = code('<div f-if="a">A</div><div f-else-if="b">B</div><div f-else>C</div>')
-        // Three branch arrays inside hIf
         const matches = out.match(/\(\)\s*=>/g) ?? []
         expect(matches.length).toBeGreaterThanOrEqual(3)
     })
 
     // ── static hoisting ───────────────────────────────────────────────────────
 
-    it('hoists f-once node to top-level const', () => {
+    it('hoists f-once template', () => {
         const out = code('<div f-once><span>Static</span></div>')
-        expect(out).toMatch(/const _s\d+\s*=\s*h\(/)
+        expect(out).toContain('_template(')
     })
 
-    it('references hoisted node by variable in render fn', () => {
+    it('references template clone in render fn', () => {
         const out = code('<div f-once><p>A</p><p>B</p></div>')
-        // The render fn body should reference _s0 not inline h()
         const renderBody = out.split('export function render')[1]
-        expect(renderBody).toMatch(/_s\d+/)
+        expect(renderBody).toContain('cloneNode(true)')
     })
 
     // ── components ────────────────────────────────────────────────────────────
 
-    it('generates createComponent for PascalCase tag', () => {
+    it('generates _createComponent for PascalCase tag', () => {
         const out = code('<MyBtn></MyBtn>', ['MyBtn'])
-        expect(out).toContain('createComponent("MyBtn"')
+        expect(out).toContain('_createComponent("MyBtn"')
     })
 
     it('passes static props to component', () => {
@@ -755,19 +759,19 @@ describe('Generator', () => {
 
     it('passes dynamic props as getters to component', () => {
         const out = code('<Card :count="n"></Card>', ['Card'])
-        expect(out).toMatch(/"count":\s*\(\)\s*=>/)
+        expect(out).toContain('get "count"')
     })
 
-    it('generates on: prefix for component event listener', () => {
+    it('passes event listener in listeners option to component', () => {
         const out = code('<Card @close="onClose"></Card>', ['Card'])
-        expect(out).toContain('"on:close"')
+        expect(out).toContain('"close":')
     })
 
     // ── slots ─────────────────────────────────────────────────────────────────
 
-    it('generates hSlot for <slot>', () => {
+    it('generates _hSlot for <slot>', () => {
         const out = code('<slot></slot>')
-        expect(out).toContain('hSlot(')
+        expect(out).toContain('_hSlot(')
     })
 
     it('generates default slot for component children', () => {
@@ -793,20 +797,20 @@ describe('compile() — full pipeline', () => {
     it('compiles a static template without warnings', () => {
         const { code: out, warnings } = compile('<div class="container"><p>Hello</p></div>')
         expect(warnings).toHaveLength(0)
-        expect(out).toContain('h("div"')
-        expect(out).toContain('h("p"')
+        expect(out).toContain('_template(')
+        expect(out).toContain('cloneNode(true)')
     })
 
     it('compiles a template with signal binding', () => {
         const { code: out } = compile('<p>{{ count }}</p>')
-        expect(out).toContain('hText(')
+        expect(out).toContain('_insert(')
         expect(out).toContain('count')
     })
 
     it('compiles f-if / f-else correctly', () => {
         const { code: out, warnings } = compile('<div f-if="ok">Yes</div><div f-else>No</div>')
         expect(warnings).toHaveLength(0)
-        expect(out).toContain('hIf(')
+        expect(out).toContain('_hIf(')
     })
 
     it('compiles f-for with :key without warnings', () => {
@@ -814,7 +818,7 @@ describe('compile() — full pipeline', () => {
             '<ul><li f-for="item in items" :key="item.id">{{ item.name }}</li></ul>'
         )
         expect(warnings.filter(w => w.code === ErrorCode.FOR_MISSING_KEY)).toHaveLength(0)
-        expect(out).toContain('hFor(')
+        expect(out).toContain('_hFor(')
     })
 
     it('emits warning for f-for without :key but does not throw', () => {
@@ -825,7 +829,7 @@ describe('compile() — full pipeline', () => {
     it('compiles f-model on input', () => {
         const { code: out, warnings } = compile('<input f-model="email">')
         expect(warnings.filter(w => w.code === ErrorCode.MODEL_ON_NON_INPUT)).toHaveLength(0)
-        expect(out).toContain("'f-model'")
+        expect(out).toContain('input')
     })
 
     it('throws CompileError on unterminated mustache', () => {
@@ -872,10 +876,9 @@ describe('compile() — full pipeline', () => {
         `
         const { code: out, warnings } = compile(src)
         expect(warnings).toHaveLength(0)
-        expect(out).toContain('h("div"')
-        expect(out).toContain('hText(')
-        expect(out).toContain('"@click"')
-        expect(out).toContain("'f-show'")
+        expect(out).toContain('_template(')
+        expect(out).toContain('_insert(')
+        expect(out).toContain('_on(')
     })
 
     it('compiles a realistic todo list template', () => {
@@ -892,7 +895,7 @@ describe('compile() — full pipeline', () => {
         `
         const { code: out, warnings } = compile(src)
         expect(warnings.filter(w => w.code === ErrorCode.FOR_MISSING_KEY)).toHaveLength(0)
-        expect(out).toContain('hFor(')
+        expect(out).toContain('_hFor(')
         expect(out).toMatch(/\(todo,\s*i\)\s*=>/)
     })
 
@@ -909,8 +912,8 @@ describe('compile() — full pipeline', () => {
             </section>
         `
         const { code: out } = compile(src)
-        expect(out).toContain('hIf(')
-        expect(out).toContain('h("section"')
+        expect(out).toContain('_hIf(')
+        expect(out).toContain('_template(')
     })
 
     // ── parseOnly ──────────────────────────────────────────────────────────────
@@ -930,7 +933,7 @@ describe('compile() — full pipeline', () => {
         ])
         expect(results).toHaveLength(2)
         expect(results[0].code).toContain('render')
-        expect(results[1].code).toContain('hText(')
+        expect(results[1].code).toContain('_insert(')
     })
 
     it('compileBatch captures errors per-template without throwing', () => {
@@ -1657,7 +1660,7 @@ describe('fuseePlugin — Vite transform plugin', () => {
         const ctx    = { warn: vi.fn() }
         const result = plugin.transform.call(ctx, '<p>{{ msg }}</p>', 'template.fhtml')
         expect(result).not.toBeNull()
-        expect(result.code).toContain('hText(')
+        expect(result.code).toContain('_insert(')
     })
 
     it('calls this.warn() for each compiler warning', () => {
