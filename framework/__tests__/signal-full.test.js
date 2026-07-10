@@ -238,10 +238,9 @@ describe('signal()', () => {
         expect(s.pop).toBeUndefined()
     })
 
-    it('non-array signal still has reactive array methods (graceful null handling)', () => {
+    it('non-array signal does not have reactive array methods (performance optimization)', () => {
         const s = signal(null)
-        const mapped = s.map(x => x)
-        expect(mapped()).toEqual([])
+        expect(s.map).toBeUndefined()
     })
 
 })

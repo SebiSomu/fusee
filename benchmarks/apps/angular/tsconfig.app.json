@@ -1,0 +1,20 @@
+{
+    "extends": "./tsconfig.json",
+    "compileOnSave": false,
+    "compilerOptions": {
+        "outDir": "./dist/out-tsc",
+        "declaration": false,
+        "downlevelIteration": true,
+        "experimentalDecorators": true,
+        "moduleResolution": "bundler",
+        "importHelpers": true,
+        "target": "es2022",
+        "module": "esnext",
+        "lib": ["es2022", "dom"]
+    },
+    "angularCompilerOptions": {
+        "strictTemplates": true
+    },
+    "files": [],
+    "include": ["src/**/*.ts"]
+}

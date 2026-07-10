@@ -1,0 +1,16 @@
+{
+    "compilerOptions": {
+        "target": "es2022",
+        "module": "esnext",
+        "moduleResolution": "bundler",
+        "experimentalDecorators": true,
+        "useDefineForClassFields": false,
+        "strict": true,
+        "skipLibCheck": true,
+        "lib": ["es2022", "dom"]
+    },
+    "angularCompilerOptions": {
+        "strictTemplates": true
+    },
+    "include": ["src/**/*.ts"]
+}

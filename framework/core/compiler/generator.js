@@ -366,7 +366,8 @@ class Generator {
         if (expr.includes("_ctx.")) return expr;
         if (/^[a-zA-Z_$][a-zA-Z0-9_$.]*$/.test(expr.trim())) {
             const id = expr.trim();
-            if (this.isLocal(id)) return id;
+            const rootVar = id.split('.')[0];
+            if (this.isLocal(rootVar)) return id;
             return `(typeof _ctx.${id} === 'function' && _ctx.${id}.isSignal ? _ctx.${id}() : _ctx.${id})`;
         }
 
