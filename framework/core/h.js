@@ -1,4 +1,4 @@
-import { effect, batch, signal } from '../core/signal.js'
+import { effect, batch, signal, microEffect } from '../core/signal.js'
 import { createEventHandler, registerDelegatedEvent, isDelegatedEvent } from '../core/event-delegation.js'
 
 export { effect as _effect, batch as _batch }
@@ -47,7 +47,7 @@ export function hText(value) {
     const effects = []
 
     if (typeof value === 'function') {
-        const cleanup = effect(() => {
+        const cleanup = microEffect(() => {
             node.textContent = String(value() ?? '')
         })
         effects.push(cleanup)
@@ -108,7 +108,9 @@ export function hFor(sourceGetter, renderItem, keyFn) {
 
     let keyedMap = new Map()
     let oldKeys  = []
-    const keyEvaluatorSignal = signal(null)
+    let _keyEvalCurrent = null
+    const keyEvaluatorGetter = () => _keyEvalCurrent
+    keyEvaluatorGetter.isSignal = true
 
     const cleanup = effect(() => {
         const list = sourceGetter() ?? []
@@ -120,8 +122,8 @@ export function hFor(sourceGetter, renderItem, keyFn) {
 
         const newKeys = new Array(list.length)
         for (let i = 0; i < list.length; i++) {
-            keyEvaluatorSignal(list[i])
-            newKeys[i] = keyFn(keyEvaluatorSignal, i)
+            _keyEvalCurrent = list[i]
+            newKeys[i] = keyFn(keyEvaluatorGetter, i)
         }
 
         if (oldKeys.length === newKeys.length) {
@@ -136,6 +138,40 @@ export function hFor(sourceGetter, renderItem, keyFn) {
                         entry.itemSignal(list[i])
                     }
                 }
+                return
+            }
+        }
+
+        if (oldKeys.length === newKeys.length) {
+            let diffA = -1, diffB = -1, diffCount = 0
+            for (let i = 0; i < newKeys.length; i++) {
+                if (oldKeys[i] !== newKeys[i]) {
+                    if (diffCount === 0) {
+                        diffA = i
+                    } else if (diffCount === 1) {
+                        diffB = i
+                    }
+                    diffCount++
+                    if (diffCount > 2) 
+                        break
+                }
+            }
+            if (diffCount === 2 && oldKeys[diffA] === newKeys[diffB] && oldKeys[diffB] === newKeys[diffA]) {
+                const entryA = keyedMap.get(oldKeys[diffA])
+                const entryB = keyedMap.get(oldKeys[diffB])
+                const nodeA = entryA.fnode.node
+                const nodeB = entryB.fnode.node
+                const refA = nodeA.nextSibling
+                const parentEl = nodeA.parentNode
+                parentEl.insertBefore(nodeA, nodeB.nextSibling)
+                parentEl.insertBefore(nodeB, refA)
+                if (entryA.itemSignal() !== list[diffA]) {
+                    entryA.itemSignal(list[diffA])
+                }
+                if (entryB.itemSignal() !== list[diffB]) {
+                    entryB.itemSignal(list[diffB])
+                }
+                oldKeys = newKeys
                 return
             }
         }
@@ -289,7 +325,8 @@ export function createComponent(name, ComponentFn, rawProps = {}, rawSlots = {})
 }
 
 function _applyProps(el, props, effects) {
-    for (const [key, value] of Object.entries(props)) {
+    for (const key in props) {
+        const value = props[key]
         if (key.startsWith('@')) {
             const eventName = key.slice(1)
             const { handler, modifiers = [] } = value
@@ -358,7 +395,8 @@ function _applyProps(el, props, effects) {
 }
 
 function _applyStaticProps(el, props) {
-    for (const [key, value] of Object.entries(props)) {
+    for (const key in props) {
+        const value = props[key]
         if (key.startsWith('@') || key.startsWith('f-')) 
             continue
         if (typeof value !== 'function') 
