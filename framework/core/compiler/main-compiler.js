@@ -42,6 +42,8 @@ export function compile(source, options = {}) {
         code = generate(ast, {
             source,
             runtimePath: options.runtimePath,
+            resumable: options.resumable,
+            filename: filename,
         })
     } catch (err) {
         _rethrow(err, filename)

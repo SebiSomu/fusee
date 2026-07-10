@@ -14,6 +14,8 @@ class Generator {
         this.ast = ast;
         this.source = options.source ?? "";
         this.runtimePath = options.runtimePath ?? RUNTIME;
+        this.resumable = options.resumable ?? false;
+        this.filename = options.filename ?? "component.js";
         this.indent = 0;
         this.lines = [];
         this._hoistedIdx = 0;
@@ -26,6 +28,7 @@ class Generator {
             "_batch",
         ]);
         this.localScopes = [];
+        this.handlers = [];
     }
 
     generate() {
@@ -55,6 +58,16 @@ class Generator {
             `    ]`,
             `}`,
         ];
+
+        if (this.resumable && this.handlers.length > 0) {
+            output.push("");
+            for (const handler of this.handlers) {
+                output.push(`export function ${handler.name}(event, target, state) {`);
+                output.push(`    ${handler.body}`);
+                output.push(`}`);
+                output.push("");
+            }
+        }
 
         return output.join("\n");
     }
@@ -193,6 +206,20 @@ class Generator {
         const key = JSON.stringify("@" + prop.name);
         const expr = prop.expression.content;
         const mods = JSON.stringify(prop.modifiers);
+
+        if (this.resumable) {
+            const handlerName = `_handle_${prop.name}_${this.handlers.length + 1}`;
+            let body;
+            if (/^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(expr.trim())) {
+                body = `state.${expr.trim()}(event, target);`;
+            } else {
+                body = `const _ctx = state; ${this._rewriteExpr(expr)};`;
+            }
+            this.handlers.push({ name: handlerName, body });
+            const qrl = `${this.filename}#${handlerName}`;
+            return `${key}: { qrl: ${JSON.stringify(qrl)}, modifiers: ${mods} }`;
+        }
+
         const handlerJs = this._genHandlerExpr(expr);
         return `${key}: { handler: ${handlerJs}, modifiers: ${mods} }`;
     }
@@ -221,9 +248,17 @@ class Generator {
             case "model": {
                 const expr = dir.expression.content;
                 entries.push(`'f-model': () => _ctx.${expr}`);
-                entries.push(
-                    `'@input': { handler: ($e) => { _ctx.${expr}($e.target.value) }, modifiers: [] }`,
-                );
+                if (this.resumable) {
+                    const handlerName = `_handle_input_model_${this.handlers.length + 1}`;
+                    const body = `state.${expr}(event.target.value);`;
+                    this.handlers.push({ name: handlerName, body });
+                    const qrl = `${this.filename}#${handlerName}`;
+                    entries.push(`'@input': { qrl: ${JSON.stringify(qrl)}, modifiers: [] }`);
+                } else {
+                    entries.push(
+                        `'@input': { handler: ($e) => { _ctx.${expr}($e.target.value) }, modifiers: [] }`,
+                    );
+                }
                 break;
             }
 

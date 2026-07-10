@@ -329,6 +329,10 @@ function _applyProps(el, props, effects) {
         const value = props[key]
         if (key.startsWith('@')) {
             const eventName = key.slice(1)
+            if (value && value.qrl) {
+                el.setAttribute(`f:on-${eventName}`, value.qrl)
+                continue
+            }
             const { handler, modifiers = [] } = value
             const handlerState = { timeoutId: null, throttleTimeoutId: null, lastRun: 0 }
             const wrappedHandler = createEventHandler(handler, modifiers, null, null, handlerState)
