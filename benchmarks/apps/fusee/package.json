@@ -1,0 +1,12 @@
+{
+  "name": "bench-fusee",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "preview": "vite preview --port 4001 --strictPort"
+  },
+  "devDependencies": {
+    "vite": "^5.4.0"
+  }
+}

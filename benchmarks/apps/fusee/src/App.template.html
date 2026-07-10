@@ -1,0 +1,8 @@
+<table class="table">
+    <tbody>
+        <tr f-for="row in rows" :key="row().id">
+            <td class="col-id">{{ row().id }}</td>
+            <td class="col-label">{{ row().label() }}</td>
+        </tr>
+    </tbody>
+</table>
