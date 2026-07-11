@@ -458,7 +458,7 @@ export function mount(renderFn, ctx, components, container) {
     let unmountHandler = null;
 
     const rootNodes = untrack(() => {
-        const result = renderFn(ctx, components);
+        const result = renderFn(ctx, components, container);
         return Array.isArray(result) ? result : [result];
     });
 

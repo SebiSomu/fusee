@@ -11,6 +11,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "fusee-framework": path.resolve(__dirname, "../../../framework"),
+      "fusee/runtime/h.js": path.resolve(__dirname, "../../../framework/core/h.js"),
     },
   },
   optimizeDeps: {

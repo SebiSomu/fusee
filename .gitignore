@@ -9,6 +9,10 @@ dist/
 build/
 *.tgz
 
+framework/core/rust-compiler/target/
+framework/core/rust-compiler/Cargo.lock
+framework/core/rust-compiler/pkg/
+
 .idea/
 .vscode/
 *.swp

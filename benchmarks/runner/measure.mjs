@@ -36,7 +36,10 @@ async function measureOnce(page, op, rows, setupOp) {
 }
 
 export async function measureFramework(fw, tests, { runs, headless = true, onProgress } = {}) {
-    const browser = await chromium.launch({ headless })
+    const browser = await chromium.launch({
+        headless,
+        args: ['--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage'],
+    })
     const results = {}
 
     try {

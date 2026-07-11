@@ -1,6 +1,6 @@
 # Fusée Benchmark Results
 
-Generated: 2026-07-10T14:32:54.708Z
+Generated: 2026-07-11T14:40:53.188Z
 
 Runs per test: 15
 
@@ -8,51 +8,51 @@ Runs per test: 15
 
 | Framework | Mean | Median | Min | Max | Std Dev |
 |---|---|---|---|---|---|
-| Svelte | 33.69 ms | 33.20 ms | 31.10 ms | 40.70 ms | 2.31 ms |
-| Vue | 35.20 ms | 34.60 ms | 32.20 ms | 44.80 ms | 2.75 ms |
-| Solid | 35.35 ms | 35.30 ms | 32.90 ms | 43.20 ms | 2.44 ms |
-| Angular | 35.61 ms | 35.50 ms | 33.40 ms | 38.70 ms | 1.41 ms |
-| Preact | 35.69 ms | 34.80 ms | 32.30 ms | 45.70 ms | 3.35 ms |
-| React | 37.23 ms | 37.10 ms | 34.40 ms | 42.50 ms | 2.44 ms |
-| Qwik | 37.25 ms | 37.00 ms | 34.10 ms | 44.80 ms | 2.64 ms |
-| Fusée | 39.15 ms | 37.60 ms | 35.10 ms | 50.90 ms | 4.25 ms |
+| Vue | 36.02 ms | 35.90 ms | 30.10 ms | 40.10 ms | 2.42 ms |
+| Svelte | 36.23 ms | 35.80 ms | 32.60 ms | 44.30 ms | 2.83 ms |
+| React | 36.24 ms | 35.90 ms | 33.90 ms | 39.30 ms | 1.70 ms |
+| Solid | 36.30 ms | 36.40 ms | 33.60 ms | 42.20 ms | 2.10 ms |
+| Preact | 36.97 ms | 36.80 ms | 33.60 ms | 43.80 ms | 2.58 ms |
+| Angular | 37.19 ms | 36.90 ms | 35.30 ms | 41.80 ms | 1.68 ms |
+| Fusée | 38.35 ms | 37.60 ms | 35.30 ms | 43.10 ms | 2.20 ms |
+| Qwik | 40.19 ms | 39.70 ms | 35.30 ms | 48.60 ms | 3.62 ms |
 
 ## Update every 10th row
 
 | Framework | Mean | Median | Min | Max | Std Dev |
 |---|---|---|---|---|---|
-| Fusée | 28.15 ms | 28.80 ms | 23.90 ms | 32.40 ms | 2.84 ms |
-| Qwik | 28.17 ms | 28.70 ms | 21.70 ms | 32.20 ms | 2.44 ms |
-| Angular | 28.75 ms | 29.10 ms | 20.90 ms | 31.70 ms | 2.55 ms |
-| Vue | 29.60 ms | 29.70 ms | 23.20 ms | 34.90 ms | 2.29 ms |
-| Solid | 29.64 ms | 29.50 ms | 26.60 ms | 32.40 ms | 1.45 ms |
-| Preact | 29.98 ms | 30.90 ms | 26.10 ms | 32.20 ms | 1.92 ms |
-| React | 29.99 ms | 30.20 ms | 20.90 ms | 43.20 ms | 4.42 ms |
-| Svelte | 31.09 ms | 32.00 ms | 24.40 ms | 33.00 ms | 2.20 ms |
+| Qwik | 24.65 ms | 24.90 ms | 20.70 ms | 29.10 ms | 2.64 ms |
+| Fusée | 25.93 ms | 26.20 ms | 22.30 ms | 30.30 ms | 2.08 ms |
+| Preact | 28.41 ms | 28.40 ms | 23.20 ms | 33.60 ms | 3.00 ms |
+| React | 28.59 ms | 28.80 ms | 25.50 ms | 30.30 ms | 1.37 ms |
+| Solid | 28.92 ms | 28.80 ms | 26.00 ms | 32.50 ms | 1.69 ms |
+| Angular | 28.95 ms | 28.50 ms | 23.30 ms | 35.50 ms | 3.22 ms |
+| Svelte | 29.08 ms | 28.70 ms | 24.80 ms | 33.00 ms | 2.06 ms |
+| Vue | 29.68 ms | 29.80 ms | 27.60 ms | 32.80 ms | 1.42 ms |
 
 ## Swap 2 rows
 
 | Framework | Mean | Median | Min | Max | Std Dev |
 |---|---|---|---|---|---|
-| Fusée | 25.53 ms | 25.30 ms | 19.20 ms | 32.30 ms | 3.61 ms |
-| Solid | 28.61 ms | 29.30 ms | 24.30 ms | 30.80 ms | 1.70 ms |
-| Angular | 28.63 ms | 29.10 ms | 21.60 ms | 30.50 ms | 2.07 ms |
-| Vue | 28.78 ms | 30.00 ms | 13.80 ms | 33.10 ms | 4.24 ms |
-| Qwik | 29.03 ms | 29.50 ms | 25.00 ms | 32.00 ms | 1.74 ms |
-| Preact | 29.94 ms | 30.00 ms | 27.50 ms | 31.30 ms | 1.13 ms |
-| Svelte | 31.14 ms | 31.80 ms | 26.50 ms | 34.30 ms | 2.03 ms |
-| React | 32.53 ms | 30.50 ms | 28.40 ms | 47.50 ms | 5.50 ms |
+| Qwik | 25.37 ms | 25.30 ms | 17.80 ms | 29.20 ms | 3.53 ms |
+| Fusée | 27.22 ms | 27.70 ms | 19.80 ms | 30.10 ms | 2.26 ms |
+| Angular | 28.14 ms | 28.00 ms | 23.70 ms | 30.10 ms | 1.55 ms |
+| Preact | 28.43 ms | 28.90 ms | 18.00 ms | 31.60 ms | 3.15 ms |
+| Solid | 28.85 ms | 29.30 ms | 23.50 ms | 30.50 ms | 1.69 ms |
+| Vue | 29.15 ms | 29.60 ms | 26.00 ms | 31.60 ms | 1.68 ms |
+| Svelte | 30.13 ms | 30.90 ms | 25.20 ms | 33.10 ms | 2.42 ms |
+| React | 33.88 ms | 29.90 ms | 25.40 ms | 48.80 ms | 7.24 ms |
 
 ## Clear all rows
 
 | Framework | Mean | Median | Min | Max | Std Dev |
 |---|---|---|---|---|---|
-| Fusée | 26.42 ms | 27.40 ms | 20.50 ms | 34.70 ms | 3.65 ms |
-| Qwik | 27.33 ms | 28.20 ms | 22.20 ms | 30.20 ms | 2.45 ms |
-| Vue | 28.95 ms | 29.80 ms | 19.00 ms | 31.60 ms | 2.85 ms |
-| Solid | 29.01 ms | 29.40 ms | 23.70 ms | 30.80 ms | 1.63 ms |
-| React | 29.09 ms | 28.80 ms | 24.90 ms | 31.50 ms | 1.88 ms |
-| Angular | 29.51 ms | 30.00 ms | 24.50 ms | 31.60 ms | 1.68 ms |
-| Preact | 30.43 ms | 30.70 ms | 23.60 ms | 33.50 ms | 2.14 ms |
-| Svelte | 30.76 ms | 31.80 ms | 17.90 ms | 33.70 ms | 3.67 ms |
+| Qwik | 24.67 ms | 24.40 ms | 20.00 ms | 29.40 ms | 3.15 ms |
+| Fusée | 26.81 ms | 27.40 ms | 19.10 ms | 29.30 ms | 2.47 ms |
+| Vue | 27.63 ms | 28.70 ms | 9.90 ms | 31.20 ms | 4.84 ms |
+| Angular | 27.77 ms | 28.50 ms | 23.90 ms | 30.50 ms | 1.70 ms |
+| Preact | 27.78 ms | 28.80 ms | 15.30 ms | 30.90 ms | 3.58 ms |
+| React | 28.03 ms | 28.10 ms | 24.80 ms | 30.80 ms | 1.31 ms |
+| Solid | 28.20 ms | 28.50 ms | 23.60 ms | 30.30 ms | 1.70 ms |
+| Svelte | 29.86 ms | 29.60 ms | 24.40 ms | 33.00 ms | 2.27 ms |
 

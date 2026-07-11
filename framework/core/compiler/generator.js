@@ -17,6 +17,7 @@ class SolidGenerator {
         this.templates = [];
         this.imports = new Set();
         this.localScopes = [];
+        this.isRootNode = true;
     }
 
     generate() {
@@ -49,6 +50,7 @@ class SolidGenerator {
     }
 
     _compileBlock(node) {
+        this.isRootNode = true;
         const forDir = node.props?.find?.(p => p.type === NodeType.DIRECTIVE && p.name === "for");
         if (forDir && !node._compiledAsFor) {
             node._compiledAsFor = true;
@@ -116,9 +118,9 @@ class SolidGenerator {
     }
 
     _walkNode(node, ctx, childIdx) {
-        const isRoot = ctx.path.length === 0;
-        const currentPath = [...ctx.path];
-        if (!isRoot) currentPath.push(childIdx);
+        const isRoot = this.isRootNode;
+        this.isRootNode = false;
+        const currentPath = isRoot ? [] : [...ctx.path, childIdx];
 
         // Check if node has f-for directive (unless we are compiling the block itself)
         const forDir = node.props?.find?.(p => p.type === NodeType.DIRECTIVE && p.name === "for");
