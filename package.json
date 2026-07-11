@@ -14,7 +14,9 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "build:rust": "wasm-pack build framework/core/rust-compiler --target web --out-dir pkg",
+    "build:rust:release": "wasm-pack build framework/core/rust-compiler --target web --out-dir pkg --release"
   },
   "keywords": [],
   "author": "",

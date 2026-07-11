@@ -1,6 +1,12 @@
-import { compile } from '../main-compiler.js';
+import { compile as jsCompile } from '../main-compiler.js';
 import fs from 'node:fs';
 import path from 'node:path';
+
+// Când e setat, folosește implementarea Rust+WASM în locul celei JS.
+// Build-time: `FUSEE_RUST_COMPILER=1 npm run build` (după `npm run build:rust`).
+const USE_RUST =
+    process.env.FUSEE_RUST_COMPILER === '1' ||
+    process.env.FUSEE_RUST_COMPILER === 'true';
 
 const IMPORT_RE = /^import\s+(?:\{[^}]*\}|[\w$]+)\s+from\s+['"]([^'"]+\.template\.html)['"]\s*;?/gm;
 
@@ -9,7 +15,7 @@ export function fuseeCompilerPlugin() {
         name: 'vite-plugin-fusee-compiler',
         enforce: 'pre',
 
-        transform(code, id) {
+        async transform(code, id) {
             if (!id.endsWith('.js') && !id.endsWith('.ts')) 
                 return null;
             if (!IMPORT_RE.test(code)) 
@@ -24,9 +30,11 @@ export function fuseeCompilerPlugin() {
                 const [fullImport, templatePath] = match;
                 const absPath = path.resolve(path.dirname(id), templatePath);
                 const source = fs.readFileSync(absPath, 'utf-8');
-                const { code: compiledCode } = compile(source, {
-                    runtimePath: 'fusee-framework/core/h.js'
-                });
+
+                const opts = { runtimePath: 'fusee-framework/core/h.js' };
+                const { code: compiledCode } = USE_RUST
+                    ? await (await import('../rust-compiler.js')).compile(source, opts)
+                    : jsCompile(source, opts);
 
                 const namedMatch = fullImport.match(/\{\s*render\s+as\s+([\w$]+)\s*\}/);
                 const defaultMatch = fullImport.match(/import\s+([\w$]+)\s+from/);
