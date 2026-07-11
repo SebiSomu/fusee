@@ -1,39 +1,48 @@
-// Loader pentru compilatorul Rust+WASM (framework/core/rust-compiler).
-// Expune aceeași semnătură `compile(source, options)` ca `main-compiler.js`,
-// dar execută implementarea Rust (mai rapidă) în locul celei JS.
-//
-// WASM-ul este încărcat lazy (doar la prima compilare) și pornit cu `init()`.
-// Pentru a genera `pkg/`, rulează: `npm run build:rust`
-// (necesită `rustup target add wasm32-unknown-unknown` și `wasm-pack`).
+import path from 'node:path';
+import fs from 'node:fs';
+import { pathToFileURL } from 'node:url';
+
+function findPkg() {
+    let dir = process.cwd();
+    for (let i = 0; i < 8; i++) {
+        const candidate = path.join(dir, 'framework', 'core', 'rust-compiler', 'pkg', 'fusee_compiler.js');
+        if (fs.existsSync(candidate))
+            return candidate;
+        const parent = path.dirname(dir);
+        if (parent === dir)
+            break;
+        dir = parent;
+    }
+    return path.resolve(process.cwd(), 'framework', 'core', 'rust-compiler', 'pkg', 'fusee_compiler.js');
+}
 
 let wasmReady = null;
 
 async function ensureWasm() {
     if (!wasmReady) {
         wasmReady = (async () => {
+            const pkgPath = findPkg();
+            const pkgDir = path.dirname(pkgPath);
+            const wasmPath = path.join(pkgDir, 'fusee_compiler_bg.wasm');
             let pkg;
             try {
-                pkg = await import('../../rust-compiler/pkg/fusee_compiler.js');
+                pkg = await import(/* @vite-ignore */ pathToFileURL(pkgPath).href);
             } catch (err) {
                 throw new Error(
-                    '[fusée] Rust compiler WASM not found. Run `npm run build:rust` first.\n' +
-                    `  (${err.message})`
+                    '[fusée] Rust compiler WASM not found at:\n  ' +
+                        pkgPath +
+                        '\nRun `npm run build:rust` first (from the project root).\n' +
+                        `  (${err.message})`
                 );
             }
-            // wasm-pack --target web exportă `init` ca default export.
-            await pkg.default();
+            const wasmBuffer = fs.readFileSync(wasmPath);
+            pkg.initSync(wasmBuffer);
             return pkg;
         })();
     }
     return wasmReady;
 }
 
-/**
- * Compilează un șablon Fusée folosind implementarea Rust+WASM.
- * @param {string} source  sursa șablonului (.fusee / .fhtml / .template.html)
- * @param {object} [options]  { filename, components, scope, runtimePath, throwOnWarning }
- * @returns {Promise<{ code: string, warnings: Array }>}
- */
 export async function compile(source, options = {}) {
     const pkg = await ensureWasm();
     const json = pkg.compile(source, JSON.stringify(options ?? {}));
