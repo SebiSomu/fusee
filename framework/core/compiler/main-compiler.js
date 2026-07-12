@@ -27,7 +27,6 @@ export function compile(source, options = {}) {
     try {
         const analysisResult = analyze(ast, { source })
         ast = analysisResult.ast
-
         const resolveResult = resolve(ast, { components, source, scope: options.scope })
         ast = resolveResult.ast
 
@@ -54,6 +53,64 @@ export function compile(source, options = {}) {
     }
 
     return { code, ast, tokens, warnings }
+}
+
+export function compileJIT(source, runtime, options = {}) {
+    const filename = options.filename ?? '<jit-template>'
+    const components = new Set(options.components ?? [])
+
+    let tokens
+    try {
+        tokens = tokenize(source)
+    } catch (err) {
+        _rethrow(err, filename)
+    }
+
+    let ast
+    try {
+        ast = parse(tokens, source, components)
+    } catch (err) {
+        _rethrow(err, filename)
+    }
+
+    let warnings = []
+    try {
+        const analysisResult = analyze(ast, { source })
+        ast = analysisResult.ast
+        const resolveResult = resolve(ast, { components, source, scope: options.scope })
+        ast = resolveResult.ast
+        warnings = [...analysisResult.warnings, ...resolveResult.warnings]
+    } catch (err) {
+        _rethrow(err, filename)
+    }
+
+    if (options.throwOnWarning && warnings.length > 0) {
+        const w = warnings[0]
+        throw new CompileError(w.code, w.loc, source)
+    }
+
+    let code
+    try {
+        code = generate(ast, {
+            source,
+            codegenStyle: options.codegenStyle,
+            runtimeMode: 'inline',
+        })
+    } catch (err) {
+        _rethrow(err, filename)
+    }
+
+    const body = code.replace('export function render', 'return function render')
+
+    let render
+    try {
+        const factory = new Function('_runtime', body)
+        render = factory(runtime)
+    } catch (err) {
+        throw new Error(`[fusée] JIT: eroare la evaluarea codului generat pentru ${filename}: ${err.message}`)
+    }
+
+    return { render, warnings, code }
 }
 
 export function parseOnly(source, options = {}) {
