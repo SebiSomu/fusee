@@ -50,3 +50,4 @@ vite.config.js.timestamp-*
 
 fusee-benchmarks
 framework/benchmarks/results/*
+benchmarks/results/*
