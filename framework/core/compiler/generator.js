@@ -26,6 +26,37 @@ class Generator {
             "_batch",
         ]);
         this.localScopes = [];
+        this.codegenStyle = options.codegenStyle ?? "tree";
+        this._instrCounter = 0;
+        this._instrStack = [[]];
+        this.runtimeMode = options.runtimeMode ?? "import";
+    }
+
+    _pushScope() {
+        this._instrStack.push([]);
+    }
+
+    _popScope() {
+        return this._instrStack.pop();
+    }
+
+    _currentScope() {
+        return this._instrStack[this._instrStack.length - 1];
+    }
+
+    _emitInstruction(expr) {
+        const name = `_n${this._instrCounter++}`;
+        this._currentScope().push(`const ${name} = ${expr}`);
+        return name;
+    }
+
+    _genLazyBody(genFn) {
+        if (this.codegenStyle !== "instructions") 
+            return genFn();
+        this._pushScope();
+        const expr = genFn();
+        const stmts = this._popScope();
+        return stmts.length ? `{ ${stmts.join("; ")}; return ${expr} }` : expr;
     }
 
     generate() {
@@ -36,20 +67,37 @@ class Generator {
             }
         }
 
-        const bodyLines = [];
-        const children = this._genChildren(this.ast.children);
-
         const hoistedDecls = [];
         for (const [node, name] of this._hoistedMap) {
-            hoistedDecls.push(`const ${name} = ${this._genNode(node, true)}`);
+            this._pushScope();
+            const expr = this._genNode(node, true);
+            const stmts = this._popScope();
+            hoistedDecls.push(stmts.length 
+                ? `const ${name} = (() => { ${stmts.join("; ")}; return ${expr} })()` 
+                : `const ${name} = ${expr}`
+            );
         }
 
+        this._pushScope();
+        const children = this._genChildren(this.ast.children);
+        const bodyStmts = this._popScope();
+
         const importList = [...this._imports].join(", ");
+        const preamble =
+            this.runtimeMode === "inline" 
+                ? `const { ${importList} } = _runtime`
+                : `import { ${importList} } from '${this.runtimePath}'`;
+        
+        const declsComment =
+            this.codegenStyle === "instructions" ? [`// decls: ${this._instrCounter}`] : [];
+
         const output = [
-            `import { ${importList} } from '${this.runtimePath}'`,
+            preamble,
             "",
             ...(hoistedDecls.length ? [...hoistedDecls, ""] : []),
+            ...declsComment,
             `export function render(_ctx, _components) {`,
+            ...bodyStmts.map((s) => `    ${s}`),
             `    return [`,
             children.map((l) => `        ${l}`).join(",\n"),
             `    ]`,
@@ -62,10 +110,9 @@ class Generator {
     _genChildren(children) {
         if (!children || children.length === 0) return [];
         return children.flatMap((child) => {
-            const forDir = child.props?.find?.(
-                (p) => p.type === NodeType.DIRECTIVE && p.name === "for",
-            );
-            if (forDir) return [this._genForNode(child, forDir)];
+            const forDir = child.props?.find?.((p) => p.type === NodeType.DIRECTIVE && p.name === "for");
+            if (forDir) 
+                return [this._genForNode(child, forDir)];
             return [this._genNode(child)];
         });
     }
@@ -75,19 +122,26 @@ class Generator {
             return this._hoistedMap.get(node);
         }
 
+        let expr;
         switch (node.type) {
             case NodeType.TEXT:
-                return this._genText(node);
+                expr = this._genText(node);
+                break;
             case NodeType.INTERPOLATION:
-                return this._genInterpolation(node);
+                expr = this._genInterpolation(node);
+                break;
             case NodeType.ELEMENT:
-                return this._genElement(node);
+                expr = this._genElement(node);
+                break;
             case NodeType.COMPONENT:
-                return this._genComponent(node);
+                expr = this._genComponent(node);
+                break;
             case NodeType.SLOT_OUTLET:
-                return this._genSlotOutlet(node);
+                expr = this._genSlotOutlet(node);
+                break;
             case "If":
-                return this._genIf(node);
+                expr = this._genIf(node);
+                break;
             default:
                 throwError(
                     ErrorCode.UNKNOWN_NODE_TYPE,
@@ -96,6 +150,11 @@ class Generator {
                     node.type,
                 );
         }
+
+        if (this.codegenStyle === "instructions" && !inHoist) {
+            return this._emitInstruction(expr);
+        }
+        return expr;
     }
 
     _genText(node) {
@@ -134,7 +193,9 @@ class Generator {
     _genSlotOutlet(node) {
         this._imports.add("hSlot");
         const name = JSON.stringify(node.slotName);
-        const fallback = this._genChildrenArray(node.fallback);
+        const fallback = this._genLazyBody(() =>
+            this._genChildrenArray(node.fallback),
+        );
         return `hSlot(_ctx._slots, ${name}, ${fallback})`;
     }
 
@@ -142,10 +203,10 @@ class Generator {
         this._imports.add("hIf");
 
         const branches = node.branches.map((branch) => {
-            const cond = branch.condition
-                ? this._wrapExpr(branch.condition.content)
-                : "true";
-            const children = this._genChildrenArray(branch.node.children ?? []);
+            const cond = branch.condition ? this._wrapExpr(branch.condition.content) : "true";
+            const children = this._genLazyBody(() =>
+                this._genChildrenArray(branch.node.children ?? []),
+            );
             return `[() => ${cond}, () => ${children}]`;
         });
 
@@ -277,7 +338,9 @@ class Generator {
         if (!slots || Object.keys(slots).length === 0) return "{}";
 
         const entries = Object.entries(slots).map(([name, children]) => {
-            const childrenJs = this._genChildrenArray(children);
+            const childrenJs = this._genLazyBody(() =>
+                this._genChildrenArray(children),
+            );
             return `${JSON.stringify(name)}: () => ${childrenJs}`;
         });
 
@@ -316,7 +379,7 @@ class Generator {
         const keyExpr = keyBinding ? keyBinding.expression.content : "undefined";
         const itemParam = index ? `${item}, ${index}` : item;
         const itemParamStr = `(${itemParam})`;
-        const innerJs = this._genNode(innerNode);
+        const innerJs = this._genLazyBody(() => this._genNode(innerNode));
         const keyJs = this._wrapExpr(keyExpr);
 
         this.localScopes.pop();

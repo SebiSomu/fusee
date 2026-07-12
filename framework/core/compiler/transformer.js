@@ -2,24 +2,36 @@ import {NodeType, createExpression, isDirective, findDirective, isStaticText, cl
 import { CompileWarning } from './errors.js'
 import { ErrorCode } from './errors-list.js'
 
-export function transform(ast, options = {}) {
+export function analyze(ast, options = {}) {
     const ctx = {
-        components: options.components ?? new Set(),
         source: options.source ?? '',
         hoisted: [],
         warnings: [],
-        scope: new Set(options.scope ?? []),
-        scopeStack: [],
     }
 
     markStaticPass(ast, ctx)
     walkChildren(ast, node => {
         if (node.children) chainConditionalsInChildren(node.children, ctx)
     })
-
     walkChildren(ast, node => {
         validateFor(node, ctx)
         validateModel(node, ctx)
+    })
+
+    ast._hoisted = ctx.hoisted
+
+    return { ast, warnings: ctx.warnings }
+}
+
+export function resolve(ast, options = {}) {
+    const ctx = {
+        components: options.components ?? new Set(),
+        source: options.source ?? '',
+        warnings: [],
+        scope: new Set(options.scope ?? []),
+    }
+
+    walkChildren(ast, node => {
         validateComponents(node, ctx)
     })
 
@@ -27,9 +39,13 @@ export function transform(ast, options = {}) {
         analyseScope(ast, ctx, new Set(ctx.scope))
     }
 
-    ast._hoisted = ctx.hoisted
-
     return { ast, warnings: ctx.warnings }
+}
+
+export function transform(ast, options = {}) {
+    const { ast: analyzedAst, warnings: analysisWarnings } = analyze(ast, options)
+    const { ast: resolvedAst, warnings: resolveWarnings } = resolve(analyzedAst, options)
+    return { ast: resolvedAst, warnings: [...analysisWarnings, ...resolveWarnings] }
 }
 
 // Step 1 & 2: static marking + hoisting

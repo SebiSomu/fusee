@@ -1,6 +1,6 @@
 import { tokenize }   from './lexer.js'
 import { parse }      from './parser.js'
-import { transform }  from './transformer.js'
+import { transform, analyze, resolve }  from './transformer.js'
 import { generate }   from './generator.js'
 import { CompileError, ErrorCollector } from './errors.js'
 
@@ -25,9 +25,13 @@ export function compile(source, options = {}) {
 
     let warnings = []
     try {
-        const result = transform(ast, { components, source, scope: options.scope })
-        ast = result.ast
-        warnings = result.warnings
+        const analysisResult = analyze(ast, { source })
+        ast = analysisResult.ast
+
+        const resolveResult = resolve(ast, { components, source, scope: options.scope })
+        ast = resolveResult.ast
+
+        warnings = [...analysisResult.warnings, ...resolveResult.warnings]
     } catch (err) {
         _rethrow(err, filename)
     }
@@ -42,6 +46,8 @@ export function compile(source, options = {}) {
         code = generate(ast, {
             source,
             runtimePath: options.runtimePath,
+            codegenStyle: options.codegenStyle,
+            runtimeMode: 'import',
         })
     } catch (err) {
         _rethrow(err, filename)
@@ -64,6 +70,8 @@ export function transformOnly(ast, options = {}) {
         scope: options.scope,
     })
 }
+
+export { analyze, resolve } from './transformer.js'
 
 export function compileBatch(templates, sharedOptions = {}) {
     return templates.map(({ id, source }) => {
