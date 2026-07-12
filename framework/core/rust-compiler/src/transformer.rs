@@ -423,6 +423,7 @@ fn extract_identifiers(expr: &str) -> HashSet<String> {
     let chars: Vec<char> = stripped.chars().collect();
     let mut found = HashSet::new();
     let mut i = 0;
+    let mut skip_next = false;
 
     while i < chars.len() {
         let c = chars[i];
@@ -436,6 +437,12 @@ fn extract_identifiers(expr: &str) -> HashSet<String> {
             }
             let id: String = chars[start..j].iter().collect();
 
+            if skip_next {
+                skip_next = false;
+                i = j;
+                continue;
+            }
+
             let preceded_by_word = start > 0
                 && (chars[start - 1].is_ascii_alphanumeric()
                 || chars[start - 1] == '_'
@@ -443,8 +450,20 @@ fn extract_identifiers(expr: &str) -> HashSet<String> {
             let preceded_by_dot = start > 0 && chars[start - 1] == '.';
 
             if !JS_KEYWORDS.contains(id.as_str()) && !preceded_by_word && !preceded_by_dot {
-                found.insert(id);
+                found.insert(id.clone());
+                if id == "as" || id == "satisfies" {
+                    skip_next = true;
+                }
             }
+            
+            let mut k = j;
+            while k < chars.len() && chars[k].is_whitespace() {
+                k += 1;
+            }
+            if k < chars.len() && chars[k] == ':' {
+                skip_next = true;
+            }
+
             i = j;
         } else {
             i += 1;
@@ -488,7 +507,7 @@ static JS_KEYWORDS: Lazy<HashSet<&'static str>> = Lazy::new(|| {
         "throw", "try", "catch", "finally", "new", "delete", "typeof", "instanceof", "in", "of",
         "void", "const", "let", "var", "function", "class", "import", "export", "default",
         "extends", "super", "this", "yield", "await", "async", "true", "false", "null",
-        "undefined",
+        "undefined", "as", "satisfies",
     ]
         .into_iter()
         .collect()

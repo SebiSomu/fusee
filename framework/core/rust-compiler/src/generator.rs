@@ -418,6 +418,7 @@ impl<'a> Generator<'a> {
         let chars: Vec<char> = expr.chars().collect();
         let mut out = String::new();
         let mut i = 0;
+        let mut skip_next_identifier = false;
 
         while i < chars.len() {
             let c = chars[i];
@@ -431,11 +432,29 @@ impl<'a> Generator<'a> {
                 }
                 let id: String = chars[start..j].iter().collect();
 
+                if skip_next_identifier {
+                    out.push_str(&id);
+                    skip_next_identifier = false;
+                    i = j;
+                    continue;
+                }
+
                 let preceded_by_dot_or_word = start > 0
                     && (chars[start - 1] == '.'
                     || chars[start - 1].is_ascii_alphanumeric()
                     || chars[start - 1] == '_'
                     || chars[start - 1] == '$');
+
+                let mut preceded_by_colon = false;
+                if start > 0 {
+                    let mut p = start - 1;
+                    while p > 0 && chars[p].is_whitespace() {
+                        p -= 1;
+                    }
+                    if chars[p] == ':' {
+                        preceded_by_colon = true;
+                    }
+                }
 
                 let mut k = j;
                 while k < chars.len() && chars[k].is_whitespace() {
@@ -443,10 +462,13 @@ impl<'a> Generator<'a> {
                 }
                 let followed_by_colon = k < chars.len() && chars[k] == ':';
 
-                if preceded_by_dot_or_word || followed_by_colon {
+                if preceded_by_dot_or_word || preceded_by_colon || followed_by_colon {
                     out.push_str(&id);
                 } else if GENERATOR_GLOBALS.contains(id.as_str()) {
                     out.push_str(&id);
+                    if id == "as" || id == "satisfies" {
+                        skip_next_identifier = true;
+                    }
                 } else if self.is_local(&id) {
                     out.push_str(&id);
                 } else {
@@ -557,7 +579,7 @@ static GENERATOR_GLOBALS: Lazy<HashSet<&'static str>> = Lazy::new(|| {
         "parseInt", "parseFloat", "isNaN", "isFinite", "console", "typeof", "instanceof", "void",
         "delete", "new", "return", "if", "else", "for", "while", "do", "switch", "case", "break",
         "continue", "function", "class", "const", "let", "var", "import", "export", "default",
-        "this",
+        "this", "as", "satisfies",
     ]
         .into_iter()
         .collect()

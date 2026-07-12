@@ -315,12 +315,23 @@ function _extractIdentifiers(expr) {
     const found = new Set()
     const RE = /(?<![a-zA-Z0-9_$])([a-zA-Z_$][a-zA-Z0-9_$]*)(?![a-zA-Z0-9_$])/g
     let m
+    let skipNext = false
 
     while ((m = RE.exec(stripped)) !== null) {
         const id  = m[1]
         const idx = m.index
 
-        if (JS_KEYWORDS.has(id)) continue
+        if (skipNext) {
+            skipNext = false
+            continue
+        }
+
+        if (JS_KEYWORDS.has(id)) {
+            if (id === 'as' || id === 'satisfies') {
+                skipNext = true
+            }
+            continue
+        }
         if (idx > 0 && stripped[idx - 1] === '.') continue
 
         found.add(id)
@@ -360,7 +371,7 @@ const JS_KEYWORDS = new Set([
     'new', 'delete', 'typeof', 'instanceof', 'in', 'of', 'void',
     'const', 'let', 'var', 'function', 'class', 'import', 'export',
     'default', 'extends', 'super', 'this', 'yield', 'await', 'async',
-    'true', 'false', 'null', 'undefined'
+    'true', 'false', 'null', 'undefined', 'as', 'satisfies'
 ])
 
 function walkChildren(node, visitor) {

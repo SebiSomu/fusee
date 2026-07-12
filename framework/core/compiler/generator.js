@@ -349,13 +349,30 @@ class Generator {
             'typeof', 'instanceof', 'void', 'delete', 'new', 'return',
             'if', 'else', 'for', 'while', 'do', 'switch', 'case',
             'break', 'continue', 'function', 'class', 'const', 'let',
-            'var', 'import', 'export', 'default', 'this',
+            'var', 'import', 'export', 'default', 'this', 'as', 'satisfies',
         ]);
 
+        // Handle TypeScript type assertions: skip the type name after 'as' or 'satisfies'
+        let skipNext = false;
         return expr.replace(
             /(?<![.\w$])([a-zA-Z_$][a-zA-Z0-9_$]*)(?!\s*:)(?=\s*[\(\.\,\)\]\s+\|\&\!\?\+\-\*\/\%\=\<\>]|$)/g,
-            (match, id) => {
-                if (GLOBALS.has(id)) return match;
+            (match, id, offset) => {
+                if (skipNext) {
+                    skipNext = false;
+                    return match;
+                }
+                if (GLOBALS.has(id)) {
+                    if (id === 'as' || id === 'satisfies') {
+                        skipNext = true;
+                    }
+                    return match;
+                }
+                // Skip identifiers in type annotation context (preceded by ':' possibly with whitespace)
+                let j = offset - 1;
+                while (j >= 0 && /\s/.test(expr[j])) j--;
+                if (j >= 0 && expr[j] === ':') {
+                    return match;
+                }
                 if (this.isLocal(id)) return match;
                 return `_ctx.${id}`;
             }
