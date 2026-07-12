@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 mod utils;
 mod errors;
 mod ast;

@@ -23,5 +23,5 @@ export const TESTS = [
     { id: 'clear', label: 'Clear all rows', rows: 1000 },
 ]
 
-export const DEFAULT_RUNS = 15
+export const DEFAULT_RUNS = 50
 export const WARMUP_RUNS = 5
