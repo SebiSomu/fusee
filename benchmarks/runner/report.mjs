@@ -94,7 +94,7 @@ export function saveResults(allResults, runs) {
   );
 }
 
-function buildMarkdown(allResults, timestamp, runs) {
+export function buildMarkdown(allResults, timestamp, runs) {
   const frameworks = Object.keys(allResults).filter((k) => k !== "__names");
   let md = `# Fusée Benchmark Results\n\n`;
   md += `Generated: ${timestamp}\n\n`;
@@ -102,23 +102,49 @@ function buildMarkdown(allResults, timestamp, runs) {
 
   for (const test of TESTS) {
     md += `## ${test.label}\n\n`;
-    md += `| Framework | Mean | Median | Min | Max | Std Dev |\n`;
-    md += `|---|---|---|---|---|---|\n`;
+    md += `| # | Framework | Mean | Median | Min | Max | Std Dev |\n`;
+    md += `|---|-----------|------|--------|-----|-----|---------|\n`;
 
     const rows = frameworks
       .map((fwId) => ({ fwId, r: allResults[fwId][test.id] }))
       .sort((a, b) => (a.r?.mean ?? Infinity) - (b.r?.mean ?? Infinity));
 
-    for (const { fwId, r } of rows) {
+    for (const [index, { fwId, r }] of rows.entries()) {
       const name = allResults.__names[fwId] ?? fwId;
+      const rank = `${index + 1}.`;
       if (!r || r.error) {
-        md += `| ${name} | ERROR: ${r?.error ?? "unknown"} | | | | |\n`;
+        md += `| ${rank} | ${name} | ERROR: ${r?.error ?? "unknown"} | | | | |\n`;
         continue;
       }
-      md += `| ${name} | ${fmt(r.mean)} | ${fmt(r.median)} | ${fmt(r.min)} | ${fmt(r.max)} | ${fmt(r.stddev)} |\n`;
+      md += `| ${rank} | ${name} | ${fmt(r.mean)} | ${fmt(r.median)} | ${fmt(r.min)} | ${fmt(r.max)} | ${fmt(r.stddev)} |\n`;
     }
     md += "\n";
   }
+
+  const scores = frameworks.map((fwId) => {
+    let totalMean = 0;
+    let validTests = 0;
+    for (const test of TESTS) {
+      const r = allResults[fwId][test.id];
+      if (r && !r.error) {
+        totalMean += r.mean;
+        validTests++;
+      }
+    }
+    return { fwId, total: validTests > 0 ? totalMean : Infinity };
+  });
+
+  scores.sort((a, b) => a.total - b.total);
+
+  md += `## Overall Ranking\n\n`;
+  md += `| # | Framework | Total Mean |\n`;
+  md += `|---|-----------|------------|\n`;
+  scores.forEach((s, i) => {
+    const rank = `${i + 1}.`;
+    const name = allResults.__names[s.fwId] ?? s.fwId;
+    md += `| ${rank} | ${name} | ${fmt(s.total)} |\n`;
+  });
+  md += "\n";
 
   return md;
 }
