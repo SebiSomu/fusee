@@ -14,6 +14,8 @@ export const FRAMEWORKS = [
     { id: 'preact', name: 'Preact', port: 4006 },
     { id: 'angular', name: 'Angular', port: 4007 },
     { id: 'qwik', name: 'Qwik', port: 4008 },
+    { id: 'lit', name: 'Lit', port: 4009 },
+    { id: 'mithril', name: 'Mithril', port: 4010 },
 ]
 
 export const TESTS = [
@@ -23,5 +25,5 @@ export const TESTS = [
     { id: 'clear', label: 'Clear all rows', rows: 1000 },
 ]
 
-export const DEFAULT_RUNS = 50
+export const DEFAULT_RUNS = 30
 export const WARMUP_RUNS = 5
