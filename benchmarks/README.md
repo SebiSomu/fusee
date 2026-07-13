@@ -1,6 +1,6 @@
 # Fusée Framework Benchmark Suite
 
-Compară performanța Fusée cu React, Vue, Angular, Svelte, Solid, Preact și Qwik
+Compară performanța Fusée cu React, Vue, Angular, Svelte, Solid, Preact, Qwik, Lit și Mithril
 folosind 4 teste de stress standard (inspirate din [js-framework-benchmark](https://github.com/krausest/js-framework-benchmark)):
 
 | Test      | Descriere                                              |
@@ -46,7 +46,9 @@ benchmarks/
 │   ├── svelte/
 │   ├── solid/
 │   ├── preact/
-│   └── qwik/
+│   ├── qwik/
+│   ├── lit/
+│   └── mithril/
 ├── runner/
 │   ├── run.mjs         # orchestrator principal (CLI)
 │   ├── measure.mjs      # logica Playwright de măsurare

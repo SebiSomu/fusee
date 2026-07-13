@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Terminal-driven stress benchmarks comparing Fusée to React, Vue, Angular, Svelte, Solid, Preact and Qwik",
+  "description": "Terminal-driven stress benchmarks comparing Fusée to React, Vue, Angular, Svelte, Solid, Preact, Qwik, Lit and Mithril",
   "scripts": {
     "install:apps": "node runner/install-apps.mjs",
     "build:apps": "node runner/build-apps.mjs",
