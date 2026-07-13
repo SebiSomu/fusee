@@ -1,0 +1,15 @@
+{
+    "name": "bench-mithril",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "build": "vite build",
+        "preview": "vite preview --port 4010 --strictPort"
+    },
+    "dependencies": {
+        "mithril": "^2.2.4"
+    },
+    "devDependencies": {
+        "vite": "^5.4.0"
+    }
+}

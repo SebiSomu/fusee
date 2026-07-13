@@ -51,3 +51,6 @@ vite.config.js.timestamp-*
 fusee-benchmarks
 framework/benchmarks/results/*
 benchmarks/results/*
+framework/core/rust-compiler/pkg
+framework/core/rust-compiler/target
+framework/core/rust-compiler/Cargo.lock
