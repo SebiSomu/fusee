@@ -21,6 +21,30 @@ function sanitize(name, value) {
     return value
 }
 
+const _shellCache = new Map()
+
+export function _shell(html) {
+    let tpl = _shellCache.get(html)
+    if (!tpl) {
+        tpl = document.createElement('template')
+        tpl.innerHTML = html
+        _shellCache.set(html, tpl)
+    }
+    return () => tpl.content.firstChild.cloneNode(true)
+}
+
+export function _bindEvent(el, eventName, modifiers, handler, effects) {
+    const handlerState = { timeoutId: null, throttleTimeoutId: null, lastRun: 0 }
+    const wrapped = createEventHandler(handler, modifiers, null, null, handlerState)
+
+    if (isDelegatedEvent(eventName)) {
+        effects.push(registerDelegatedEvent(el, eventName, wrapped, { modifiers, handlerState }))
+    } else {
+        el.addEventListener(eventName, wrapped)
+        effects.push(() => el.removeEventListener(eventName, wrapped))
+    }
+}
+
 export function h(tag, props = {}, children = [], isStatic = false) {
     const el = document.createElement(tag)
     const effects = []
@@ -404,7 +428,7 @@ function _applyStaticProps(el, props) {
     }
 }
 
-function _applyAttr(el, name, value) {
+export function _applyAttr(el, name, value) {
     if (name === 'class') {
         const cls = _resolveClass(value)
         if (cls) el.className = cls

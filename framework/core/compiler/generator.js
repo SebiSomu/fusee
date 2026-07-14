@@ -18,6 +18,9 @@ class Generator {
         this.lines = [];
         this._hoistedIdx = 0;
         this._hoistedMap = new Map();
+        // NEW: template-clone ("shell") bookkeeping for f-for row templates
+        this._shellIdx = 0;
+        this._shellDecls = [];
         this._imports = new Set([
             "h",
             "hText",
@@ -36,7 +39,6 @@ class Generator {
             }
         }
 
-        const bodyLines = [];
         const children = this._genChildren(this.ast.children);
 
         const hoistedDecls = [];
@@ -48,6 +50,8 @@ class Generator {
         const output = [
             `import { ${importList} } from '${this.runtimePath}'`,
             "",
+            // NEW: row-template <template> declarations, parsed once at module init
+            ...(this._shellDecls.length ? [...this._shellDecls, ""] : []),
             ...(hoistedDecls.length ? [...hoistedDecls, ""] : []),
             `export function render(_ctx, _components) {`,
             `    return [`,
@@ -316,12 +320,163 @@ class Generator {
         const keyExpr = keyBinding ? keyBinding.expression.content : "undefined";
         const itemParam = index ? `${item}, ${index}` : item;
         const itemParamStr = `(${itemParam})`;
-        const innerJs = this._genNode(innerNode);
+        const shellJs = this._tryGenShell(innerNode);
+        const innerJs = shellJs ?? this._genNode(innerNode);
         const keyJs = this._wrapExpr(keyExpr);
 
         this.localScopes.pop();
 
         return `hFor(\n        () => ${sourceJs},\n        ${itemParamStr} => ${innerJs},\n        ${itemParamStr} => ${keyJs}\n    )`;
+    }
+
+    _tryGenShell(node) {
+        if (node.type !== NodeType.ELEMENT) return null;
+
+        const plan = { html: "", bindings: [], ok: true };
+        this._buildShellHtml(node, plan, []);
+        if (!plan.ok) return null;
+
+        this._imports.add("_shell");
+        this._imports.add("_bindEvent");
+        this._imports.add("_applyAttr");
+
+        const shellName = `_rowTmpl${this._shellIdx++}`;
+        this._shellDecls.push(`const ${shellName} = _shell(${JSON.stringify(plan.html)})`);
+
+        const bindLines = plan.bindings
+            .map((b, i) => this._emitBinding(b, i))
+            .filter(Boolean)
+            .join("\n        ");
+
+        return (
+            `(() => {\n` +
+            `        const _el = ${shellName}();\n` +
+            `        const _fx = [];\n` +
+            (bindLines ? `        ${bindLines}\n` : "") +
+            `        return { node: _el, effects: _fx };\n` +
+            `    })()`
+        );
+    }
+
+    _buildShellHtml(node, plan, path) {
+        if (!plan.ok) return;
+
+        if (node.type === NodeType.TEXT) {
+            plan.html += this._escapeHtml(node.content);
+            return;
+        }
+
+        if (node.type === NodeType.INTERPOLATION) {
+            plan.html += "<!--f-->";
+            plan.bindings.push({ kind: "text", path: [...path], expr: node.expression });
+            return;
+        }
+
+        if (node.type !== NodeType.ELEMENT) {
+            plan.ok = false;
+            return;
+        }
+
+        let staticAttrs = "";
+        const dynProps = [];
+
+        for (const prop of node.props) {
+            if (prop.type === NodeType.ATTRIBUTE) {
+                if (typeof prop.value === "string" && prop.value.includes("{{")) {
+                    plan.ok = false;
+                    return;
+                }
+                staticAttrs += prop.value == null
+                    ? ` ${prop.name}`
+                    : ` ${prop.name}="${this._escapeAttr(prop.value)}"`;
+            } else if (prop.type === NodeType.BINDING || prop.type === NodeType.EVENT) {
+                dynProps.push(prop);
+            } else {
+                plan.ok = false;
+                return;
+            }
+        }
+
+        if (dynProps.length) {
+            plan.bindings.push({ kind: "props", path: [...path], props: dynProps });
+        }
+
+        plan.html += `<${node.tag}${staticAttrs}>`;
+
+        if (!node.selfClosing) {
+            const children = node.children || [];
+            for (let i = 0; i < children.length; i++) {
+                const child = children[i];
+                if (
+                    child.type === "If" ||
+                    child.type === NodeType.COMPONENT ||
+                    child.type === NodeType.SLOT_OUTLET
+                ) {
+                    plan.ok = false;
+                    return;
+                }
+                if (child.props?.some?.((p) => p.type === NodeType.DIRECTIVE && p.name === "for")) {
+                    plan.ok = false;
+                    return;
+                }
+                this._buildShellHtml(child, plan, [...path, i]);
+                if (!plan.ok) return;
+            }
+            plan.html += `</${node.tag}>`;
+        }
+    }
+
+    _emitBinding(b, idx) {
+        const ref = this._pathRef(b.path);
+
+        if (b.kind === "text") {
+            const commentVar = `_c${idx}`;
+            const textVar = `_t${idx}`;
+            const expr = this._wrapExpr(b.expr.content);
+            const lines = [
+                `const ${commentVar} = ${ref};`,
+                `const ${textVar} = document.createTextNode('');`,
+                `${commentVar}.after(${textVar});`,
+            ];
+            if (b.expr.isStatic) {
+                lines.push(`${textVar}.data = String(${expr});`);
+            } else {
+                this._imports.add("_effect");
+                lines.push(`_fx.push(_effect(() => { ${textVar}.data = String(${expr}) }));`);
+            }
+            return lines.join("\n        ");
+        }
+
+        if (b.kind === "props") {
+            return b.props
+                .map((p) => {
+                    if (p.type === NodeType.EVENT) {
+                        const handlerJs = this._genHandlerExpr(p.expression.content);
+                        return `_bindEvent(${ref}, ${JSON.stringify(p.name)}, ${JSON.stringify(p.modifiers)}, ${handlerJs}, _fx);`;
+                    }
+                    // BINDING (attr or prop)
+                    const expr = this._wrapExpr(p.expression.content);
+                    const attrName = p.isProp ? "prop:" + p.name : p.name;
+                    this._imports.add("_effect");
+                    return `_fx.push(_effect(() => { _applyAttr(${ref}, ${JSON.stringify(attrName)}, ${expr}) }));`;
+                })
+                .join("\n        ");
+        }
+
+        return "";
+    }
+
+    _pathRef(path) {
+        if (!path || path.length === 0) return "_el";
+        return "_el" + path.map((i) => `.childNodes[${i}]`).join("");
+    }
+
+    _escapeHtml(str) {
+        return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    _escapeAttr(str) {
+        return String(str).replace(/&/g, "&amp;").replace(/"/g, "&quot;");
     }
 
     isLocal(id) {
