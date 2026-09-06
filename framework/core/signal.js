@@ -89,8 +89,10 @@ export function signal(initialValue) {
 
     accessor.isSignal = true
 
-    if (Array.isArray(initialValue)) addMutatingArrayMethods(accessor)
-    addReactiveArrayMethods(accessor)
+    if (Array.isArray(initialValue)) {
+        addMutatingArrayMethods(accessor)
+        addReactiveArrayMethods(accessor)
+    }
 
     return accessor
 }
@@ -151,6 +153,35 @@ export function effect(fn) {
     if (currentOwner) {
         currentOwner.children.add(cleanup)
     }
+
+    run()
+    return cleanup
+}
+
+export function microEffect(fn) {
+    let active = true
+
+    const run = () => {
+        if (!active) return
+        for (const dep of run.deps) dep.delete(run)
+        run.deps.clear()
+        const prev = currentEffect
+        currentEffect = run
+        try { fn() }
+        finally { currentEffect = prev }
+    }
+
+    run.deps = new Set()
+
+    const cleanup = () => {
+        if (!active) return
+        active = false
+        pendingEffects.delete(run)
+        for (const dep of run.deps) dep.delete(run)
+        run.deps.clear()
+    }
+
+    if (onEffectCreated) onEffectCreated(cleanup)
 
     run()
     return cleanup
@@ -313,32 +344,39 @@ export function inspect(...args) {
     })
 }
 
+const REACTIVE_ARRAY_METHODS = {
+    map: (acc) => (fn) => computed(() => acc()?.map?.(fn) ?? []),
+    filter: (acc) => (fn) => computed(() => acc()?.filter?.(fn) ?? []),
+    slice: (acc) => (...args) => computed(() => acc()?.slice?.(...args) ?? []),
+    concat: (acc) => (...args) => computed(() => acc()?.concat?.(...args) ?? []),
+    flat: (acc) => (depth) => computed(() => acc()?.flat?.(depth) ?? []),
+    flatMap: (acc) => (fn) => computed(() => acc()?.flatMap?.(fn) ?? []),
+    find: (acc) => (fn) => computed(() => acc()?.find?.(fn)),
+    findLast: (acc) => (fn) => computed(() => acc()?.findLast?.(fn)),
+    findIndex: (acc) => (fn) => computed(() => acc()?.findIndex?.(fn)),
+    findLastIndex: (acc) => (fn) => computed(() => acc()?.findLastIndex?.(fn)),
+    indexOf: (acc) => (searchElement, fromIdx) => computed(() => acc()?.indexOf?.(searchElement, fromIdx)),
+    lastIndexOf: (acc) => (searchElement, fromIdx) => computed(() => acc()?.lastIndexOf?.(searchElement, fromIdx)),
+    includes: (acc) => (searchElement, fromIdx) => computed(() => acc()?.includes?.(searchElement, fromIdx)),
+    every: (acc) => (fn) => computed(() => acc()?.every?.(fn)),
+    some: (acc) => (fn) => computed(() => acc()?.some?.(fn)),
+    reduce: (acc) => (...args) => computed(() => acc()?.reduce?.(...args)),
+    at: (acc) => (index) => computed(() => acc()?.at?.(index)),
+    join: (acc) => (separator) => computed(() => acc()?.join?.(separator) ?? ''),
+}
+
 function addReactiveArrayMethods(accessor) {
-    // Transformations
-    accessor.map = (fn) => computed(() => accessor()?.map?.(fn) ?? [])
-    accessor.filter = (fn) => computed(() => accessor()?.filter?.(fn) ?? [])
-    accessor.slice = (...args) => computed(() => accessor()?.slice?.(...args) ?? [])
-    accessor.concat = (...args) => computed(() => accessor()?.concat?.(...args) ?? [])
-    accessor.flat = (depth) => computed(() => accessor()?.flat?.(depth) ?? [])
-    accessor.flatMap = (fn) => computed(() => accessor()?.flatMap?.(fn) ?? [])
-
-    // Searches
-    accessor.find = (fn) => computed(() => accessor()?.find?.(fn))
-    accessor.findLast = (fn) => computed(() => accessor()?.findLast?.(fn))
-    accessor.findIndex = (fn) => computed(() => accessor()?.findIndex?.(fn))
-    accessor.findLastIndex = (fn) => computed(() => accessor()?.findLastIndex?.(fn))
-    accessor.indexOf = (searchElement, fromIdx) => computed(() => accessor()?.indexOf?.(searchElement, fromIdx))
-    accessor.lastIndexOf = (searchElement, fromIdx) => computed(() => accessor()?.lastIndexOf?.(searchElement, fromIdx))
-    accessor.includes = (searchElement, fromIdx) => computed(() => accessor()?.includes?.(searchElement, fromIdx))
-
-    // Validations
-    accessor.every = (fn) => computed(() => accessor()?.every?.(fn))
-    accessor.some = (fn) => computed(() => accessor()?.some?.(fn))
-
-    // Accumulators & Access
-    accessor.reduce = (...args) => computed(() => accessor()?.reduce?.(...args))
-    accessor.at = (index) => computed(() => accessor()?.at?.(index))
-    accessor.join = (separator) => computed(() => accessor()?.join?.(separator) ?? '')
+    for (const name in REACTIVE_ARRAY_METHODS) {
+        Object.defineProperty(accessor, name, {
+            get() {
+                const method = REACTIVE_ARRAY_METHODS[name](accessor)
+                Object.defineProperty(accessor, name, { value: method, writable: true, configurable: true })
+                return method
+            },
+            configurable: true,
+            enumerable: false,
+        })
+    }
 }
 
 function addMutatingArrayMethods(accessor) {
