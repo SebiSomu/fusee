@@ -146,7 +146,7 @@ describe('Integration Tests', () => {
             window.history.pushState({}, '', '/')
         })
 
-        it('render component via router', () => {
+        it('render component via router', async () => {
             const Home = defineComponent({
                 setup() {
                     return { template: '<div>Home</div>' }
@@ -158,14 +158,14 @@ describe('Integration Tests', () => {
             ])
 
             const container = document.createElement('div')
-            navigate('/')
-            mountOutlet(container)
+            await navigate('/')
+            await mountOutlet(container)
 
             expect(container.innerHTML).toContain('Home')
             router.destroy()
         })
 
-        it('match routes correctly', () => {
+        it('match routes correctly', async () => {
             const Home = defineComponent({
                 setup() {
                     return { template: '<div>Home</div>' }
@@ -184,14 +184,14 @@ describe('Integration Tests', () => {
             ])
 
             const container = document.createElement('div')
-            navigate('/about')
-            mountOutlet(container)
+            await navigate('/about')
+            await mountOutlet(container)
 
             expect(container.innerHTML).toContain('About')
             router.destroy()
         })
 
-        it('currentRoute signal updates on navigation', () => {
+        it('currentRoute signal updates on navigation', async () => {
             const router = createRouter([
                 { path: '/', component: () => ({ render: () => {} }) }
             ])
@@ -199,18 +199,18 @@ describe('Integration Tests', () => {
             const routeSpy = vi.fn()
             effect(() => routeSpy(currentRoute()))
 
-            navigate('/')
+            await navigate('/')
             expect(currentRoute()).toBe('/')
             expect(routeSpy).toHaveBeenLastCalledWith('/')
 
-            navigate('/about')
+            await navigate('/about')
             expect(currentRoute()).toBe('/about')
             expect(routeSpy).toHaveBeenLastCalledWith('/about')
 
             router.destroy()
         })
 
-        it('f-link directive adds active class to current route', () => {
+        it('f-link directive adds active class to current route', async () => {
             const router = createRouter([
                 { path: '/', component: () => ({ render: () => {} }) }
             ])
@@ -218,7 +218,7 @@ describe('Integration Tests', () => {
             const container = document.createElement('div')
             container.innerHTML = '<a href="/" f-link>Home</a><a href="/about" f-link>About</a>'
             
-            navigate('/')
+            await navigate('/')
             processLinks(container, [])
             
             const homeLink = container.querySelector('a[href="/"]')
@@ -227,7 +227,7 @@ describe('Integration Tests', () => {
             expect(homeLink?.classList.contains('active')).toBe(true)
             expect(aboutLink?.classList.contains('active')).toBe(false)
 
-            navigate('/about')
+            await navigate('/about')
             expect(homeLink?.classList.contains('active')).toBe(false)
             expect(aboutLink?.classList.contains('active')).toBe(true)
 
@@ -352,13 +352,7 @@ describe('Integration Tests', () => {
             router.destroy()
         })
 
-        it('wildcard route catches unmatched paths (404)', () => {
-            const Home = defineComponent({
-                setup() {
-                    return { template: '<div>Home</div>' }
-                }
-            })
-
+        it('wildcard route catches unmatched paths (404)', async () => {
             const NotFound = defineComponent({
                 setup() {
                     return { template: '<div>404 Not Found</div>' }
@@ -366,22 +360,22 @@ describe('Integration Tests', () => {
             })
 
             const router = createRouter([
-                { path: '/', component: () => Home() },
+                { path: '/', component: () => ({ render: () => {} }) },
                 { path: '*', component: () => NotFound() }
             ])
 
             const container = document.createElement('div')
-            navigate('/non-existent-path')  // Set URL before mountOutlet
-            mountOutlet(container)
+            await navigate('/non-existent-path')  // Set URL before mountOutlet
+            await mountOutlet(container)
             expect(container.innerHTML).toContain('404 Not Found')
 
-            navigate('/another/invalid/route')
+            await navigate('/another/invalid/route')
             expect(container.innerHTML).toContain('404 Not Found')
 
             router.destroy()
         })
 
-        it('wildcard has lowest priority (exact matches win)', () => {
+        it('wildcard has lowest priority (exact matches win)', async () => {
             const Home = defineComponent({
                 setup() {
                     return { template: '<div>Home</div>' }
@@ -407,20 +401,20 @@ describe('Integration Tests', () => {
             ])
 
             const container = document.createElement('div')
-            navigate('/')  // Set URL before mountOutlet
-            mountOutlet(container)
+            await navigate('/')  // Set URL before mountOutlet
+            await mountOutlet(container)
             expect(container.innerHTML).toContain('Home')
 
-            navigate('/about')
+            await navigate('/about')
             expect(container.innerHTML).toContain('About')
 
-            navigate('/non-existent')
+            await navigate('/non-existent')
             expect(container.innerHTML).toContain('404 Not Found')
 
             router.destroy()
         })
 
-        it('wildcard prefix works for nested paths (/admin/*)', () => {
+        it('wildcard prefix works for nested paths (/admin/*)', async () => {
             const AdminDashboard = defineComponent({
                 setup() {
                     return { template: '<div>Admin Dashboard</div>' }
@@ -446,21 +440,21 @@ describe('Integration Tests', () => {
             ])
 
             const container = document.createElement('div')
-            navigate('/admin')  // Set URL before mountOutlet
-            mountOutlet(container)
+            await navigate('/admin')  // Set URL before mountOutlet
+            await mountOutlet(container)
 
             expect(container.innerHTML).toContain('Admin Dashboard')
 
-            navigate('/admin/users')
+            await navigate('/admin/users')
             expect(container.innerHTML).toContain('Admin Users')
 
-            navigate('/admin/users/123')
+            await navigate('/admin/users/123')
             expect(container.innerHTML).toContain('Admin Users')
 
-            navigate('/admin/settings/permissions')
+            await navigate('/admin/settings/permissions')
             expect(container.innerHTML).toContain('Admin Users')
 
-            navigate('/other-path')
+            await navigate('/other-path')
             expect(container.innerHTML).toContain('404 Not Found')
 
             router.destroy()

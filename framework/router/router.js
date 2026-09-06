@@ -364,7 +364,7 @@ async function _runMiddlewarePipeline(list, ctx) {
     }
 
     await dispatch(0)
-    return index >= list.length - 1
+    return index >= list.length
 }
 
 function _reportMiddlewareError(err, to, from) {
@@ -578,6 +578,7 @@ function _finalizeNavigation(path, chain, to, from, historyMode, meta = {}) {
 
     _renderChain(chain)
     _currentPath = path
+    currentRoute(path)
     _applyScrollBehavior(path, from.fullPath)
     routeQuery(_extractQuery(path))
     routeMeta(meta)
@@ -685,7 +686,7 @@ export async function navigate(path, options = {}, _redirectDepth = 0) {
 
 export function mountOutlet(el) {
     _rootOutlet = el
-    _resolveRoute()
+    return _resolveRoute()
 }
 
 function _isInternalLink(anchor) {

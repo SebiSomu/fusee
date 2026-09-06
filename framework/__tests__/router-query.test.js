@@ -4,10 +4,7 @@ import { createRouter, mountOutlet, routeQuery, currentRoute } from '../router/r
 let currentRouter = null
 
 beforeEach(() => {
-    Object.defineProperty(window, 'location', {
-        writable: true,
-        value: { pathname: '/', search: '', hash: '' }
-    })
+    window.history.replaceState({}, '', '/')
 
     const existingOutlet = document.getElementById('router-test-outlet')
     if (existingOutlet) existingOutlet.remove()
@@ -36,7 +33,7 @@ function createMockComponent(renderFn) {
 }
 
 describe('Router Query Parameters', () => {
-    it('extracts query parameters from initial URL', () => {
+    it('extracts query parameters from initial URL', async () => {
         const routes = [
             {
                 path: '/',
@@ -46,22 +43,19 @@ describe('Router Query Parameters', () => {
             }
         ]
 
-        Object.defineProperty(window, 'location', {
-            writable: true,
-            value: { pathname: '/', search: '?q=test&page=1', hash: '' }
-        })
+        window.history.replaceState({}, '', '/?q=test&page=1')
 
         const outlet = document.createElement('div')
         outlet.id = 'router-test-outlet'
         document.body.appendChild(outlet)
 
         currentRouter = createRouter(routes)
-        mountOutlet(outlet)
+        await mountOutlet(outlet)
 
         expect(routeQuery()).toEqual({ q: 'test', page: '1' })
     })
 
-    it('updates routeQuery when navigating', () => {
+    it('updates routeQuery when navigating', async () => {
         const routes = [
             {
                 path: '/',
@@ -77,35 +71,23 @@ describe('Router Query Parameters', () => {
             }
         ]
 
-        const pushStateSpy = vi.fn((state, title, url) => {
-            if (typeof url === 'string') {
-                const [path, search] = url.split('?')
-                window.location.pathname = path
-                window.location.search = search ? '?' + search : ''
-            }
-        })
-        Object.defineProperty(window.history, 'pushState', {
-            writable: true,
-            value: pushStateSpy
-        })
-
         const outlet = document.createElement('div')
         outlet.id = 'router-test-outlet'
         document.body.appendChild(outlet)
 
         currentRouter = createRouter(routes)
-        mountOutlet(outlet)
+        await mountOutlet(outlet)
 
         expect(routeQuery()).toEqual({})
 
-        currentRouter.navigate('/search?q=fusee&sort=desc')
+        await currentRouter.navigate('/search?q=fusee&sort=desc')
 
         expect(window.location.pathname).toBe('/search')
         expect(window.location.search).toBe('?q=fusee&sort=desc')
         expect(routeQuery()).toEqual({ q: 'fusee', sort: 'desc' })
     })
 
-    it('ignores query parameters when matching routes', () => {
+    it('ignores query parameters when matching routes', async () => {
         const routes = [
             {
                 path: '/products',
@@ -115,23 +97,20 @@ describe('Router Query Parameters', () => {
             }
         ]
 
-        Object.defineProperty(window, 'location', {
-            writable: true,
-            value: { pathname: '/products', search: '?category=electronics', hash: '' }
-        })
+        window.history.replaceState({}, '', '/products?category=electronics')
 
         const outlet = document.createElement('div')
         outlet.id = 'router-test-outlet'
         document.body.appendChild(outlet)
 
         currentRouter = createRouter(routes)
-        mountOutlet(outlet)
+        await mountOutlet(outlet)
 
         expect(outlet.innerHTML).toBe('Products Page')
         expect(routeQuery()).toEqual({ category: 'electronics' })
     })
 
-    it('works with complex query strings and hashes', () => {
+    it('works with complex query strings and hashes', async () => {
         const routes = [
             {
                 path: '/test',
@@ -141,17 +120,14 @@ describe('Router Query Parameters', () => {
             }
         ]
 
-        Object.defineProperty(window, 'location', {
-            writable: true,
-            value: { pathname: '/test', search: '?a=1&b=2&c=3', hash: '#section1' }
-        })
+        window.history.replaceState({}, '', '/test?a=1&b=2&c=3#section1')
 
         const outlet = document.createElement('div')
         outlet.id = 'router-test-outlet'
         document.body.appendChild(outlet)
 
         currentRouter = createRouter(routes)
-        mountOutlet(outlet)
+        await mountOutlet(outlet)
 
         expect(outlet.innerHTML).toBe('Test')
         expect(routeQuery()).toEqual({ a: '1', b: '2', c: '3' })

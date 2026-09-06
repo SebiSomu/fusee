@@ -4,10 +4,7 @@ import { createRouter, mountOutlet, routeParams, currentRoute, matchedRoutes } f
 let currentRouter = null
 
 beforeEach(() => {
-    Object.defineProperty(window, 'location', {
-        writable: true,
-        value: { pathname: '/' }
-    })
+    window.history.replaceState({}, '', '/')
 
     const existingOutlet = document.getElementById('router-test-outlet')
     if (existingOutlet) existingOutlet.remove()
@@ -45,7 +42,7 @@ function createMockComponent(renderFn) {
 // ─── Flat Dynamic Routes (backward compatible) ──────────────────────────────
 
 describe('Dynamic Routes (flat)', () => {
-    it('matches dynamic route with single parameter', () => {
+    it('matches dynamic route with single parameter', async () => {
         const routes = [
             {
                 path: '/users/:id',
@@ -55,23 +52,20 @@ describe('Dynamic Routes (flat)', () => {
             }
         ]
 
-        Object.defineProperty(window, 'location', {
-            writable: true,
-            value: { pathname: '/users/123' }
-        })
+        window.history.replaceState({}, '', '/users/123')
 
         const outlet = document.createElement('div')
         outlet.id = 'router-test-outlet'
         document.body.appendChild(outlet)
 
         currentRouter = createRouter(routes)
-        mountOutlet(outlet)
+        await mountOutlet(outlet)
 
         expect(currentRoute()).toBe('/users/123')
         expect(routeParams()).toEqual({ id: '123' })
     })
 
-    it('matches dynamic route with multiple parameters', () => {
+    it('matches dynamic route with multiple parameters', async () => {
         const routes = [
             {
                 path: '/posts/:category/:slug',
@@ -81,23 +75,20 @@ describe('Dynamic Routes (flat)', () => {
             }
         ]
 
-        Object.defineProperty(window, 'location', {
-            writable: true,
-            value: { pathname: '/posts/tech/my-first-post' }
-        })
+        window.history.replaceState({}, '', '/posts/tech/my-first-post')
 
         const outlet = document.createElement('div')
         outlet.id = 'router-test-outlet'
         document.body.appendChild(outlet)
 
         currentRouter = createRouter(routes)
-        mountOutlet(outlet)
+        await mountOutlet(outlet)
 
         expect(currentRoute()).toBe('/posts/tech/my-first-post')
         expect(routeParams()).toEqual({ category: 'tech', slug: 'my-first-post' })
     })
 
-    it('extracts parameters correctly for nested dynamic routes', () => {
+    it('extracts parameters correctly for nested dynamic routes', async () => {
         const routes = [
             {
                 path: '/org/:orgId/team/:teamId',
@@ -107,22 +98,19 @@ describe('Dynamic Routes (flat)', () => {
             }
         ]
 
-        Object.defineProperty(window, 'location', {
-            writable: true,
-            value: { pathname: '/org/acme/team/engineering' }
-        })
+        window.history.replaceState({}, '', '/org/acme/team/engineering')
 
         const outlet = document.createElement('div')
         outlet.id = 'router-test-outlet'
         document.body.appendChild(outlet)
 
         currentRouter = createRouter(routes)
-        mountOutlet(outlet)
+        await mountOutlet(outlet)
 
         expect(routeParams()).toEqual({ orgId: 'acme', teamId: 'engineering' })
     })
 
-    it('updates routeParams when navigating to different dynamic routes', () => {
+    it('updates routeParams when navigating to different dynamic routes', async () => {
         const routes = [
             {
                 path: '/users/:id',
@@ -132,36 +120,23 @@ describe('Dynamic Routes (flat)', () => {
             }
         ]
 
-        Object.defineProperty(window, 'location', {
-            writable: true,
-            value: { pathname: '/users/123' }
-        })
-
-        const pushStateSpy = vi.fn((state, title, url) => {
-            if (typeof url === 'string') {
-                window.location.pathname = url
-            }
-        })
-        Object.defineProperty(window.history, 'pushState', {
-            writable: true,
-            value: pushStateSpy
-        })
+        window.history.replaceState({}, '', '/users/123')
 
         const outlet = document.createElement('div')
         outlet.id = 'router-test-outlet'
         document.body.appendChild(outlet)
 
         const router = createRouter(routes)
-        mountOutlet(outlet)
+        await mountOutlet(outlet)
 
         expect(routeParams()).toEqual({ id: '123' })
 
-        router.navigate('/users/456')
+        await router.navigate('/users/456')
 
         expect(routeParams()).toEqual({ id: '456' })
     })
 
-    it('prioritizes exact match over dynamic match', () => {
+    it('prioritizes exact match over dynamic match', async () => {
         const routes = [
             {
                 path: '/users/profile',
@@ -177,17 +152,14 @@ describe('Dynamic Routes (flat)', () => {
             }
         ]
 
-        Object.defineProperty(window, 'location', {
-            writable: true,
-            value: { pathname: '/users/profile' }
-        })
+        window.history.replaceState({}, '', '/users/profile')
 
         const outlet = document.createElement('div')
         outlet.id = 'router-test-outlet'
         document.body.appendChild(outlet)
 
         currentRouter = createRouter(routes)
-        mountOutlet(outlet)
+        await mountOutlet(outlet)
 
         expect(outlet.innerHTML).toBe('Profile Page')
         expect(routeParams()).toEqual({})
@@ -196,7 +168,7 @@ describe('Dynamic Routes (flat)', () => {
     // ─── Nested Routes ──────────────────────────────────────────────────────────
 
     describe('Nested Routes', () => {
-        it('matches parent + index child for parent path', () => {
+        it('matches parent + index child for parent path', async () => {
             const routes = [
                 {
                     path: '/users',
@@ -220,23 +192,20 @@ describe('Dynamic Routes (flat)', () => {
                 }
             ]
 
-            Object.defineProperty(window, 'location', {
-                writable: true,
-                value: { pathname: '/users' }
-            })
+            window.history.replaceState({}, '', '/users')
 
             const outlet = document.createElement('div')
             outlet.id = 'router-test-outlet'
             document.body.appendChild(outlet)
 
             createRouter(routes)
-            mountOutlet(outlet)
+            await mountOutlet(outlet)
 
             expect(outlet.querySelector('h1').textContent).toBe('Users Layout')
             expect(outlet.querySelector('[data-router-view]').innerHTML).toBe('Users Index')
         })
 
-        it('matches parent + dynamic child', () => {
+        it('matches parent + dynamic child', async () => {
             const routes = [
                 {
                     path: '/users',
@@ -260,24 +229,21 @@ describe('Dynamic Routes (flat)', () => {
                 }
             ]
 
-            Object.defineProperty(window, 'location', {
-                writable: true,
-                value: { pathname: '/users/42' }
-            })
+            window.history.replaceState({}, '', '/users/42')
 
             const outlet = document.createElement('div')
             outlet.id = 'router-test-outlet'
             document.body.appendChild(outlet)
 
             createRouter(routes)
-            mountOutlet(outlet)
+            await mountOutlet(outlet)
 
             expect(outlet.querySelector('h1').textContent).toBe('Users Layout')
             expect(outlet.querySelector('[data-router-view]').innerHTML).toBe('User Detail')
             expect(routeParams()).toEqual({ id: '42' })
         })
 
-        it('merges params from all levels in the chain', () => {
+        it('merges params from all levels in the chain', async () => {
             const routes = [
                 {
                     path: '/org/:orgId',
@@ -295,22 +261,19 @@ describe('Dynamic Routes (flat)', () => {
                 }
             ]
 
-            Object.defineProperty(window, 'location', {
-                writable: true,
-                value: { pathname: '/org/acme/team/engineering' }
-            })
+            window.history.replaceState({}, '', '/org/acme/team/engineering')
 
             const outlet = document.createElement('div')
             outlet.id = 'router-test-outlet'
             document.body.appendChild(outlet)
 
             createRouter(routes)
-            mountOutlet(outlet)
+            await mountOutlet(outlet)
 
             expect(routeParams()).toEqual({ orgId: 'acme', teamId: 'engineering' })
         })
 
-        it('exposes matchedRoutes signal with the full chain', () => {
+        it('exposes matchedRoutes signal with the full chain', async () => {
             const parentRoute = {
                 path: '/users',
                 component: createMockComponent((el) => {
@@ -328,17 +291,14 @@ describe('Dynamic Routes (flat)', () => {
 
             const routes = [parentRoute]
 
-            Object.defineProperty(window, 'location', {
-                writable: true,
-                value: { pathname: '/users/7' }
-            })
+            window.history.replaceState({}, '', '/users/7')
 
             const outlet = document.createElement('div')
             outlet.id = 'router-test-outlet'
             document.body.appendChild(outlet)
 
             createRouter(routes)
-            mountOutlet(outlet)
+            await mountOutlet(outlet)
 
             const matched = matchedRoutes()
             expect(matched).toHaveLength(2)
@@ -346,7 +306,7 @@ describe('Dynamic Routes (flat)', () => {
             expect(matched[1]).toBe(parentRoute.children[0])
         })
 
-        it('parent layout persists when navigating between children', () => {
+        it('parent layout persists when navigating between children', async () => {
             let layoutRenderCount = 0
 
             const routes = [
@@ -373,31 +333,20 @@ describe('Dynamic Routes (flat)', () => {
                 }
             ]
 
-            Object.defineProperty(window, 'location', {
-                writable: true,
-                value: { pathname: '/users/a' }
-            })
-
-            const pushStateSpy = vi.fn((state, title, url) => {
-                if (typeof url === 'string') window.location.pathname = url
-            })
-            Object.defineProperty(window.history, 'pushState', {
-                writable: true,
-                value: pushStateSpy
-            })
+            window.history.replaceState({}, '', '/users/a')
 
             const outlet = document.createElement('div')
             outlet.id = 'router-test-outlet'
             document.body.appendChild(outlet)
 
             const router = createRouter(routes)
-            mountOutlet(outlet)
+            await mountOutlet(outlet)
 
             expect(layoutRenderCount).toBe(1)
             expect(outlet.querySelector('[data-router-view]').innerHTML).toBe('Page A')
 
             // Navigate to sibling child
-            router.navigate('/users/b')
+            await router.navigate('/users/b')
 
             // Layout should NOT have been re-rendered
             expect(layoutRenderCount).toBe(1)
@@ -435,18 +384,7 @@ describe('Dynamic Routes (flat)', () => {
                 }
             ]
 
-            Object.defineProperty(window, 'location', {
-                writable: true,
-                value: { pathname: '/test-unmount' }
-            })
-
-            const pushStateSpy = vi.fn((state, title, url) => {
-                if (typeof url === 'string') window.location.pathname = url
-            })
-            Object.defineProperty(window.history, 'pushState', {
-                writable: true,
-                value: pushStateSpy
-            })
+            window.history.replaceState({}, '', '/test-unmount')
 
             const outlet = document.createElement('div')
             outlet.id = 'router-test-outlet'
@@ -454,21 +392,18 @@ describe('Dynamic Routes (flat)', () => {
 
             const router = createRouter(routes)
             currentRouter = router
-            mountOutlet(outlet)
+            await mountOutlet(outlet)
 
             expect(outlet.querySelector('[data-router-view]').innerHTML).toBe('Test Index')
 
-            router.navigate('/test-about')
-
-            // Wait for next tick
-            await new Promise(resolve => setTimeout(resolve, 0))
+            await router.navigate('/test-about')
 
             expect(childUnmounted).toBe(true)
             expect(layoutUnmounted).toBe(true)
             expect(outlet.innerHTML).toBe('About Page')
         })
 
-        it('renders 404 when no route matches', () => {
+        it('renders 404 when no route matches', async () => {
             const routes = [
                 {
                     path: '/users',
@@ -486,17 +421,14 @@ describe('Dynamic Routes (flat)', () => {
                 }
             ]
 
-            Object.defineProperty(window, 'location', {
-                writable: true,
-                value: { pathname: '/nonexistent' }
-            })
+            window.history.replaceState({}, '', '/nonexistent')
 
             const outlet = document.createElement('div')
             outlet.id = 'router-test-outlet'
             document.body.appendChild(outlet)
 
             createRouter(routes)
-            mountOutlet(outlet)
+            await mountOutlet(outlet)
 
             expect(outlet.innerHTML).toContain('No route matched')
         })
@@ -506,7 +438,7 @@ describe('Dynamic Routes (flat)', () => {
 // ─── Router Optimizations Tests ────────────────────────────────────────────────
 
 describe('Router Optimizations', () => {
-    it('uses LRU cache for repeated route matching', () => {
+    it('uses LRU cache for repeated route matching', async () => {
         const routes = [
             {
                 path: '/users/:id',
@@ -516,33 +448,30 @@ describe('Router Optimizations', () => {
             }
         ]
 
-        Object.defineProperty(window, 'location', {
-            writable: true,
-            value: { pathname: '/users/123' }
-        })
+        window.history.replaceState({}, '', '/users/123')
 
         const outlet = document.createElement('div')
         outlet.id = 'router-test-outlet'
         document.body.appendChild(outlet)
 
         const router = createRouter(routes, { cacheSize: 10 })
-        mountOutlet(outlet)
+        await mountOutlet(outlet)
 
         expect(currentRoute()).toBe('/users/123')
         expect(routeParams()).toEqual({ id: '123' })
 
         // Navigate to same route - should use cache
-        router.navigate('/users/456')
+        await router.navigate('/users/456')
         expect(routeParams()).toEqual({ id: '456' })
 
         // Navigate back to first route - should use cache
-        router.navigate('/users/123')
+        await router.navigate('/users/123')
         expect(routeParams()).toEqual({ id: '123' })
 
         router.destroy()
     })
 
-    it('handles errors in component rendering gracefully', () => {
+    it('handles errors in component rendering gracefully', async () => {
         const routes = [
             {
                 path: '/error',
@@ -561,10 +490,7 @@ describe('Router Optimizations', () => {
             }
         ]
 
-        Object.defineProperty(window, 'location', {
-            writable: true,
-            value: { pathname: '/error' }
-        })
+        window.history.replaceState({}, '', '/error')
 
         const outlet = document.createElement('div')
         outlet.id = 'router-test-outlet'
@@ -573,7 +499,7 @@ describe('Router Optimizations', () => {
         const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => { })
 
         const router = createRouter(routes)
-        mountOutlet(outlet)
+        await mountOutlet(outlet)
 
         expect(outlet.innerHTML).toContain('Error rendering route')
         expect(consoleErrorSpy).toHaveBeenCalled()
@@ -582,7 +508,7 @@ describe('Router Optimizations', () => {
         router.destroy()
     })
 
-    it('respects custom routerViewTimeout option', () => {
+    it('respects custom routerViewTimeout option', async () => {
         const routes = [
             {
                 path: '/test',
@@ -592,17 +518,14 @@ describe('Router Optimizations', () => {
             }
         ]
 
-        Object.defineProperty(window, 'location', {
-            writable: true,
-            value: { pathname: '/test' }
-        })
+        window.history.replaceState({}, '', '/test')
 
         const outlet = document.createElement('div')
         outlet.id = 'router-test-outlet'
         document.body.appendChild(outlet)
 
         const router = createRouter(routes, { routerViewTimeout: 5000 })
-        mountOutlet(outlet)
+        await mountOutlet(outlet)
 
         expect(currentRoute()).toBe('/test')
         expect(outlet.innerHTML).toBe('Test Page')
@@ -610,7 +533,7 @@ describe('Router Optimizations', () => {
         router.destroy()
     })
 
-    it('clears cache on router destroy', () => {
+    it('clears cache on router destroy', async () => {
         const routes = [
             {
                 path: '/users/:id',
@@ -620,17 +543,14 @@ describe('Router Optimizations', () => {
             }
         ]
 
-        Object.defineProperty(window, 'location', {
-            writable: true,
-            value: { pathname: '/users/123' }
-        })
+        window.history.replaceState({}, '', '/users/123')
 
         const outlet = document.createElement('div')
         outlet.id = 'router-test-outlet'
         document.body.appendChild(outlet)
 
         const router = createRouter(routes, { cacheSize: 10 })
-        mountOutlet(outlet)
+        await mountOutlet(outlet)
 
         // Cache should be populated
         expect(currentRoute()).toBe('/users/123')
@@ -639,7 +559,7 @@ describe('Router Optimizations', () => {
 
         // Create new router - should not use old cache
         const router2 = createRouter(routes, { cacheSize: 10 })
-        mountOutlet(outlet)
+        await mountOutlet(outlet)
 
         expect(currentRoute()).toBe('/users/123')
 
@@ -689,18 +609,7 @@ describe('Router Optimizations', () => {
             }
         ]
 
-        Object.defineProperty(window, 'location', {
-            writable: true,
-            value: { pathname: '/app/dashboard' }
-        })
-
-        const pushStateSpy = vi.fn((state, title, url) => {
-            if (typeof url === 'string') window.location.pathname = url
-        })
-        Object.defineProperty(window.history, 'pushState', {
-            writable: true,
-            value: pushStateSpy
-        })
+        window.history.replaceState({}, '', '/app/dashboard')
 
         const outlet = document.createElement('div')
         outlet.id = 'router-test-outlet'
@@ -708,7 +617,7 @@ describe('Router Optimizations', () => {
 
         const router = createRouter(routes, { cacheSize: 50 })
         currentRouter = router
-        mountOutlet(outlet)
+        await mountOutlet(outlet)
 
         // Initial state
         expect(currentRoute()).toBe('/app/dashboard')
@@ -717,8 +626,7 @@ describe('Router Optimizations', () => {
         expect(mountCount).toBe(1)
 
         // Navigate to nested dynamic route
-        router.navigate('/app/users/123')
-        await new Promise(resolve => setTimeout(resolve, 0))
+        await router.navigate('/app/users/123')
 
         expect(currentRoute()).toBe('/app/users/123')
         expect(routeParams()).toEqual({ userId: '123' })
@@ -726,8 +634,7 @@ describe('Router Optimizations', () => {
         expect(mountCount).toBe(1) // Layout should not re-mount
 
         // Navigate to different user (should use cache)
-        router.navigate('/app/users/456')
-        await new Promise(resolve => setTimeout(resolve, 0))
+        await router.navigate('/app/users/456')
 
         expect(currentRoute()).toBe('/app/users/456')
         expect(routeParams()).toEqual({ userId: '456' })
@@ -735,8 +642,7 @@ describe('Router Optimizations', () => {
         expect(mountCount).toBe(1)
 
         // Navigate back to previous route (should use cache)
-        router.navigate('/app/users/123')
-        await new Promise(resolve => setTimeout(resolve, 0))
+        await router.navigate('/app/users/123')
 
         expect(currentRoute()).toBe('/app/users/123')
         expect(routeParams()).toEqual({ userId: '123' })
@@ -744,8 +650,7 @@ describe('Router Optimizations', () => {
         expect(mountCount).toBe(1)
 
         // Navigate to completely different route
-        router.navigate('/settings')
-        await new Promise(resolve => setTimeout(resolve, 0))
+        await router.navigate('/settings')
 
         expect(currentRoute()).toBe('/settings')
         expect(routeParams()).toEqual({})
@@ -753,15 +658,13 @@ describe('Router Optimizations', () => {
         expect(unmountCount).toBe(1) // Layout should unmount
 
         // Navigate to non-existent route (catch-all)
-        router.navigate('/nonexistent')
-        await new Promise(resolve => setTimeout(resolve, 0))
+        await router.navigate('/nonexistent')
 
         expect(currentRoute()).toBe('/nonexistent')
         expect(outlet.innerHTML).toBe('404 Not Found')
 
         // Navigate back to app route
-        router.navigate('/app/dashboard')
-        await new Promise(resolve => setTimeout(resolve, 0))
+        await router.navigate('/app/dashboard')
 
         expect(currentRoute()).toBe('/app/dashboard')
         expect(outlet.querySelector('[data-router-view]').innerHTML).toBe('Dashboard')
@@ -774,7 +677,7 @@ describe('Router Optimizations', () => {
 // ─── Scroll Behavior ─────────────────────────────────────────────────────
 
 describe('Scroll Behavior', () => {
-    it('scrolls to top by default when scrollBehavior.scrollToTop is true', () => {
+    it('scrolls to top by default when scrollBehavior.scrollToTop is true', async () => {
         const routes = [
             {
                 path: '/',
@@ -790,10 +693,7 @@ describe('Scroll Behavior', () => {
             }
         ]
 
-        Object.defineProperty(window, 'location', {
-            writable: true,
-            value: { pathname: '/' }
-        })
+        window.history.replaceState({}, '', '/')
 
         const outlet = document.createElement('div')
         outlet.id = 'router-test-outlet'
@@ -806,17 +706,17 @@ describe('Scroll Behavior', () => {
             scrollBehavior: { scrollToTop: true }
         })
         currentRouter = router
-        mountOutlet(outlet)
+        await mountOutlet(outlet)
 
         expect(currentRoute()).toBe('/')
 
-        router.navigate('/about')
+        await router.navigate('/about')
         expect(scrollToSpy).toHaveBeenCalledWith({ top: 0, left: 0, behavior: 'smooth' })
 
         router.destroy()
     })
 
-    it('saves and restores scroll position when saveScrollPosition is enabled', () => {
+    it('saves and restores scroll position when saveScrollPosition is enabled', async () => {
         const routes = [
             {
                 path: '/page1',
@@ -832,10 +732,7 @@ describe('Scroll Behavior', () => {
             }
         ]
 
-        Object.defineProperty(window, 'location', {
-            writable: true,
-            value: { pathname: '/page1' }
-        })
+        window.history.replaceState({}, '', '/page1')
 
         const outlet = document.createElement('div')
         outlet.id = 'router-test-outlet'
@@ -848,18 +745,18 @@ describe('Scroll Behavior', () => {
             scrollBehavior: { saveScrollPosition: true, scrollToTop: false }
         })
         currentRouter = router
-        mountOutlet(outlet)
+        await mountOutlet(outlet)
 
-        router.navigate('/page2')
+        await router.navigate('/page2')
 
-        router.navigate('/page1')
+        await router.navigate('/page1')
         expect(window.scrollY).toBe(500)
         expect(window.scrollX).toBe(100)
 
         router.destroy()
     })
 
-    it('uses custom scroll behavior function', () => {
+    it('uses custom scroll behavior function', async () => {
         const routes = [
             {
                 path: '/page1',
@@ -869,10 +766,7 @@ describe('Scroll Behavior', () => {
             }
         ]
 
-        Object.defineProperty(window, 'location', {
-            writable: true,
-            value: { pathname: '/page1' }
-        })
+        window.history.replaceState({}, '', '/page1')
 
         const outlet = document.createElement('div')
         outlet.id = 'router-test-outlet'
@@ -888,9 +782,9 @@ describe('Scroll Behavior', () => {
             }
         })
         currentRouter = router
-        mountOutlet(outlet)
+        await mountOutlet(outlet)
 
-        router.navigate('/page1')
+        await router.navigate('/page1')
         expect(customScrollSpy).toHaveBeenCalled()
         expect(scrollToSpy).toHaveBeenCalledWith({ left: 50, top: 100, behavior: 'smooth' })
 
