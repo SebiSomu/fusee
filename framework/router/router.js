@@ -15,6 +15,9 @@ let _routerViewTimeout = 10000
 let _scrollBehaviorOptions = null
 let _scrollPositions = new Map()
 let _currentPath = null
+let _beforeEachGuards = []
+let _afterEachGuards = []
+const _MAX_REDIRECTS = 10
 
 function _getPath() {
     const pathname = window.location.pathname || '/'
@@ -40,6 +43,22 @@ function _getRoutePaths(routePath) {
 
 function _updateRoute() {
     currentRoute(_getPath())
+}
+
+export function beforeEach(guard) {
+    _beforeEachGuards.push(guard)
+    return function unregister() {
+        const idx = _beforeEachGuards.indexOf(guard)
+        if (idx > -1) _beforeEachGuards.splice(idx, 1)
+    }
+}
+
+export function afterEach(hook) {
+    _afterEachGuards.push(hook)
+    return function unregister() {
+        const idx = _afterEachGuards.indexOf(hook)
+        if (idx > -1) _afterEachGuards.splice(idx, 1)
+    }
 }
 
 function _matchSegments(routePath, urlSegments) {
@@ -229,6 +248,76 @@ function _cacheResult(path, chain) {
 
 function _clearRouteCache() {
     _routeCache.clear()
+}
+
+function _buildToLocation(fullPath, chain) {
+    const params = {}
+    for (const entry of chain) Object.assign(params, entry.params)
+    return {
+        path: fullPath.split(/[?#]/)[0],
+        fullPath,
+        params,
+        query: _extractQuery(fullPath),
+        matched: chain.map(e => e.route)
+    }
+}
+
+function _buildFromLocation(fullPath) {
+    return {
+        path: fullPath ? fullPath.split(/[?#]/)[0] : null,
+        fullPath: fullPath ?? null,
+        params: routeParams(),
+        query: routeQuery(),
+        matched: matchedRoutes()
+    }
+}
+
+function _normalizeGuardResult(result) {
+    if (result === false) return { type: 'cancel' }
+    if (typeof result === 'string') return { type: 'redirect', path: result, replace: false }
+    if (result && typeof result === 'object' && typeof result.path === 'string') {
+        return { type: 'redirect', path: result.path, replace: !!result.replace }
+    }
+    return { type: 'allow' }
+}
+
+async function _runGuardList(guards, to, from) {
+    for (const guard of guards) {
+        if (typeof guard !== 'function') continue
+        let result
+        try {
+            result = await guard(to, from)
+        } catch (err) {
+            console.error('[framework] Navigation guard threw:', err)
+            return { type: 'cancel' }
+        }
+        const normalized = _normalizeGuardResult(result)
+        if (normalized.type !== 'allow') return normalized
+    }
+    return { type: 'allow' }
+}
+
+async function _runAllGuards(to, from, chain) {
+    const globalResult = await _runGuardList(_beforeEachGuards, to, from)
+    if (globalResult.type !== 'allow') return globalResult
+
+    for (const entry of chain) {
+        const raw = entry.route.beforeEnter
+        if (!raw) continue
+        const routeGuards = Array.isArray(raw) ? raw : [raw]
+        const result = await _runGuardList(routeGuards, to, from)
+        if (result.type !== 'allow') return result
+    }
+
+    return { type: 'allow' }
+}
+
+function _runAfterHooks(to, from) {
+    for (const hook of _afterEachGuards) {
+        try { hook(to, from) } catch (err) {
+            console.error('[framework] afterEach hook threw:', err)
+        }
+    }
 }
 
 function _saveScrollPosition(path) {
@@ -424,37 +513,90 @@ function _segmentsEqual(a, b) {
     return true
 }
 
-function _resolveRoute() {
+function _finalizeNavigation(path, chain, to, from, historyMode) {
+    if (historyMode === 'push') window.history.pushState({}, '', path)
+    else if (historyMode === 'replace') window.history.replaceState({}, '', path)
+
+    _renderChain(chain)
+    _currentPath = path
+    _applyScrollBehavior(path, from.fullPath)
+    routeQuery(_extractQuery(path))
+    _runAfterHooks(to, from)
+}
+
+async function _resolveRoute(_redirectDepth = 0) {
     if (!_rootOutlet || _routes.length === 0) return
 
     const path = _getPath()
     const chain = _findMatchingChain(path)
+    const fromFullPath = _currentPath
+    const from = _buildFromLocation(fromFullPath)
 
     if (!chain) {
         _unmountFromLevel(0)
         _rootOutlet.innerHTML = `<p style="color:red">[framework] No route matched for "${path}"</p>`
         routeParams({})
         matchedRoutes([])
+        _currentPath = path
         return
     }
 
-    _renderChain(chain)
+    const to = _buildToLocation(path, chain)
+    const result = await _runAllGuards(to, from, chain)
 
-    const from = _currentPath
-    _currentPath = path
-    _applyScrollBehavior(path, from)
-    routeQuery(_extractQuery(path))
+    if (result.type === 'cancel') {
+        if (fromFullPath !== null && fromFullPath !== path) {
+            window.history.pushState({}, '', fromFullPath)
+        }
+        return
+    }
+
+    if (result.type === 'redirect') {
+        if (_redirectDepth >= _MAX_REDIRECTS) {
+            console.error(`[framework] Aborting navigation guard redirect loop at "${result.path}"`)
+            return
+        }
+        window.history.replaceState({}, '', result.path)
+        return _resolveRoute(_redirectDepth + 1)
+    }
+
+    _finalizeNavigation(path, chain, to, from, 'none')
 }
 
-export function navigate(path) {
-    const currentPath = _getPath().split(/[?#]/)[0]
-    const targetPath = path.split(/[?#]/)[0]
-    if (targetPath === currentPath && path === _getPath()) {
-        _applyScrollBehavior(path, _getPath())
+export async function navigate(path, options = {}, _redirectDepth = 0) {
+    const currentFullPath = _getPath()
+    const currentPathOnly = currentFullPath.split(/[?#]/)[0]
+    const targetPathOnly = path.split(/[?#]/)[0]
+
+    if (targetPathOnly === currentPathOnly && path === currentFullPath) {
+        _applyScrollBehavior(path, currentFullPath)
         return
     }
-    _saveScrollPosition(_getPath())
-    window.history.pushState({}, '', path)
+
+    const chain = _rootOutlet ? _findMatchingChain(path) : null
+
+    if (chain) {
+        const to = _buildToLocation(path, chain)
+        const from = _buildFromLocation(currentFullPath)
+        const result = await _runAllGuards(to, from, chain)
+
+        if (result.type === 'cancel') return
+
+        if (result.type === 'redirect') {
+            if (_redirectDepth >= _MAX_REDIRECTS) {
+                console.error(`[framework] Aborting navigation guard redirect loop at "${result.path}"`)
+                return
+            }
+            return navigate(result.path, { replace: true }, _redirectDepth + 1)
+        }
+
+        _saveScrollPosition(currentFullPath)
+        _finalizeNavigation(path, chain, to, from, options.replace ? 'replace' : 'push')
+        return
+    }
+
+    _saveScrollPosition(currentFullPath)
+    window.history[options.replace ? 'replaceState' : 'pushState']({}, '', path)
     _updateRoute()
     _resolveRoute()
 }
@@ -549,6 +691,8 @@ export function createRouter(routes, options = {}) {
             _scrollPositions.clear()
             _scrollBehaviorOptions = null
             _currentPath = null
+            _beforeEachGuards = []
+            _afterEachGuards = []
         }
     }
 }
