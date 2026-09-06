@@ -4,6 +4,7 @@ export const currentRoute = signal('/')
 export const routeParams = signal({})
 export const routeQuery = signal({})
 export const matchedRoutes = signal([])
+export const routeMeta = signal({})
 
 let _routes = []
 let _rootOutlet = null
@@ -17,6 +18,8 @@ let _scrollPositions = new Map()
 let _currentPath = null
 let _beforeEachGuards = []
 let _afterEachGuards = []
+let _globalMiddleware = []
+let _errorHandlers = []
 const _MAX_REDIRECTS = 10
 
 function _getPath() {
@@ -58,6 +61,22 @@ export function afterEach(hook) {
     return function unregister() {
         const idx = _afterEachGuards.indexOf(hook)
         if (idx > -1) _afterEachGuards.splice(idx, 1)
+    }
+}
+
+export function use(middleware) {
+    _globalMiddleware.push(middleware)
+    return function unregister() {
+        const idx = _globalMiddleware.indexOf(middleware)
+        if (idx > -1) _globalMiddleware.splice(idx, 1)
+    }
+}
+
+export function onError(handler) {
+    _errorHandlers.push(handler)
+    return function unregister() {
+        const idx = _errorHandlers.indexOf(handler)
+        if (idx > -1) _errorHandlers.splice(idx, 1)
     }
 }
 
@@ -320,6 +339,46 @@ function _runAfterHooks(to, from) {
     }
 }
 
+function _flattenMiddleware(chain) {
+    const list = [..._globalMiddleware]
+    for (const entry of chain) {
+        const raw = entry.route.middleware
+        if (!raw) continue
+        list.push(...(Array.isArray(raw) ? raw : [raw]))
+    }
+    return list.filter(mw => typeof mw === 'function')
+}
+
+async function _runMiddlewarePipeline(list, ctx) {
+    let index = -1
+
+    async function dispatch(i) {
+        if (i <= index) {
+            console.warn('[framework] middleware called next() multiple times')
+            return
+        }
+        index = i
+        if (i >= list.length) return
+        const mw = list[i]
+        await mw(ctx, () => dispatch(i + 1))
+    }
+
+    await dispatch(0)
+    return index >= list.length - 1
+}
+
+function _reportMiddlewareError(err, to, from) {
+    if (_errorHandlers.length === 0) {
+        console.error('[framework] Unhandled error in router middleware:', err)
+        return
+    }
+    for (const handler of _errorHandlers) {
+        try { handler(err, to, from) } catch (nestedErr) {
+            console.error('[framework] Error handler itself threw:', nestedErr)
+        }
+    }
+}
+
 function _saveScrollPosition(path) {
     if (!_scrollBehaviorOptions?.saveScrollPosition) return
     _scrollPositions.set(path, {
@@ -513,7 +572,7 @@ function _segmentsEqual(a, b) {
     return true
 }
 
-function _finalizeNavigation(path, chain, to, from, historyMode) {
+function _finalizeNavigation(path, chain, to, from, historyMode, meta = {}) {
     if (historyMode === 'push') window.history.pushState({}, '', path)
     else if (historyMode === 'replace') window.history.replaceState({}, '', path)
 
@@ -521,6 +580,7 @@ function _finalizeNavigation(path, chain, to, from, historyMode) {
     _currentPath = path
     _applyScrollBehavior(path, from.fullPath)
     routeQuery(_extractQuery(path))
+    routeMeta(meta)
     _runAfterHooks(to, from)
 }
 
@@ -560,7 +620,18 @@ async function _resolveRoute(_redirectDepth = 0) {
         return _resolveRoute(_redirectDepth + 1)
     }
 
-    _finalizeNavigation(path, chain, to, from, 'none')
+    const middlewareList = _flattenMiddleware(chain)
+    const ctx = { to, from, meta: {} }
+    let completed = true
+    try {
+        completed = await _runMiddlewarePipeline(middlewareList, ctx)
+    } catch (err) {
+        _reportMiddlewareError(err, to, from)
+        return
+    }
+    if (!completed) return
+
+    _finalizeNavigation(path, chain, to, from, 'none', ctx.meta)
 }
 
 export async function navigate(path, options = {}, _redirectDepth = 0) {
@@ -590,8 +661,19 @@ export async function navigate(path, options = {}, _redirectDepth = 0) {
             return navigate(result.path, { replace: true }, _redirectDepth + 1)
         }
 
+        const middlewareList = _flattenMiddleware(chain)
+        const ctx = { to, from, meta: {} }
+        let completed = true
+        try {
+            completed = await _runMiddlewarePipeline(middlewareList, ctx)
+        } catch (err) {
+            _reportMiddlewareError(err, to, from)
+            return
+        }
+        if (!completed) return
+
         _saveScrollPosition(currentFullPath)
-        _finalizeNavigation(path, chain, to, from, options.replace ? 'replace' : 'push')
+        _finalizeNavigation(path, chain, to, from, options.replace ? 'replace' : 'push', ctx.meta)
         return
     }
 
@@ -693,6 +775,8 @@ export function createRouter(routes, options = {}) {
             _currentPath = null
             _beforeEachGuards = []
             _afterEachGuards = []
+            _globalMiddleware = []
+            _errorHandlers = []
         }
     }
 }
