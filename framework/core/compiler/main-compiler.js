@@ -3,6 +3,7 @@ import { parse }      from './parser.js'
 import { transform }  from './transformer.js'
 import { generate }   from './generator.js'
 import { CompileError, ErrorCollector } from './errors.js'
+import { generateSSR } from '../ssr-module/ssr-generator.js'
 
 export function compile(source, options = {}) {
     const filename = options.filename ?? '<template>'
@@ -37,17 +38,29 @@ export function compile(source, options = {}) {
         throw new CompileError(w.code, w.loc, source)
     }
 
-    let code
-    try {
-        code = generate(ast, {
-            source,
-            runtimePath: options.runtimePath,
-        })
-    } catch (err) {
-        _rethrow(err, filename)
+    const target = options.target ?? 'client' // 'client' | 'ssr' | 'both'
+    let code = null
+    let ssrCode = null
+
+    if (target === 'client' || target === 'both') {
+        try {
+            code = generate(ast, { source, runtimePath: options.runtimePath })
+        } catch (err) { _rethrow(err, filename) }
     }
 
-    return { code, ast, tokens, warnings }
+    if (target === 'ssr' || target === 'both') {
+        try {
+            ssrCode = generateSSR(ast, { source, runtimePath: options.ssrRuntimePath })
+        } catch (err) { _rethrow(err, filename) }
+    }
+
+    return {
+        code: target === 'ssr' ? ssrCode : code,
+        ssrCode,
+        ast,
+        tokens,
+        warnings,
+    }
 }
 
 export function parseOnly(source, options = {}) {
@@ -80,12 +93,15 @@ export function fuseePlugin(pluginOptions = {}) {
     return {
         name: 'vite-plugin-fusee',
 
-        transform(src, id) {
-            if (!id.endsWith('.fusee') && !id.endsWith('.fhtml')) return null
+        transform(src, id, ssrOptions) {
+            if (!id.endsWith('.fusee') && !id.endsWith('.fhtml') && !id.endsWith('.template.html')) return null
 
+            const isSSR = typeof ssrOptions === 'boolean' ? ssrOptions : Boolean(ssrOptions?.ssr)
             const { code, warnings } = compile(src, {
                 filename: id,
+                target: isSSR ? 'ssr' : 'client',
                 runtimePath: pluginOptions.runtimePath,
+                ssrRuntimePath: pluginOptions.ssrRuntimePath,
                 components: pluginOptions.components,
                 scope: pluginOptions.scope,
             })

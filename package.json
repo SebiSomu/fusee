@@ -36,7 +36,8 @@
   },
   "exports": {
     ".": "./framework/index.js",
-    "./server": "./framework/server/index.js"
+    "./server": "./framework/server/index.js",
+    "./runtime/ssr.js": "./framework/core/ssr.js"
   },
   "dependencies": {
     "benchmark": "^2.1.4"
