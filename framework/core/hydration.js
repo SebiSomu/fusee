@@ -1,14 +1,17 @@
+import { getResourceRegistry, isSSRContext } from './async-context.js'
+
 const _hydrationRegistry = new Map()
-const _registeredCaches = []
 
 export function _registerResourceCache(resourceKey, cache) {
-    _registeredCaches.push({ resourceKey, cache })
+    const registry = getResourceRegistry()
+    registry.caches.push({ resourceKey, cache })
 }
 
-export function extractHydrationData() {
+export function extractHydrationData(ctxOrNothing) {
+    const registry = ctxOrNothing?.resourceRegistry ?? getResourceRegistry()
     const snapshot = {}
 
-    for (const { resourceKey, cache } of _registeredCaches) {
+    for (const { resourceKey, cache } of registry.caches) {
         const entries = {}
         for (const [cacheKey, entry] of cache) {
             entries[cacheKey] = { data: entry.data, updatedAt: entry.updatedAt }
@@ -68,7 +71,8 @@ export function isHydrationFresh(resourceKey, cacheKey, staleTime = 0) {
 
 export function clearHydration() {
     _hydrationRegistry.clear()
-    _registeredCaches.length = 0
+    const registry = getResourceRegistry()
+    registry.caches = []
 }
 
 export function getHydrationSnapshot() {

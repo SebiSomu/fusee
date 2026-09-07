@@ -25,3 +25,15 @@ export function isSSRContext() {
     if (!_als) return false
     return _als.getStore() !== undefined
 }
+
+const _globalResourceRegistry = {
+    caches: []
+}
+
+export function getResourceRegistry() {
+    if (_als) {
+        const ctx = _als.getStore()
+        if (ctx) return ctx.resourceRegistry
+    }
+    return _globalResourceRegistry
+}

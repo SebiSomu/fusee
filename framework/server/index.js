@@ -9,6 +9,9 @@ export function createRequestContext() {
         inFlightMaps: {
             byKey: new Map(),
             byFetcher: new WeakMap()
+        },
+        resourceRegistry: {
+            caches: []
         }
     }
 }
@@ -16,3 +19,5 @@ export function createRequestContext() {
 export function withRequestContext(ctx, fn) {
     return _als.run(ctx, fn)
 }
+
+export { renderPageSSR } from './ssr-render.js'
