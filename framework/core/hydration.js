@@ -7,20 +7,11 @@ const _hydrationRegistry = new Map()
 const DATA_SCRIPT_ID = '__FUSEE_DATA__'
 
 export function _registerResourceCache(resourceKey, cache) {
-    // Step 2: route through the request-scoped registry during SSR so
-    // concurrent requests each get their own list of {resourceKey, cache}
-    // pairs. In the browser (isSSRContext() === false) this is a no-op
-    // change — getResourceRegistry() returns the same single global
-    // registry every call, matching the pre-Step-2 behavior.
     const registry = getResourceRegistry()
     registry.caches.push({ resourceKey, cache })
 }
 
 export function extractHydrationData(ctxOrNothing) {
-    // Accepts an explicit request ctx (ctx.resourceRegistry) for the case
-    // where a caller wants to extract for a request that has already
-    // exited its withRequestContext() run (e.g. deferred serialization).
-    // Falls back to the ambient store otherwise.
     const registry = ctxOrNothing?.resourceRegistry ?? getResourceRegistry()
     const snapshot = {}
 
@@ -47,13 +38,6 @@ export function dehydrate(snapshot = extractHydrationData()) {
     }
 }
 
-/**
- * Step 4: builds the full `<script id="__FUSEE_DATA__">` tag — resource
- * cache results (Step 2) AND positional signal state (this step),
- * combined into one payload under window.__FUSEE_STATE__. Called once,
- * at the end of a request's render pass, after all setup() calls have run
- * (so extractSignalRegistrySnapshot() sees everything that was recorded).
- */
 export function renderDehydrationScript(ctxOrNothing) {
     const payload = {
         resources: extractHydrationData(ctxOrNothing),
@@ -71,7 +55,6 @@ export function renderDehydrationScript(ctxOrNothing) {
     return `<script id="${DATA_SCRIPT_ID}">window.__FUSEE_STATE__ = ${json};</script>`
 }
 
-/** Client-side: read the payload written by renderDehydrationScript(), or null if absent/malformed. */
 export function readWindowState() {
     if (typeof window === 'undefined') return null
     const state = window.__FUSEE_STATE__
@@ -99,7 +82,6 @@ export function loadHydration(snapshot) {
 export function hydrateFromWindow() {
     if (typeof window === 'undefined') return
 
-    // New unified payload (Step 4): { resources, signals }.
     const state = readWindowState()
     if (state) {
         if (state.resources) loadHydration(state.resources)
@@ -107,7 +89,6 @@ export function hydrateFromWindow() {
         return
     }
 
-    // Legacy payload (pre-Step-4 deployments): resources only, flat shape.
     const legacy = window.__FUSEE_HYDRATION__
     if (legacy) loadHydration(legacy)
 }
@@ -139,24 +120,6 @@ export function getHydrationSnapshot() {
     return out
 }
 
-// ─── Hydration Matcher: attach reactive behavior to the SSR-rendered DOM ──
-//
-// `bindings` is an ORDERED array supplied by the compiled client module,
-// one entry per reactive anchor, in the same depth-first order Step 1's
-// generator assigned anchor ids — so bindings[i] always corresponds to
-// the i-th anchor findAnchors() encounters, without threading numeric
-// ids through the compiled output at all.
-//
-// Supported spec shapes today:
-//   { type: 'bind', get: () => value }                          — f-bind text anchor
-//   { type: 'attrs', get: () => ({ name: value, ... }) }         — data-f-id element
-//   { type: 'if', branches: [{ cond: () => bool, render: () => html }] } — f-if anchor
-//
-// f-for / f-component / f-slot anchors ARE located by findAnchors(), but
-// not wired to reactive behavior here — that needs the real h.js vnode
-// contract (list diffing, child-component instantiation) this codebase
-// doesn't have yet. A spec for one of those anchor types is a no-op
-// today; their SSR-rendered markup stays static until that follow-up.
 export function hydrateAnchors(root, bindings = []) {
     const anchors = flattenAnchors(findAnchors(root))
     const cleanups = []

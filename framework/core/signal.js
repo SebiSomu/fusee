@@ -69,26 +69,6 @@ function scheduleEffect(effectFn) {
 }
 
 export function signal(initialValue) {
-    // Step 4: consult the positional signal-scope registry (see
-    // signal-scope.js). Outside any withSignalScope() call — the normal
-    // case for module-level/global signals like store.js's — this is a
-    // complete no-op passthrough and `value` starts as `initialValue`
-    // exactly as before this change. Inside a scope (a component/page
-    // setup() wrapped by the SSR runtime or the client hydration
-    // bootstrap), this either records `initialValue` for later
-    // dehydration (server, empty registry) or returns the server's
-    // recorded value instead (client, registry pre-loaded from
-    // window.__FUSEE_STATE__).
-    //
-    // Note this applies uniformly, including to resource()'s own four
-    // internal signal(undefined) calls below (data/loading/isFetching/
-    // error) — those already have their OWN, separate, keyed hydration
-    // path via _registerResourceCache/getHydratedEntries, which resolves
-    // the ASYNC result; this registry only ever sees their synchronous
-    // creation-time value (undefined), so it records/replays undefined
-    // for those four slots — harmless (no-op), just four "spent" slots
-    // per resource() call. Deterministic call order keeps everything
-    // else in the same scope correctly aligned regardless.
     const { value: resolvedInitial } = resolveSignalValue(initialValue)
     let value = resolvedInitial
     const subscribers = new Set()

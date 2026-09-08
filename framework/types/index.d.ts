@@ -8,6 +8,7 @@ export * from './store'
 export * from './event-delegation'
 export * from './di'
 export * from './reconcile'
+export * from './resource'
 export * from './actions'
 export * from './actions.server'
 

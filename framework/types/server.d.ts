@@ -18,6 +18,10 @@ export interface RequestContext {
         list: StreamBoundaryEntry[]
         nextId: number
     }
+    signalScope: {
+        stack: Array<{ scopeId: string; index: number }>
+        registry: Map<string, any[]>
+    }
 }
 
 export declare function createRequestContext(): RequestContext
