@@ -1,25 +1,11 @@
-import { getSignalScopeStack, getSignalRegistry } from './async-context.js'
-
-export function pushSignalScope(scopeId) {
-    getSignalScopeStack().push({ scopeId, index: 0 })
-}
-
-export function popSignalScope() {
-    getSignalScopeStack().pop()
-}
+import { runInSignalScope, getSignalFrame, getSignalRegistry } from './async-context.js'
 
 export function withSignalScope(scopeId, fn) {
-    pushSignalScope(scopeId)
-    try {
-        return fn()
-    } finally {
-        popSignalScope()
-    }
+    return runInSignalScope(scopeId, fn)
 }
 
 function currentFrame() {
-    const stack = getSignalScopeStack()
-    return stack.length ? stack[stack.length - 1] : null
+    return getSignalFrame()
 }
 
 export function resolveSignalValue(initial) {
@@ -61,5 +47,4 @@ export function extractSignalRegistrySnapshot() {
 
 export function clearSignalRegistry() {
     getSignalRegistry().clear()
-    getSignalScopeStack().length = 0
 }
