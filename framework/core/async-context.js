@@ -37,3 +37,16 @@ export function getResourceRegistry() {
     }
     return _globalResourceRegistry
 }
+
+const _globalStreamBoundaries = {
+    list: [],
+    nextId: 0
+}
+
+export function getStreamBoundaryStore() {
+    if (_als) {
+        const ctx = _als.getStore()
+        if (ctx && ctx.streamBoundaries) return ctx.streamBoundaries
+    }
+    return _globalStreamBoundaries
+}

@@ -12,6 +12,10 @@ export function createRequestContext() {
         },
         resourceRegistry: {
             caches: []
+        },
+        streamBoundaries: {
+            list: [],
+            nextId: 0
         }
     }
 }
@@ -20,4 +24,6 @@ export function withRequestContext(ctx, fn) {
     return _als.run(ctx, fn)
 }
 
-export { renderPageSSR } from './ssr-render.js'
+export { renderPageSSR } from './ssr-render.js'
+export { createSSRStreamResponse, renderSuspenseBoundary, streamToString } from './server.js'
+export { pipeToNodeResponse } from './node-adapter.js'
