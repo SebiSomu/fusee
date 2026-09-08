@@ -18,12 +18,7 @@ export declare function readWindowState(): FuseeWindowState | null
 export declare function loadHydration(snapshot: HydrationSnapshot): void
 export declare function hydrateFromWindow(): void
 export declare function getHydratedEntries(resourceKey: string): Map<string, HydrationCacheEntry> | null
-export declare function isHydrationFresh(
-    resourceKey: string,
-    cacheKey: string,
-    staleTime?: number
-): boolean
-
+export declare function isHydrationFresh(resourceKey: string, cacheKey: string,staleTime?: number): boolean
 export declare function clearHydration(): void
 export declare function getHydrationSnapshot(): HydrationSnapshot
 
