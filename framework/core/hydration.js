@@ -55,6 +55,7 @@ export function renderDehydrationScript(ctxOrNothing) {
     return `<script id="${DATA_SCRIPT_ID}">window.__FUSEE_STATE__ = ${json};</script>`
 }
 
+/** Client-side: read the payload written by renderDehydrationScript(), or null if absent/malformed. */
 export function readWindowState() {
     if (typeof window === 'undefined') return null
     const state = window.__FUSEE_STATE__
@@ -81,7 +82,6 @@ export function loadHydration(snapshot) {
 
 export function hydrateFromWindow() {
     if (typeof window === 'undefined') return
-
     const state = readWindowState()
     if (state) {
         if (state.resources) loadHydration(state.resources)
@@ -138,6 +138,11 @@ export function hydrateAnchors(root, bindings = []) {
     })
 
     return () => cleanups.forEach(c => typeof c === 'function' && c())
+}
+
+export function hydrateApp(root, bindings = []) {
+    hydrateFromWindow()
+    return hydrateAnchors(root, bindings)
 }
 
 function hydrateTextBinding(anchor, get) {
