@@ -29,3 +29,5 @@ sandbox/
 .env*
 .env*.local
 npm_recovery_codes.txt
+
+compiler-legacy/
