@@ -5,8 +5,6 @@ import { dirname, resolve } from 'node:path'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
-// ── inline wasm-bindgen glue ─────────────────────────────────────────────────
-
 let wasm = null
 
 let cachedUint8Mem = null
@@ -68,8 +66,6 @@ function takeExternref(idx) {
     return value
 }
 
-// ── WASM instantiation ────────────────────────────────────────────────────────
-
 const wasmPath = resolve(__dirname, '../rust-compiler/pkg/fusee_compiler_bg.wasm')
 
 let _initialized = false
@@ -84,7 +80,9 @@ async function _init() {
             __wbg_alert_f3c04f14b1e59052: (ptr, len) => {
                 console.log('[wasm alert]', getStr(ptr, len))
             },
-            __wbindgen_cast_0000000000000001: (ptr, len) => getStr(ptr, len),
+            __wbindgen_generic_0000000000000001: (ptr, len) => {
+                return getStr(ptr, len)
+            },
             __wbindgen_init_externref_table: () => {
                 const table = wasm.__wbindgen_externrefs
                 const offset = table.grow(4)

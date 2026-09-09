@@ -1,4 +1,4 @@
-﻿import { describe, it, expect } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { compile as rustCompile } from '../core/compiler/rust-compiler.js'
 import { compile as jsCompile } from '../core/compiler/main-compiler.js'
 

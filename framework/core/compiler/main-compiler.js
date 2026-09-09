@@ -1,53 +1,82 @@
-import { tokenize }   from './lexer.js'
-import { parse }      from './parser.js'
-import { transform }  from './transformer.js'
-import { generate }   from './generator.js'
-import { CompileError, ErrorCollector } from './errors.js'
+import { compile as rustCompile } from './rust-compiler.js'
+import { tokenize } from './lexer.js'
+import { parse } from './parser.js'
+import { transform } from './transformer.js'
+import { generateSSR } from './ssr-generator.js'
+import { CompileError } from './errors.js'
 
 export function compile(source, options = {}) {
     const filename = options.filename ?? '<template>'
     const components = new Set(options.components ?? [])
-    const collector  = new ErrorCollector(source)
-
-    let tokens
-    try {
-        tokens = tokenize(source)
-    } catch (err) {
-        _rethrow(err, filename)
-    }
-
-    let ast
-    try {
-        ast = parse(tokens, source, components)
-    } catch (err) {
-        _rethrow(err, filename)
-    }
-
+    const target = options.target ?? 'client'
+    let code = null
+    let ssrCode = null
+    let ast = null
+    let tokens = null
     let warnings = []
-    try {
-        const result = transform(ast, { components, source, scope: options.scope })
-        ast = result.ast
-        warnings = result.warnings
-    } catch (err) {
-        _rethrow(err, filename)
+
+    if (target === 'client' || target === 'both') {
+        try {
+            const result = rustCompile(source, {
+                filename,
+                runtimePath: options.runtimePath,
+                components: [...components],
+                scope: options.scope ? [...options.scope] : [],
+                throwOnWarning: options.throwOnWarning ?? false,
+            })
+            code = result.code
+            ast = result.ast
+            tokens = result.tokens
+            warnings = result.warnings ?? []
+        } catch (err) {
+            _rethrow(err, filename)
+        }
     }
 
-    if (options.throwOnWarning && warnings.length > 0) {
-        const w = warnings[0]
-        throw new CompileError(w.code, w.loc, source)
+    if (target === 'ssr' || target === 'both') {
+        try {
+            let ssrTokens
+            try {
+                ssrTokens = tokenize(source)
+            } catch (err) { _rethrow(err, filename) }
+
+            let ssrAst
+            try {
+                ssrAst = parse(ssrTokens, source, components)
+            } catch (err) { _rethrow(err, filename) }
+
+            let ssrWarnings = []
+            try {
+                const result = transform(ssrAst, { components, source, scope: options.scope })
+                ssrAst = result.ast
+                ssrWarnings = result.warnings
+            } catch (err) { _rethrow(err, filename) }
+
+            if (options.throwOnWarning && ssrWarnings.length > 0) {
+                const w = ssrWarnings[0]
+                throw new CompileError(w.code, w.loc, source)
+            }
+
+            ssrCode = generateSSR(ssrAst, { source, runtimePath: options.ssrRuntimePath ?? options.runtimePath })
+
+            if (target === 'ssr') {
+                code = ssrCode
+                tokens = ssrTokens
+                ast = ssrAst
+            }
+            if (warnings.length === 0) {
+                warnings = ssrWarnings
+            }
+        } catch (err) { _rethrow(err, filename) }
     }
 
-    let code
-    try {
-        code = generate(ast, {
-            source,
-            runtimePath: options.runtimePath,
-        })
-    } catch (err) {
-        _rethrow(err, filename)
+    return {
+        code,
+        ssrCode,
+        ast,
+        tokens,
+        warnings,
     }
-
-    return { code, ast, tokens, warnings }
 }
 
 export function parseOnly(source, options = {}) {
@@ -80,18 +109,21 @@ export function fuseePlugin(pluginOptions = {}) {
     return {
         name: 'vite-plugin-fusee',
 
-        transform(src, id) {
-            if (!id.endsWith('.fusee') && !id.endsWith('.fhtml')) return null
+        transform(src, id, ssrOptions) {
+            if (!id.endsWith('.fusee') && !id.endsWith('.fhtml') && !id.endsWith('.template.html')) return null
 
+            const isSSR = typeof ssrOptions === 'boolean' ? ssrOptions : Boolean(ssrOptions?.ssr)
             const { code, warnings } = compile(src, {
                 filename: id,
+                target: isSSR ? 'ssr' : 'client',
                 runtimePath: pluginOptions.runtimePath,
+                ssrRuntimePath: pluginOptions.ssrRuntimePath,
                 components: pluginOptions.components,
                 scope: pluginOptions.scope,
             })
 
             for (const w of warnings) {
-                this.warn(w.format(id))
+                this.warn(typeof w.format === 'function' ? w.format(id) : String(w))
             }
 
             return { code, map: null }
@@ -102,9 +134,9 @@ export function fuseePlugin(pluginOptions = {}) {
 export { fileRouterPlugin } from './plugins/file-router-plugin.js'
 export { actionsPlugin } from './plugins/actions-plugin.js'
 export { routerPlugin } from './plugins/router-plugin.js'
-export { compileFileRoutes, generateRoutesModule, generateRouteTypes, validateRoutes as validateFileRoutes,} from './plugins/file-router-plugin.js'
-export { validateActions, generateClientStubs, generateServerRoutes, generateActionTypes,} from './plugins/actions-plugin.js'
-export { validateRoutes, generateRouterTypes,} from './plugins/router-plugin.js'
+export { compileFileRoutes, generateRoutesModule, generateRouteTypes, validateRoutes as validateFileRoutes } from './plugins/file-router-plugin.js'
+export { validateActions, generateClientStubs, generateServerRoutes, generateActionTypes } from './plugins/actions-plugin.js'
+export { validateRoutes, generateRouterTypes } from './plugins/router-plugin.js'
 
 function _rethrow(err, filename) {
     if (err instanceof CompileError) {
