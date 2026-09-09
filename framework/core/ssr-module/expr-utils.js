@@ -27,24 +27,23 @@ export class ExprScope {
     }
 
     wrap(expr) {
-        if (!expr) return "''"
         if (expr.includes('_ctx.')) return expr
+        if (/^[a-zA-Z_$][a-zA-Z0-9_$.]*$/.test(expr.trim())) {
+            const id = expr.trim()
+            const rootVar = id.split('.')[0]
+            if (this.isLocal(rootVar)) return id
+            return `(typeof _ctx.${id} === 'function' && _ctx.${id}.isSignal ? _ctx.${id}() : _ctx.${id})`
+        }
         return this._rewrite(expr)
     }
 
     _rewrite(expr) {
         return expr.replace(
-            /(['"`])(?:(?!\1)[^\\]|\\.)*\1|(?<![.\w$])([a-zA-Z_$][a-zA-Z0-9_$]*)(?!\s*:)/g,
-            (match, quote, id, offset, fullStr) => {
-                if (quote) return match
-                if (!id) return match
+            /(?<![.\w$])([a-zA-Z_$][a-zA-Z0-9_$]*)(?!\s*:)(?=\s*[\(\.\,\)\]\s+\|\&\!\?\+\-\*\/\%\=\<\>]|$)/g,
+            (match, id) => {
                 if (GLOBALS.has(id)) return match
                 if (this.isLocal(id)) return match
-                const rest = fullStr.slice(offset + match.length)
-                if (/^\s*\(/.test(rest)) {
-                    return `_ctx.${id}`
-                }
-                return `unref(_ctx.${id})`
+                return `_ctx.${id}`
             }
         )
     }
