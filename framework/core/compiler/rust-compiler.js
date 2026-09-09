@@ -106,9 +106,11 @@ export function compile(source, options = {}) {
     const optJson = JSON.stringify({
         filename: options.filename ?? '<template>',
         runtimePath: options.runtimePath ?? null,
+        ssrRuntimePath: options.ssrRuntimePath ?? null,
         components: options.components ?? [],
         scope: options.scope ?? [],
         throwOnWarning: options.throwOnWarning ?? false,
+        target: options.target ?? 'client',
     })
 
     let deferred0, deferred1

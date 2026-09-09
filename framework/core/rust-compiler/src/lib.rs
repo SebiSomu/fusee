@@ -4,6 +4,7 @@ mod utils;
 mod errors;
 mod ast;
 mod generator;
+mod ssr_generator;
 mod lexer;
 mod main_compiler;
 mod parser;
@@ -11,7 +12,7 @@ mod transformer;
 
 use serde::Deserialize;
 use wasm_bindgen::prelude::*;
-use crate::main_compiler::CompileOptions;
+use crate::main_compiler::{CompileOptions, CompileTarget};
 
 // When the `wee_alloc` feature is enabled, use `wee_alloc` as the global
 // allocator.
@@ -36,7 +37,11 @@ struct RustCompileOptions {
     #[serde(default)]
     runtime_path: Option<String>,
     #[serde(default)]
+    ssr_runtime_path: Option<String>,
+    #[serde(default)]
     throw_on_warning: Option<bool>,
+    #[serde(default)]
+    target: Option<String>,
 }
 
 #[wasm_bindgen]
@@ -45,18 +50,27 @@ pub fn compile(source: &str, options_json: &str) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Invalid compiler options: {e}")))?;
     let filename = opts.filename.clone().unwrap_or_else(|| "<template>".to_string());
 
+    let target = match opts.target.as_deref() {
+        Some("ssr") => CompileTarget::SSR,
+        Some("both") => CompileTarget::Both,
+        _ => CompileTarget::Client,
+    };
+
     let compile_opts = CompileOptions {
         filename: filename.clone(),
         components: opts.components.unwrap_or_default().into_iter().collect(),
         scope: opts.scope.unwrap_or_default().into_iter().collect(),
         runtime_path: opts.runtime_path,
+        ssr_runtime_path: opts.ssr_runtime_path,
         throw_on_warning: opts.throw_on_warning.unwrap_or(false),
+        target,
     };
 
     match main_compiler::compile(source, compile_opts) {
         Ok(r) => {
             let out = serde_json::json!({
                 "code": r.code,
+                "ssrCode": r.ssr_code,
                 "ast": r.ast,
                 "tokens": r.tokens,
                 "warnings": r.warnings,
