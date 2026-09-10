@@ -1,277 +1,198 @@
-﻿import { describe, it, expect, vi } from 'vitest'
+﻿import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
+import { Writable, Readable } from 'node:stream'
 import { EventEmitter } from 'node:events'
-import { compilePath, flattenRoutes, createDispatcher } from '../server/dispatcher.js'
-import { createRequestPipeline } from '../server/pipeline.js'
+import { mkdtemp, writeFile, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
+import { createDispatcher } from '../server/dispatcher.js'
+import { redirect, httpError } from '../server/load-helpers.js'
+import { defineAction } from '../server/actions.server.js'
 
-// ─── helpers ─────────────────────────────────────────────────────────────────
-
-function delay(ms) { return new Promise(r => setTimeout(r, ms)) }
-
-function makeMockReqRes(method, url) {
-    const req = new EventEmitter()
-    req.method = method || 'GET'
-    req.url = url || '/'
-    const res = {
-        headersSent: false,
-        statusCode: null,
-        headers: {},
-        body: '',
-        writeHead(status, headers) {
-            this.statusCode = status
-            this.headers = { ...this.headers, ...headers }
-            this.headersSent = true
-        },
-        write(chunk) { this.body += chunk },
-        end(chunk) { if (chunk) this.body += chunk; this.ended = true },
-        destroy(err) { this.destroyed = true; this.destroyErr = err }
+class FakeResponse extends Writable {
+    constructor() {
+        super()
+        this.chunks = []
+        this.statusCode = null
+        this.headers = null
+        this.ended = false
     }
-    return { req, res }
+    writeHead(status, headers) { this.statusCode = status; this.headers = headers }
+    _write(chunk, enc, cb) { this.chunks.push(Buffer.from(chunk)); cb() }
+    end(chunk) { if (chunk) this.chunks.push(Buffer.from(chunk)); this.ended = true; super.end() }
+    get body() { return Buffer.concat(this.chunks).toString('utf8') }
+    header(name) {
+        const key = Object.keys(this.headers || {}).find(k => k.toLowerCase() === name.toLowerCase())
+        return key ? this.headers[key] : undefined
+    }
 }
 
-function parsedBody(res) {
-    try { return JSON.parse(res.body) } catch { return res.body }
+function fakeReq(method = 'GET', url = '/', body) {
+  const payload = body !== undefined ? JSON.stringify(body) : null
+  
+  const req = new Readable({
+    read() {
+      if (payload !== null) {
+        this.push(payload)
+      }
+      this.push(null) // Signals end of stream
+    }
+  })
+
+  req.method = method
+  req.url = url
+  req.headers = {
+    'accept-encoding': '',
+    'content-type': 'application/json'
+  }
+
+  return req
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// compilePath
-// ═══════════════════════════════════════════════════════════════════════════════
+let distDir
 
-describe('compilePath', () => {
-    it('matches a static path exactly', () => {
-        const c = compilePath('/about')
-        expect(c.re.test('/about')).toBe(true)
-        expect(c.re.test('/about/')).toBe(true)  // trailing slash optional
-        expect(c.re.test('/about/x')).toBe(false)
-        expect(c.paramNames).toEqual([])
+beforeAll(async () => {
+    distDir = await mkdtemp(path.join(tmpdir(), 'fusee-dispatcher-'))
+    await writeFile(path.join(distDir, 'app.js'), 'console.log("static asset")')
+})
+
+afterAll(async () => {
+    await rm(distDir, { recursive: true, force: true })
+})
+
+describe('createDispatcher — resolution order', () => {
+    it('serves a static asset before even considering routes', async () => {
+        const renderPage = vi.fn()
+        const dispatch = createDispatcher({
+            distDir,
+            routes: [{ pattern: '/app.js', module: {} }], // would ALSO match, if static bypass didn't win
+            renderPage
+        })
+
+        const res = new FakeResponse()
+        await dispatch(fakeReq('GET', '/app.js'), res)
+
+        expect(res.statusCode).toBe(200)
+        expect(res.body).toBe('console.log("static asset")')
+        expect(renderPage).not.toHaveBeenCalled()
     })
 
-    it('matches the root path', () => {
-        const c = compilePath('/')
-        expect(c.re.test('/')).toBe(true)
-        expect(c.paramNames).toEqual([])
+    it('routes a POST to the actions base path to the action registry, bypassing route matching', async () => {
+        defineAction(async function dispatcherTestEcho(x) { return { echoed: x } }, { name: 'dispatcherTestEcho' })
+
+        const renderPage = vi.fn()
+        const dispatch = createDispatcher({
+            distDir,
+            routes: [],
+            renderPage,
+            actionsBasePath: '/__fusee/actions'
+        })
+
+        const res = new FakeResponse()
+        await dispatch(fakeReq('POST', '/__fusee/actions/dispatcherTestEcho', { args: ['hello'] }), res)
+
+        expect(res.statusCode).toBe(200)
+        expect(JSON.parse(res.body)).toEqual({ data: { echoed: 'hello' } })
+        expect(renderPage).not.toHaveBeenCalled()
     })
 
-    it('captures :param segments', () => {
-        const c = compilePath('/users/:id')
-        const m = c.re.exec('/users/42')
-        expect(m).not.toBeNull()
-        expect(m[1]).toBe('42')
-        expect(c.paramNames).toEqual(['id'])
-    })
+    it('a GET to a path matching a route pattern is NOT intercepted as an action even if it looks similar', async () => {
+        const renderPage = vi.fn(async ({ res }) => { res.writeHead(200, {}); res.end('page') })
+        const dispatch = createDispatcher({
+            distDir,
+            routes: [{ pattern: '/__fusee/actions/foo', module: {} }],
+            renderPage
+        })
 
-    it('captures multiple :params', () => {
-        const c = compilePath('/posts/:category/:slug')
-        const m = c.re.exec('/posts/tech/hello-world')
-        expect(m[1]).toBe('tech')
-        expect(m[2]).toBe('hello-world')
-        expect(c.paramNames).toEqual(['category', 'slug'])
-    })
-
-    it('captures wildcard * (greedy, includes slashes)', () => {
-        const c = compilePath('/files/*')
-        const m = c.re.exec('/files/a/b/c.txt')
-        expect(m[1]).toBe('a/b/c.txt')
-        expect(c.paramNames).toEqual(['*'])
-    })
-
-    it('does not match a different static path', () => {
-        const c = compilePath('/about')
-        expect(c.re.test('/contact')).toBe(false)
+        const res = new FakeResponse()
+        await dispatch(fakeReq('GET', '/__fusee/actions/foo'), res)
+        expect(renderPage).toHaveBeenCalled() // GET bypasses the actions interceptor (POST-only)
     })
 })
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// flattenRoutes
-// ═══════════════════════════════════════════════════════════════════════════════
+describe('createDispatcher — route matching + load()', () => {
+    it('matches a route, runs load(), and passes its data + params + query into renderPage', async () => {
+        const load = vi.fn(async ({ params, query }) => ({ greeting: `hi ${params.name}`, q: query.foo }))
+        const renderPage = vi.fn(async (ctx) => {
+            ctx.res.writeHead(200, {})
+            ctx.res.end(JSON.stringify({ params: ctx.params, query: ctx.query, data: ctx.data }))
+        })
 
-describe('flattenRoutes', () => {
-    it('flattens a single-level list unchanged', () => {
-        const routes = [
-            { path: '/', loader: () => {} },
-            { path: '/about', loader: () => {} }
-        ]
-        const flat = flattenRoutes(routes)
-        expect(flat.map(r => r.path)).toEqual(['/', '/about'])
+        const dispatch = createDispatcher({
+            routes: [{ pattern: '/hello/[name]', module: { load } }],
+            renderPage
+        })
+
+        const res = new FakeResponse()
+        await dispatch(fakeReq('GET', '/hello/world?foo=bar'), res)
+
+        expect(load).toHaveBeenCalledWith({ params: { name: 'world' }, query: { foo: 'bar' }, request: expect.anything() })
+        const body = JSON.parse(res.body)
+        expect(body.params).toEqual({ name: 'world' })
+        expect(body.query).toEqual({ foo: 'bar' })
+        expect(body.data).toEqual({ greeting: 'hi world', q: 'bar' })
     })
 
-    it('flattens nested children with correct absolute paths', () => {
-        const routes = [{
-            path: '/users',
-            loader: () => {},
-            children: [
-                { path: '', loader: () => {} },   // /users index
-                { path: '/:id', loader: () => {} }
-            ]
-        }]
-        const flat = flattenRoutes(routes)
-        expect(flat.map(r => r.path)).toEqual(['/users', '/users', '/users/:id'])
-    })
-})
+    it('renders a route with no load() export at all (data is undefined)', async () => {
+        const renderPage = vi.fn(async (ctx) => {
+            ctx.res.writeHead(200, {})
+            ctx.res.end(String(ctx.data))
+        })
+        const dispatch = createDispatcher({ routes: [{ pattern: '/static-page', module: {} }], renderPage })
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// createDispatcher
-// ═══════════════════════════════════════════════════════════════════════════════
-
-describe('createDispatcher — routing & method dispatch', () => {
-
-    it('calls the loader on GET and passes parsed params + query', async () => {
-        let received
-        const dispatch = createDispatcher([
-            {
-                path: '/users/:id',
-                loader: (ctx) => { received = ctx; return { ok: true } }
-            }
-        ])
-
-        const { req, res } = makeMockReqRes('GET', '/users/99?tab=profile')
-        await dispatch(req, res)
-
-        expect(received.params).toEqual({ id: '99' })
-        expect(received.query).toEqual({ tab: 'profile' })
-        expect(res.statusCode).toBe(200)
-        expect(parsedBody(res)).toEqual({ ok: true })
+        const res = new FakeResponse()
+        await dispatch(fakeReq('GET', '/static-page'), res)
+        expect(res.body).toBe('undefined')
     })
 
-    it('calls the action on POST', async () => {
-        let calledWith
-        const dispatch = createDispatcher([{
-            path: '/api/items',
-            action: (ctx) => { calledWith = ctx.method; return { created: true } }
-        }])
-
-        const { req, res } = makeMockReqRes('POST', '/api/items')
-        await dispatch(req, res)
-
-        expect(calledWith).toBe('POST')
-        expect(res.statusCode).toBe(200)
-        expect(parsedBody(res)).toEqual({ created: true })
-    })
-
-    it('calls the action on PUT, PATCH, and DELETE', async () => {
-        for (const method of ['PUT', 'PATCH', 'DELETE']) {
-            let called = false
-            const dispatch = createDispatcher([{
-                path: '/api/item',
-                action: () => { called = true }
-            }])
-            const { req, res } = makeMockReqRes(method, '/api/item')
-            await dispatch(req, res)
-            expect(called, `${method} should invoke action`).toBe(true)
-        }
-    })
-
-    it('returns 404 when no route matches', async () => {
-        const dispatch = createDispatcher([{ path: '/home', loader: () => {} }])
-        const { req, res } = makeMockReqRes('GET', '/nope')
-        await dispatch(req, res)
+    it('returns 404 for a path matching no route', async () => {
+        const dispatch = createDispatcher({ routes: [{ pattern: '/only-this', module: {} }], renderPage: vi.fn() })
+        const res = new FakeResponse()
+        await dispatch(fakeReq('GET', '/nope'), res)
         expect(res.statusCode).toBe(404)
-        expect(parsedBody(res).error).toBe('Not Found')
     })
 
-    it('returns 405 when route matches but method has no handler', async () => {
-        const dispatch = createDispatcher([{
-            path: '/readonly',
-            loader: () => ({ data: 1 })
-            // no action defined
-        }])
-        const { req, res } = makeMockReqRes('POST', '/readonly')
-        await dispatch(req, res)
-        expect(res.statusCode).toBe(405)
-        expect(res.headers['Allow']).toContain('GET')
+    it('load() calling redirect() produces a real HTTP redirect response, never reaching renderPage', async () => {
+        const renderPage = vi.fn()
+        const load = async () => redirect(302, '/login')
+        const dispatch = createDispatcher({ routes: [{ pattern: '/private', module: { load } }], renderPage })
+
+        const res = new FakeResponse()
+        await dispatch(fakeReq('GET', '/private'), res)
+
+        expect(res.statusCode).toBe(302)
+        expect(res.header('Location')).toBe('/login')
+        expect(renderPage).not.toHaveBeenCalled()
     })
 
-    it('auto-serialises a returned value as JSON (loader)', async () => {
-        const dispatch = createDispatcher([{
-            path: '/',
-            loader: () => ({ hello: 'world' })
-        }])
-        const { req, res } = makeMockReqRes('GET', '/')
-        await dispatch(req, res)
-        expect(res.statusCode).toBe(200)
-        expect(res.headers['Content-Type']).toContain('application/json')
-        expect(parsedBody(res)).toEqual({ hello: 'world' })
-    })
+    it('load() calling httpError() produces that exact status, never reaching renderPage', async () => {
+        const renderPage = vi.fn()
+        const load = async () => httpError(403, 'Forbidden: not your resource')
+        const dispatch = createDispatcher({ routes: [{ pattern: '/secret', module: { load } }], renderPage })
 
-    it('does NOT double-write when handler writes res directly', async () => {
-        const dispatch = createDispatcher([{
-            path: '/stream',
-            loader: ({ res }) => {
-                res.writeHead(200, { 'Content-Type': 'text/plain' })
-                res.end('raw text')
-                // returns undefined → no auto-JSON
-            }
-        }])
-        const { req, res } = makeMockReqRes('GET', '/stream')
-        await dispatch(req, res)
-        expect(res.body).toBe('raw text')
-        // writeHead should only have been called once
-        expect(res.statusCode).toBe(200)
-    })
+        const res = new FakeResponse()
+        await dispatch(fakeReq('GET', '/secret'), res)
 
-    it('returns 500 when the handler throws', async () => {
-        const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-        const dispatch = createDispatcher([{
-            path: '/boom',
-            loader: () => { throw new Error('oops') }
-        }])
-        const { req, res } = makeMockReqRes('GET', '/boom')
-        await dispatch(req, res)
-        expect(res.statusCode).toBe(500)
-        errSpy.mockRestore()
-    })
-
-    it('exposes err.message when err.expose is true', async () => {
-        const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-        const dispatch = createDispatcher([{
-            path: '/forbidden',
-            loader: () => {
-                const err = new Error('you shall not pass')
-                err.status = 403
-                err.expose = true
-                throw err
-            }
-        }])
-        const { req, res } = makeMockReqRes('GET', '/forbidden')
-        await dispatch(req, res)
         expect(res.statusCode).toBe(403)
-        expect(parsedBody(res).error).toBe('you shall not pass')
+        expect(res.body).toBe('Forbidden: not your resource')
+        expect(renderPage).not.toHaveBeenCalled()
+    })
+
+    it('load() throwing a plain Error becomes a 500 and is logged, never reaching renderPage', async () => {
+        const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+        const renderPage = vi.fn()
+        const load = async () => { throw new Error('db connection failed') }
+        const dispatch = createDispatcher({ routes: [{ pattern: '/broken', module: { load } }], renderPage })
+
+        const res = new FakeResponse()
+        await dispatch(fakeReq('GET', '/broken'), res)
+
+        expect(res.statusCode).toBe(500)
+        expect(renderPage).not.toHaveBeenCalled()
+        expect(errSpy).toHaveBeenCalled()
         errSpy.mockRestore()
     })
-})
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// createDispatcher + createRequestPipeline (integration)
-// ═══════════════════════════════════════════════════════════════════════════════
-
-describe('createDispatcher inside createRequestPipeline — Layer 1+2 integration', () => {
-    it('each concurrent request gets its own context and correct route params', async () => {
-        const results = []
-
-        const dispatch = createDispatcher([{
-            path: '/users/:id',
-            loader: async ({ req, params }) => {
-                await delay(req.delayMs)
-                results.push({ id: params.id })
-                return { id: params.id }
-            }
-        }])
-
-        const listener = createRequestPipeline(dispatch)
-
-        const { req: r1, res: res1 } = makeMockReqRes('GET', '/users/alice')
-        r1.delayMs = 20
-        const { req: r2, res: res2 } = makeMockReqRes('GET', '/users/bob')
-        r2.delayMs = 5
-
-        listener(r1, res1)
-        listener(r2, res2)
-        await delay(40)
-
-        // bob resolves first (5ms) then alice (20ms)
-        expect(results[0].id).toBe('bob')
-        expect(results[1].id).toBe('alice')
-
-        expect(parsedBody(res1)).toEqual({ id: 'alice' })
-        expect(parsedBody(res2)).toEqual({ id: 'bob' })
+    it('throws at construction time if renderPage is missing', () => {
+        expect(() => createDispatcher({ routes: [] })).toThrow(/requires a renderPage/)
     })
 })

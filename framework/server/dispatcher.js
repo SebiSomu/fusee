@@ -1,4 +1,11 @@
-﻿export function compilePath(path) {
+﻿import { resolveStaticFile, serveStaticFile } from './static-assets.js'
+import { matchRoute } from './route-matcher.js'
+import { RouteRedirect, RouteHttpError } from './load-helpers.js'
+import { handleActionRequest } from './actions.server.js'
+ 
+const DEFAULT_ACTIONS_BASE = '/__fusee/actions'
+
+export function compilePath(path) {
     const paramNames = []
     let src = path
         .replace(/[.+?^${}()|[\]\\]/g, '\\$&')
@@ -66,66 +73,65 @@ function _sendJson(res, status, body) {
 
 const MUTATION_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
 
-
-export function createDispatcher(routes) {
-    const flat = flattenRoutes(Array.isArray(routes) ? routes : [routes])
-
-    return async function dispatcher(req, res) {
-        const method = (req.method || 'GET').toUpperCase()
-        const rawUrl = req.url || '/'
-        const pathname = rawUrl.split('?')[0]
-        const query = _parseQuery(rawUrl)
-
-        let matchedRoute = null
-        let matchedParams = null
-
-        for (const route of flat) {
-            const params = _matchPath(route.compiled, pathname)
-            if (params !== null) {
-                matchedRoute = route
-                matchedParams = params
-                break
+export function createDispatcher({ distDir, routes = [], renderPage, actionsBasePath = DEFAULT_ACTIONS_BASE }) {
+    if (typeof renderPage !== 'function') {
+        throw new Error('[fusee] createDispatcher requires a renderPage(ctx) function')
+    }
+ 
+    return async function dispatch(req, res) {
+        const url = new URL(req.url, 'http://localhost')
+        const pathname = url.pathname
+ 
+        //Static asset bypass
+        if (distDir && (req.method === 'GET' || req.method === 'HEAD')) {
+            const filePath = await resolveStaticFile(distDir, pathname)
+            if (filePath) {
+                await serveStaticFile(filePath, req, res)
+                return
             }
         }
-
-        if (!matchedRoute) {
-            _sendJson(res, 404, { error: 'Not Found', path: pathname })
+ 
+        //Server Actions interceptor
+        if (req.method === 'POST' && pathname.startsWith(actionsBasePath)) {
+            const name = pathname.slice(actionsBasePath.length).replace(/^\//, '')
+            req.params = { ...(req.params || {}), name }
+            await handleActionRequest(req, res)
             return
         }
-
-        const isRead = method === 'GET' || method === 'HEAD'
-        const isMutation = MUTATION_METHODS.has(method)
-        const handler = isRead ? matchedRoute.loader : isMutation ? matchedRoute.action : null
-
-        if (!handler) {
-            const allowed = [
-                matchedRoute.loader ? 'GET, HEAD' : '',
-                matchedRoute.action ? 'POST, PUT, PATCH, DELETE' : ''
-            ].filter(Boolean).join(', ')
-
-            res.writeHead(405, { Allow: allowed || 'GET' })
-            res.end('Method Not Allowed')
+ 
+        //Route matcher + data loader
+        const matched = matchRoute(routes, pathname)
+        if (!matched) {
+            res.writeHead(404, { 'Content-Type': 'text/plain' })
+            res.end('Not Found')
             return
         }
-
-        const ctx = { req, res, params: matchedParams, query, method }
-
-        let result
+ 
+        const { route, params } = matched
+        const query = Object.fromEntries(url.searchParams)
+ 
+        let data
         try {
-            result = await handler(ctx)
-        } catch (err) {
-            console.error('[fusee] dispatcher: handler threw', err)
-            if (!res.headersSent) {
-                _sendJson(res, (err && err.status) ? err.status : 500, {
-                    error: (err && err.expose) ? err.message : 'Internal Server Error',
-                    code: err && err.code
-                })
+            if (typeof route.module?.load === 'function') {
+                data = await route.module.load({ params, query, request: req })
             }
+        } catch (err) {
+            if (err instanceof RouteRedirect) {
+                res.writeHead(err.status, { Location: err.location })
+                res.end()
+                return
+            }
+            if (err instanceof RouteHttpError) {
+                res.writeHead(err.status, { 'Content-Type': 'text/plain' })
+                res.end(err.message || 'Error')
+                return
+            }
+            console.error(`[fusée] load() threw for route "${route.pattern}":`, err)
+            res.writeHead(500, { 'Content-Type': 'text/plain' })
+            res.end('Internal Server Error')
             return
         }
-
-        if (result !== undefined && !res.headersSent) {
-            _sendJson(res, 200, result)
-        }
+ 
+        await renderPage({ route, params, query, data, req, res })
     }
 }
