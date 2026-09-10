@@ -4,11 +4,7 @@ use once_cell::sync::Lazy;
 use std::collections::{HashMap, HashSet};
 
 const DEFAULT_SSR_RUNTIME: &str = "fusee/runtime/ssr.js";
-
-const VOID_ELEMENTS: &[&str] = &[
-    "area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source",
-    "track", "wbr",
-];
+const VOID_ELEMENTS: &[&str] = &["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"];
 
 pub struct SSRGenerateOptions {
     pub source: String,
@@ -36,11 +32,13 @@ impl OrderedSet {
         }
         s
     }
+
     fn add(&mut self, s: &str) {
         if self.seen.insert(s.to_string()) {
             self.items.push(s.to_string());
         }
     }
+
     fn join(&self, sep: &str) -> String {
         self.items.join(sep)
     }
