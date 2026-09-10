@@ -139,21 +139,13 @@ pub fn compile(source: &str, options: CompileOptions) -> Result<CompileResult, C
     })
 }
 
-pub fn parse_only(
-    source: &str,
-    components: &HashSet<String>,
-) -> Result<(Node, Vec<Token>), CompileError> {
+pub fn parse_only(source: &str, components: &HashSet<String>) -> Result<(Node, Vec<Token>), CompileError> {
     let tokens = tokenize(source)?;
     let ast = parse(tokens.clone(), source, components)?;
     Ok((ast, tokens))
 }
 
-pub fn transform_only(
-    ast: Node,
-    components: HashSet<String>,
-    source: String,
-    scope: HashSet<String>,
-) -> (Node, Vec<CompileWarning>) {
+pub fn transform_only(ast: Node, components: HashSet<String>, source: String, scope: HashSet<String>) -> (Node, Vec<CompileWarning>) {
     transform(
         ast,
         TransformOptions {

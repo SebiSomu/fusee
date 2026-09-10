@@ -1,7 +1,6 @@
 export async function pipeToNodeResponse(webStream, res, opts = {}) {
     res.writeHead(opts.status ?? 200, {
         'Content-Type': 'text/html; charset=utf-8',
-        'Transfer-Encoding': 'chunked',
         ...opts.headers
     })
 
