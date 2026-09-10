@@ -1,4 +1,4 @@
-package reactive
+package engine
 
 import (
 	"context"
@@ -29,6 +29,11 @@ func registryFrom(ctx context.Context) *Registry {
 	reg, _ := ctx.Value(registryKey{}).(*Registry)
 	return reg
 }
+
+func RegistryFrom(ctx context.Context) *Registry {
+	return registryFrom(ctx)
+}
+
 func (r *Registry) Snapshot() map[string][]any {
 	r.mu.Lock()
 	defer r.mu.Unlock()

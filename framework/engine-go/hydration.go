@@ -1,6 +1,7 @@
-package hydration
+package engine
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 )
@@ -25,4 +26,18 @@ func RenderDehydrationScript(resources map[string]map[string]any, signals map[st
 	}
 
 	return fmt.Sprintf(`<script id="__FUSEE_DATA__">window.__FUSEE_STATE__ = %s;</script>`, raw), nil
+}
+
+func BuildFromContext(ctx context.Context) (string, error) {
+	var resources map[string]map[string]any
+	if rc := From(ctx); rc != nil {
+		resources = rc.ResourceCache
+	}
+
+	var signals map[string][]any
+	if reg := RegistryFrom(ctx); reg != nil {
+		signals = reg.Snapshot()
+	}
+
+	return RenderDehydrationScript(resources, signals)
 }

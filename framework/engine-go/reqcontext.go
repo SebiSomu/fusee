@@ -1,4 +1,4 @@
-package reqcontext
+package engine
 
 import (
 	"context"
@@ -7,17 +7,14 @@ import (
 )
 
 type contextKey struct{}
-
 type RequestContext struct {
-	mu             sync.Mutex
-	ResourceCache  map[string]map[string]any
-	SignalRegistry map[string][]any
+	mu            sync.Mutex
+	ResourceCache map[string]map[string]any
 }
 
 func New() *RequestContext {
 	return &RequestContext{
-		ResourceCache:  make(map[string]map[string]any),
-		SignalRegistry: make(map[string][]any),
+		ResourceCache: make(map[string]map[string]any),
 	}
 }
 
@@ -45,6 +42,7 @@ func Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		rc := New()
 		ctx := With(r.Context(), rc)
+		ctx = WithRegistry(ctx, NewRegistry())
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
