@@ -2,6 +2,7 @@ package engine
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -9,13 +10,16 @@ import (
 )
 
 type ActionFunc func(args []any) (any, error)
+
 type StatusError struct {
 	Status  int
 	Message string
 	Code    string
 }
 
-func (e *StatusError) Error() string { return e.Message }
+func (e *StatusError) Error() string {
+	return e.Message
+}
 
 type ActionRegistry struct {
 	mu      sync.RWMutex
@@ -83,7 +87,7 @@ func (r *ActionRegistry) HandleRequest(w http.ResponseWriter, req *http.Request,
 	data, err := fn(body.Args)
 	if err != nil {
 		var se *StatusError
-		if ok := asStatusError(err, &se); ok {
+		if errors.As(err, &se) {
 			sendJSON(w, se.Status, responseBody{Error: se.Message, Code: se.Code})
 			return
 		}
@@ -94,14 +98,6 @@ func (r *ActionRegistry) HandleRequest(w http.ResponseWriter, req *http.Request,
 	}
 
 	sendJSON(w, http.StatusOK, responseBody{Data: data})
-}
-
-func asStatusError(err error, target **StatusError) bool {
-	if se, ok := err.(*StatusError); ok {
-		*target = se
-		return true
-	}
-	return false
 }
 
 func sendJSON(w http.ResponseWriter, status int, body responseBody) {
