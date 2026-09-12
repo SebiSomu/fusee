@@ -54,11 +54,10 @@ func (d *Dispatcher) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		name := strings.TrimPrefix(strings.TrimPrefix(r.URL.Path, d.cfg.ActionsBasePath), "/")
-		d.cfg.Actions.HandleRequest(w, r, name) // Works directly via Registry
+		d.cfg.Actions.HandleRequest(w, r, name)
 		return
 	}
 
-	// 3. Route matcher + data loader
 	match := MatchAll(d.cfg.Routes, r.URL.Path)
 	if match == nil {
 		http.Error(w, "Not Found", http.StatusNotFound)
