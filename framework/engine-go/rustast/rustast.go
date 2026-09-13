@@ -1,4 +1,12 @@
-package engine
+// Package rustast contains Go types that mirror the Fusée Rust compiler's AST.
+// These are used to deserialize the JSON produced by the `fusee-ast` binary.
+//
+// The Rust side uses `#[serde(tag = "type")]` on tagged-union enums, which
+// flattens the variant fields into the same JSON object as the "type" field.
+// Custom UnmarshalJSON implementations here exploit exactly that: peek "type",
+// then unmarshal the whole payload into the matching struct (unknown fields
+// like "type" itself are silently ignored by encoding/json).
+package rustast
 
 import (
 	"encoding/json"
@@ -299,6 +307,7 @@ func (n *Node) FindDirective(name string) *DirectiveNode {
 	return nil
 }
 
+// ParseAST deserializes a fusee-ast JSON payload into a Node tree.
 func ParseAST(data []byte) (*Node, error) {
 	var n Node
 	if err := json.Unmarshal(data, &n); err != nil {

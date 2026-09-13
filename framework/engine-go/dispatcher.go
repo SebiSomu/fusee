@@ -20,7 +20,7 @@ type Module struct {
 type Config struct {
 	DistDir         string
 	Routes          []*Route
-	Actions         *Registry // Directly references Registry from actions.go
+	Actions         *ActionRegistry
 	Render          RenderFunc
 	ActionsBasePath string
 }
