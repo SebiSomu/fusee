@@ -38,15 +38,14 @@ entirely:
 
 |               | Location                                                                                                                     | Targets                                                                                                                                                                                           | Notes                                                                                                                                                                                       |
 | ------------- | ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| JS compiler   | `compiler/*.js` (`lexer.js`, `parser.js`, `transformer.js`, `generator.js` [client target], `ssr-generator.js` [SSR target]) | Emits JS source text (`render()` for client, `renderSSR()` for server)                                                                                                                            | `generator.js`'s `_genIf` has a **known, unfixed bug**: it renders only `branch.node.children`, dropping the branch element's own tag. Fixed in `ssr-generator.js`; **not yet fixed here**. |
+| JS compiler   | `compiler/*.js` (`lexer.js`, `parser.js`, `transformer.js`, `generator.js` [client target], `ssr-generator.js` [SSR target]) | Emits JS source text (`render()` for client, `renderSSR()` for server)                                                                                                                            | `generator.js`'s `_genIf` (and Rust's `generator.rs`) renders the branch element's own tag (`[() => cond, () => [node]]`), in sync with `ssr-generator.js` / `ssr_generator.rs`. |
 | Rust compiler | `parser.rs`, `transformer.rs`, `generator.rs`, `ssr_generator.rs`, `ast.rs`, `main_compiler.rs`, `lib.rs`                    | (a) WASM via `wasm-bindgen`, emits JS source text, same as the JS compiler's SSR target; (b) a native binary `fusee-ast` (see below) that skips codegen and emits the **transformed AST as JSON** | `ssr_generator.rs`'s `emit_if` is correct (renders the whole branch node) — this is the reference to check the JS side against, not the other way around.                                   |
 
 `fusee-ast` (native Rust binary, lives in a `src/bin/` target, not the
 WASM lib target) calls the already-public `parse_only()` +
 `transform_only()` from `main_compiler.rs` and serializes the resulting
-`Node` via `serde_json`. **Requires `mod ast;` / `mod main_compiler;` /
-`mod errors;` in `lib.rs` to be `pub mod`** — a one-time, additive
-change; does not affect the existing `wasm_bindgen` export.
+`Node` via `serde_json`. `mod ast;` / `mod main_compiler;` / `mod errors;`
+in `lib.rs` are `pub mod`.
 
 The JSON AST it produces is the interchange format the Go server
 consumes (see 1c). Field names are the Rust struct field names verbatim

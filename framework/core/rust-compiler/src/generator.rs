@@ -195,11 +195,8 @@ impl<'a> Generator<'a> {
                 Some(c) => self.wrap_expr(&c.content),
                 None => "true".to_string(),
             };
-            let children = match branch.node.as_ref().children() {
-                Some(c) => self.gen_children_array(c, false)?,
-                None => "[]".to_string(),
-            };
-            branches.push(format!("[() => {}, () => {}]", cond, children));
+            let node_str = self.gen_node(&branch.node, false)?;
+            branches.push(format!("[() => {}, () => [{}]]", cond, node_str));
         }
         Ok(format!("hIf([\n        {}\n    ])", branches.join(",\n        ")))
     }

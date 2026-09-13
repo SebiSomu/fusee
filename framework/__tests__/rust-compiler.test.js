@@ -25,7 +25,7 @@ describe('Rust+WASM compiler — DOM mode output', () => {
         expect(code).toContain(RUNTIME)
     })
 
-    it('compiles f-if — emits hIf() with branch conditions', () => {
+    it('compiles f-if — emits hIf() with branch conditions and preserves branch element tags', () => {
         const source = '<div><span f-if="ok">Yes</span><span f-else>No</span></div>'
         const { code } = rustCompile(source, { runtimePath: RUNTIME })
 
@@ -33,6 +33,8 @@ describe('Rust+WASM compiler — DOM mode output', () => {
         expect(code).toContain('hIf(')
         // f-else branch falls through as () => true
         expect(code).toContain('() => true')
+        // Preserves branch element tags (span)
+        expect(code).toContain('h("span"')
     })
 
     it('compiles f-for — emits hFor() with item iterator', () => {

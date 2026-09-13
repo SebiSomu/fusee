@@ -145,8 +145,8 @@ class Generator {
             const cond = branch.condition
                 ? this._wrapExpr(branch.condition.content)
                 : "true";
-            const children = this._genChildrenArray(branch.node.children ?? []);
-            return `[() => ${cond}, () => ${children}]`;
+            const nodeStr = this._genNode(branch.node);
+            return `[() => ${cond}, () => [${nodeStr}]]`;
         });
 
         return `hIf([\n        ${branches.join(",\n        ")}\n    ])`;

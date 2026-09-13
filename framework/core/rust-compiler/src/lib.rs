@@ -1,14 +1,14 @@
 #![allow(dead_code)]
 
-mod utils;
-mod errors;
-mod ast;
-mod generator;
-mod ssr_generator;
-mod lexer;
-mod main_compiler;
-mod parser;
-mod transformer;
+pub mod utils;
+pub mod errors;
+pub mod ast;
+pub mod generator;
+pub mod ssr_generator;
+pub mod lexer;
+pub mod main_compiler;
+pub mod parser;
+pub mod transformer;
 
 use serde::Deserialize;
 use wasm_bindgen::prelude::*;
