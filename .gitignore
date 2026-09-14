@@ -7,6 +7,10 @@ yarn.lock
 
 dist/
 build/
+.fusee/
+compiler/.tmp/
+.tmp/
+app/
 *.tgz
 
 .idea/
