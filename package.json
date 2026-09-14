@@ -16,7 +16,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:go": "cd framework/engine-go && go test -v ./...",
-    "ssr:go": "cd framework/engine-go && go run ./cmd/server"
+    "manifest": "node ./framework/server/generate-manifest.js",
+    "ssr:go": "node ./framework/server/generate-manifest.js && cd framework/engine-go && go run ./cmd/server"
   },
   "keywords": [],
   "author": "",

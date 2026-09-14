@@ -13,12 +13,28 @@ import (
 	"fusee/rustast"
 )
 
+type PageHandler struct {
+	engine.Module
+	AST   *rustast.Node
+	Title string
+}
+
 func main() {
 	port := flag.Int("port", 3000, "Port to listen on")
 	distDir := flag.String("dist", "./dist", "Path to dist directory for static assets")
 	flag.Parse()
 
-	// 1. Initialize Server Actions Registry
+	// 1. Locate project root (containing package.json)
+	rootDir := "."
+	for _, candidate := range []string{".", "..", "../..", "../../.."} {
+		if _, err := os.Stat(filepath.Join(candidate, "package.json")); err == nil {
+			rootDir = candidate
+			break
+		}
+	}
+	absRoot, _ := filepath.Abs(rootDir)
+
+	// 2. Initialize Server Actions Registry
 	actionReg := engine.NewActionRegistry()
 	actionReg.DefineAction("submitContact", func(args []any) (any, error) {
 		var name, email string
@@ -49,79 +65,37 @@ func main() {
 		}, nil
 	})
 
-	// 2. Define Sample Component ASTs
-	aboutASTJSON := `{
-		"type": "Root",
-		"children": [
-			{
-				"type": "Element",
-				"tag": "div",
-				"props": [{"type": "Attribute", "name": "class", "value": "page ssr-page"}],
-				"children": [
-					{
-						"type": "Element",
-						"tag": "h1",
-						"props": [{"type": "Attribute", "name": "style", "value": "color: #60a5fa;"}],
-						"children": [
-							{"type": "Interpolation", "expression": {"content": "title", "is_static": false}}
-						]
-					},
-					{
-						"type": "Element",
-						"tag": "p",
-						"props": [{"type": "Attribute", "name": "class", "value": "subtitle"}],
-						"children": [
-							{"type": "Text", "content": "Status: "},
-							{"type": "Interpolation", "expression": {"content": "status", "is_static": false}}
-						]
-					},
-					{
-						"type": "Element",
-						"tag": "div",
-						"props": [{"type": "Attribute", "name": "class", "value": "demo-card"}],
-						"children": [
-							{
-								"type": "Element",
-								"tag": "h2",
-								"props": [],
-								"children": [{"type": "Text", "content": "Server-Rendered Items"}]
-							},
-							{
-								"type": "Element",
-								"tag": "ul",
-								"props": [{"type": "Attribute", "name": "style", "value": "margin-left: 1.5rem;"}],
-								"children": [
-									{
-										"type": "Element",
-										"tag": "li",
-										"props": [
-											{
-												"type": "Directive",
-												"name": "for",
-												"arg": {"source": "items", "item": "item"}
-											}
-										],
-										"children": [
-											{"type": "Interpolation", "expression": {"content": "item", "is_static": false}}
-										]
-									}
-								]
-							}
-						]
-					}
-				]
+	// 3. Dynamically Load Routes from .fusee/manifest.json
+	var routes []*engine.Route
+	manifestPath := filepath.Join(absRoot, ".fusee", "manifest.json")
+
+	if manifest, err := engine.LoadManifest(manifestPath); err == nil && len(manifest.Routes) > 0 {
+		log.Printf("✨ [Fusee SSR] Loaded %d dynamic routes from %s", len(manifest.Routes), manifestPath)
+		for _, mr := range manifest.Routes {
+			if mr.AST == nil {
+				continue
 			}
-		]
-	}`
-
-	aboutAST, err := rustast.ParseAST([]byte(aboutASTJSON))
-	if err != nil {
-		log.Fatalf("Failed to parse sample AST: %v", err)
-	}
-
-	// 3. Define Routes & Loaders
-	routes := []*engine.Route{
-		engine.Compile("/", &engine.Module{
+			routeAST := mr.AST
+			routeTitle := mr.Title
+			handler := &PageHandler{
+				Module: engine.Module{
+					Load: func(params map[string]string, query map[string][]string, r *http.Request) (any, error) {
+						return map[string]any{
+							"title":  routeTitle,
+							"status": "Pre-rendered dynamically by Go SSR Engine",
+							"count":  42,
+							"items":  []any{"Dynamic Manifest", "Zero Go Code", "Rust AST Parser", "Selective Hydration"},
+						}, nil
+					},
+				},
+				AST:   routeAST,
+				Title: routeTitle,
+			}
+			routes = append(routes, engine.Compile(mr.Pattern, handler))
+		}
+	} else {
+		log.Printf("ℹ️ [Fusee SSR] No manifest found at %s. Using default fallback routes.", manifestPath)
+		routes = append(routes, engine.Compile("/", &engine.Module{
 			Load: func(params map[string]string, query map[string][]string, r *http.Request) (any, error) {
 				return map[string]any{
 					"title":   "Welcome to Fusee SSR",
@@ -131,41 +105,10 @@ func main() {
 					"version": "2.0.0",
 				}, nil
 			},
-		}),
-		engine.Compile("/ssr-demo", &engine.Module{
-			Load: func(params map[string]string, query map[string][]string, r *http.Request) (any, error) {
-				return map[string]any{
-					"title":  "Fusee SSR & Hydration Demo",
-					"status": "Pre-rendered by Go SSR Engine",
-					"count":  42,
-					"items":  []any{"Fast Go Dispatcher", "Rust Template Parser", "Signal State Hydration", "Server Actions"},
-				}, nil
-			},
-		}),
-		engine.Compile("/about", &engine.Module{
-			Load: func(params map[string]string, query map[string][]string, r *http.Request) (any, error) {
-				return map[string]any{
-					"title":  "About Fusee",
-					"status": "Loaded on Server (Go)",
-					"count":  5,
-					"items":  []any{"Signals-first reactivity", "Zero runtime overhead", "Streaming SSR"},
-				}, nil
-			},
-		}),
-		engine.Compile("/users/[id]", &engine.Module{
-			Load: func(params map[string]string, query map[string][]string, r *http.Request) (any, error) {
-				id := params["id"]
-				return map[string]any{
-					"title":  fmt.Sprintf("User Profile #%s", id),
-					"status": fmt.Sprintf("Fetched user %s from server", id),
-					"count":  1,
-					"items":  []any{"Profile Details", "Recent Activity", "Settings"},
-				}, nil
-			},
-		}),
+		}))
 	}
 
-	// 4. Configure Render Function
+	// 4. Configure Dynamic Render Function
 	renderFunc := func(w http.ResponseWriter, r *http.Request, route *engine.Route, params map[string]string, data any) {
 		scope := evalexpr.Scope{}
 		if m, ok := data.(map[string]any); ok {
@@ -177,12 +120,21 @@ func main() {
 			scope[k] = v
 		}
 
-		bodyHTML, err := engine.Render(aboutAST, scope)
+		var bodyHTML string
+		var err error
+
+		if pageH, ok := route.Handler.(*PageHandler); ok && pageH.AST != nil {
+			bodyHTML, err = engine.Render(pageH.AST, scope)
+		} else {
+			bodyHTML = fmt.Sprintf(`<div class="page"><h1>%s</h1><p>%s</p></div>`, scope["title"], scope["status"])
+		}
+
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Render Error: %v", err), http.StatusInternalServerError)
 			return
 		}
 
+		// Build serialized hydration signals
 		signals := map[string][]any{}
 		if c, ok := scope["count"]; ok {
 			signals["count"] = []any{c}
@@ -248,26 +200,19 @@ func main() {
 		w.Write([]byte(fullHTML))
 	}
 
+	// 5. Configure Static Assets Directory
 	absDist := *distDir
 	if absDist == "./dist" || absDist == "dist" {
-		rootDir := "."
-		for _, candidate := range []string{".", "..", "../..", "../../.."} {
-			if _, err := os.Stat(filepath.Join(candidate, "package.json")); err == nil {
-				rootDir = candidate
-				break
-			}
-		}
-		absRoot, _ := filepath.Abs(rootDir)
 		absDist = filepath.Join(absRoot, "dist")
 		if _, err := os.Stat(absDist); os.IsNotExist(err) {
-			absDist = absRoot // Serve direct source modules (/app/..., /framework/...) when dist/ is not built
+			absDist = absRoot
 		}
 	} else {
 		absDist, _ = filepath.Abs(absDist)
 	}
 	log.Printf("[Static Assets] Serving files from: %s", absDist)
 
-	// 5. Create Dispatcher
+	// 6. Create Dispatcher & Listen
 	dispatcher := engine.NewDispatcher(engine.Config{
 		DistDir:         absDist,
 		Routes:          routes,
@@ -277,7 +222,7 @@ func main() {
 	})
 
 	addr := fmt.Sprintf(":%d", *port)
-	log.Printf("Fusee Go SSR Server listening on http://localhost:%d", *port)
+	log.Printf("🚀 Fusee Go SSR Server listening on http://localhost:%d", *port)
 	if err := http.ListenAndServe(addr, dispatcher); err != nil {
 		log.Fatalf("Server error: %v", err)
 	}
