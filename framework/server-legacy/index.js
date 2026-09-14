@@ -29,17 +29,11 @@ export function withRequestContext(ctx, fn) {
     return _als.run(ctx, fn)
 }
 
-// Client Server Actions & Hydration Utilities
-export {
-    defineAction,
-    createActionProxy,
-    useAction,
-    hydrateAction,
-    getHydratedAction,
-    clearActionHydration,
-    extractActionHydration,
-    loadActionHydration
-} from './actions.js'
-
-// Manifest generator for Go SSR Engine
-export { generateManifest } from './generate-manifest.js'
+export { renderSuspenseBoundary, createSSRStreamResponse, streamToString } from './stream.js'
+export { pipeToNodeResponse } from './node-adapter.js'
+export { createDispatcher, defaultActionsBasePath } from './dispatcher.js'
+export { createActionRegistry, registerServerAction, executeServerAction, handleActionRequest } from './actions.server.js'
+export { createPipeline, defineMiddleware } from './pipeline.js'
+export { createStaticAssetHandler } from './static-assets.js'
+export { matchRoute, compileRoutePattern } from './route-matcher.js'
+export { renderPageToStream } from './ssr-render.js'
