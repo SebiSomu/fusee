@@ -1,8 +1,13 @@
 export async function pipeToNodeResponse(webStream, res, opts = {}) {
-    res.writeHead(opts.status ?? 200, {
+    const isHttp2 = !!res.stream || res.constructor?.name?.includes('Http2')
+
+    const headers = {
         'Content-Type': 'text/html; charset=utf-8',
+        ...(isHttp2 ? {} : { 'Transfer-Encoding': 'chunked' }),
         ...opts.headers
-    })
+    }
+
+    res.writeHead(opts.status ?? 200, headers)
 
     const reader = webStream.getReader()
     try {

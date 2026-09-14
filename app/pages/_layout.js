@@ -28,6 +28,7 @@ export const RootLayout = defineComponent({
 
                         <a href="/router-example" f-link style="color: #8b8bff;">🔗 Router Example</a>
                         <a href="/async-work" f-link style="color: #34d399;">⚡ Async Work</a>
+                        <a href="/ssr-demo" f-link style="color: #60a5fa;">🚀 SSR Demo</a>
 
                     </nav>
 

@@ -19,7 +19,14 @@ directive('highlight', {
     }
 })
 
-const pages = import.meta.glob('./pages/**/*.js')
+const pages = typeof import.meta.glob === 'function'
+    ? import.meta.glob('./pages/**/*.js')
+    : {
+        './pages/index.js': () => import('./pages/index.js'),
+        './pages/about.js': () => import('./pages/about.js'),
+        './pages/ssr-demo.js': () => import('./pages/ssr-demo.js'),
+        './pages/_layout.js': () => import('./pages/_layout.js')
+    }
 
 const routes = generateRoutes(pages, {
     loadingComponent: Loading

@@ -62,20 +62,34 @@ func Resolve(distDir, pathname string) (path string, ok bool) {
 		pathname = pathname[:idx]
 	}
 
+	cleanRel := filepath.Clean(strings.TrimPrefix(pathname, "/"))
+	if cleanRel == "." || cleanRel == "" {
+		return "", false
+	}
+
 	resolvedRoot, err := filepath.Abs(distDir)
 	if err != nil {
 		return "", false
 	}
-	candidate := filepath.Join(resolvedRoot, filepath.Clean("/"+pathname))
-	if candidate != resolvedRoot && !strings.HasPrefix(candidate, resolvedRoot+string(filepath.Separator)) {
-		return "", false
+
+	// 1. Check in distDir (e.g. dist/assets/...)
+	candidate := filepath.Join(resolvedRoot, cleanRel)
+	if candidate == resolvedRoot || strings.HasPrefix(candidate, resolvedRoot+string(filepath.Separator)) {
+		if info, err := os.Stat(candidate); err == nil && !info.IsDir() {
+			return candidate, true
+		}
 	}
 
-	info, err := os.Stat(candidate)
-	if err != nil || info.IsDir() {
-		return "", false
+	// 2. Fallback to parent project root (for /app/..., /framework/..., /fusee-logo.svg)
+	projectRoot := filepath.Dir(resolvedRoot)
+	candidateParent := filepath.Join(projectRoot, cleanRel)
+	if candidateParent == projectRoot || strings.HasPrefix(candidateParent, projectRoot+string(filepath.Separator)) {
+		if info, err := os.Stat(candidateParent); err == nil && !info.IsDir() {
+			return candidateParent, true
+		}
 	}
-	return candidate, true
+
+	return "", false
 }
 
 func Serve(w http.ResponseWriter, r *http.Request, filePath string) error {
