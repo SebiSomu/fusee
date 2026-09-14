@@ -4,7 +4,7 @@ import { mkdtemp, writeFile, mkdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import zlib from 'node:zlib'
-import { resolveStaticFile, serveStaticFile } from '../server/static-assets.js'
+import { resolveStaticFile, serveStaticFile } from '../server-legacy/static-assets.js'
 
 class FakeResponse extends Writable {
     constructor() {

@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from 'vitest'
 import { defineComponent, mountTemplate, provide, inject, onMount, onUnmount, defineAsyncComponent } from '../core/component.js'
-import { signal, computed, effect, batch, watch } from '../core/signal.js'
+import { signal, computed, effect, batch, watch, untrack, inspect, onCleanup } from '../core/signal.js'
 import { defineStore } from '../core/store.js'
-import { createRouter, navigate, currentRoute } from '../router/router.js'
+import { createRouter, navigate, currentRoute, mountOutlet } from '../router/router.js'
 import { defineComposable } from '../core/composable.js'
 import { directive, processLinks } from '../core/directives.js'
 

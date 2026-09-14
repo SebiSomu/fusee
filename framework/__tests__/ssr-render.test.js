@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { renderPageToStream } from '../server/render.js'
-import { renderSuspenseBoundary, streamToString } from '../server/stream.js'
+import { renderPageToStream } from '../server-legacy/render.js'
+import { renderSuspenseBoundary, streamToString } from '../server-legacy/stream.js'
 import { signal } from '../core/signal.js'
 import { defineResource } from '../core/resource.js'
 

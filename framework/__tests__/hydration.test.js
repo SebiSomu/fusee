@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { JSDOM } from 'jsdom'
-import { withRequestContext, createRequestContext } from '../server/index.js'
+import { withRequestContext, createRequestContext } from '../server-legacy/index.js'
 import {
     withSignalScope,
     loadSignalRegistry,
@@ -16,7 +16,7 @@ import {
     clearHydration
 } from '../core/hydration.js'
 import { defineResource } from '../core/resource.js'
-import { renderPageSSR } from '../server/ssr-render.js'
+import { renderPageSSR } from '../server-legacy/ssr-render.js'
 import { findAnchors, flattenAnchors } from '../core/dom-anchors.js'
 
 beforeEach(() => {

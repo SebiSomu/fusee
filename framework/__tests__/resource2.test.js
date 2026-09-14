@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { defineResource } from '../core/resource.js'
-import { renderPageSSR } from '../server/ssr-render.js'
+import { renderPageSSR } from '../server-legacy/ssr-render.js'
 import { extractHydrationData } from '../core/hydration.js'
 import { getInFlightStore, isSSRContext } from '../core/async-context.js'
 

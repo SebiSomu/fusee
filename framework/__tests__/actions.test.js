@@ -4,7 +4,7 @@ import {
     defineAction as serverDefineAction,
     handleActionRequest,
     getRegisteredActions
-} from '../server/actions.server.js'
+} from '../server-legacy/actions.server.js'
 
 import {
     defineAction as clientDefineAction,

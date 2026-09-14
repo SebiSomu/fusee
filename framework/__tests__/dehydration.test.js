@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { JSDOM } from 'jsdom'
-import { renderPageToStream } from '../server/render.js'
-import { streamToString } from '../server/stream.js'
+import { renderPageToStream } from '../server-legacy/render.js'
+import { streamToString } from '../server-legacy/stream.js'
 import { signal } from '../core/signal.js'
 import {
     hydrateApp,
@@ -53,7 +53,7 @@ describe('Dehydration script placement: "before </body>" via HTML5 parser repare
     })
 
     it('same reparenting holds even with a resolved suspense boundary chunk in between', async () => {
-        const { renderSuspenseBoundary } = await import('../server/stream.js')
+        const { renderSuspenseBoundary } = await import('../server-legacy/stream.js')
 
         function renderShell() {
             const boundary = renderSuspenseBoundary({

@@ -1,12 +1,12 @@
-﻿import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
 import { Writable, Readable } from 'node:stream'
 import { EventEmitter } from 'node:events'
 import { mkdtemp, writeFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { createDispatcher } from '../server/dispatcher.js'
-import { redirect, httpError } from '../server/load-helpers.js'
-import { defineAction } from '../server/actions.server.js'
+import { createDispatcher } from '../server-legacy/dispatcher.js'
+import { redirect, httpError } from '../server-legacy/load-helpers.js'
+import { defineAction } from '../server-legacy/actions.server.js'
 
 class FakeResponse extends Writable {
     constructor() {

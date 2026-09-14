@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from 'vitest'
 import { Writable } from 'node:stream'
-import { pipeToNodeResponse } from '../server/node-adapter.js'
-import { createFetchHandler, createBunHandler } from '../server/fetch-adapter.js'
-import { renderPageToStream } from '../server/render.js'
+import { pipeToNodeResponse } from '../server-legacy/node-adapter.js'
+import { createFetchHandler, createBunHandler } from '../server-legacy/fetch-adapter.js'
+import { renderPageToStream } from '../server-legacy/render.js'
 import { signal } from '../core/signal.js'
 
 // Minimal fake matching ONLY the methods both http.ServerResponse (HTTP/1.1)

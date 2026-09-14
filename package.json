@@ -11,7 +11,8 @@
   },
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "node ./framework/server/generate-manifest.js && cd framework/engine-go && go run ./cmd/server",
+    "dev:spa": "vite",
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",

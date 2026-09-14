@@ -6,7 +6,7 @@ import {
     pipeToNodeResponse,
     createRequestContext,
     withRequestContext,
-} from '../server/index.js'
+} from '../server-legacy/index.js'
 import { isSSRContext, getStreamBoundaryStore } from '../core/async-context.js'
 
 function delay(ms, value) {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { matchRoute, compileRoute } from '../server/route-matcher.js'
+import { matchRoute, compileRoute } from '../server-legacy/route-matcher.js'
 
 describe('compileRoute / matchRoute', () => {
     it('matches a static route exactly', () => {
