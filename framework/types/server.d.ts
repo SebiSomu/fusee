@@ -43,3 +43,12 @@ export declare function createSSRStreamResponse(renderShell: () => string | Prom
 export declare function streamToString(stream: ReadableStream<Uint8Array>): Promise<string>
 export declare function pipeToNodeResponse(webStream: ReadableStream<Uint8Array>, res: any, opts?: { status?: number; headers?: Record<string, string> }): Promise<void>
 export declare function renderPageSSR<T = any>(runPass: () => Promise<T> | T, opts?: { maxPasses?: number }): Promise<T>
+
+export * from './actions'
+
+export interface GenerateManifestOptions {
+    pagesDir?: string
+    outputDir?: string
+}
+
+export declare function generateManifest(options?: GenerateManifestOptions): Promise<void>
