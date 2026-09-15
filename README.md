@@ -163,8 +163,8 @@ export const Welcome = defineComponent({
 - **Optional Go SSR Engine** — Decoupled server package, install only when needed
 - **Signals-First Reactivity** — Atomic fine-grained updates, only modified DOM nodes touched
 - **File-Based Routing** — Nuxt-style automatic route discovery with layout support
-- **Build-Time Compiler** — Recursive hybrid compiler + optional Rust WASM backend for peak throughput
-- **Directives** — `f-if`, `f-for`, `f-model`, `f-text`, `f-cloak`, `f-once`, `@event` modifiers
+- **Rust WASM Build-Time Compiler** — Recursive hybrid compiler + optional Rust WASM backend for peak throughput
+- **Directives support** — `f-if`, `f-for`, `f-model`, `f-text`, `f-cloak`, `f-once`, `@event` modifiers
 - **Dependency Injection** — Nested `provide`/`inject` with shadowing
 - **Composables & Stores** — Reactive state management patterns baked in
 - **Server Actions** — Type-safe RPC-style functions for client→server communication
@@ -217,7 +217,7 @@ my-app/
 │   ├── router/         # Client-side router
 │   ├── server/         # Manifest generator & dev helpers
 │   ├── types/          # TypeScript definitions
-│   └── engine-go/      # Go SSR engine (optional, fusee add server)
+│   └── (*) engine-go/  # Go SSR engine (optional, fusee add server)
 ├── .fusee/             # Runtime manifest (generated)
 ├── index.html
 ├── vite.config.js
@@ -246,15 +246,21 @@ All auto-imports are declared in `framework/auto-imports.d.ts` — no explicit i
 
 ## Performance Benchmarks
 
-From [js-frontend-frameworks-benchmark](https://github.com/codegenixdev/js-frontend-frameworks-benchmark):
+Framework Total Mean (Create, Update, Swap, Clear tests)
+Compared to other popular JS Frameworks:
 
-| Action                        | Avg Duration (ms) |
-| :---------------------------- | :---------------- |
-| Create 50,000 rows            | 12.60             |
-| Update every 10th row         | 15.90             |
-| Swap 2nd and 9th-to-last rows | 4.60              |
-| Clear all rows                | 0.70              |
-| **Total average**             | **33.80**         |
+|  Rank  | Framework   | Execution Time |
+| :----: | :---------- | :------------: |
+| **1**  | **Qwik**    |   117.55 ms    |
+| **2**  | **Fusée**   |   120.30 ms    |
+| **3**  | **Angular** |   121.29 ms    |
+| **4**  | **Solid**   |   121.54 ms    |
+| **5**  | **Preact**  |   123.18 ms    |
+| **6**  | **Vue**     |   123.99 ms    |
+| **7**  | **Svelte**  |   125.15 ms    |
+| **8**  | **React**   |   126.12 ms    |
+| **9**  | **Mithril** |   128.35 ms    |
+| **10** | **Lit**     |   131.08 ms    |
 
 ---
 
@@ -263,7 +269,6 @@ From [js-frontend-frameworks-benchmark](https://github.com/codegenixdev/js-front
 The CLI is built from source using the included `build-cli.mjs` script:
 
 ```bash
-# From the repo root — syncs framework files and cross-compiles all platforms
 node bin/build-cli.mjs
 ```
 
@@ -274,12 +279,12 @@ Output: `bin/create-fusee-{win.exe,linux,mac-arm64,mac-intel}`
 ## Testing
 
 ```bash
-npm test                        # all tests
-npx vitest --reporter=verbose   # verbose output
-npx vitest                      # watch mode
+npm test
+npx vitest --reporter=verbose
+npx vitest # watch mode
 ```
 
-**550 tests — all passing.** Coverage includes: reactivity engine, component lifecycle, DI, directives, events, memory safety, TypeScript types, and integration scenarios.
+**650+ tests passing.** Coverage includes: reactivity engine, component lifecycle, DI, directives, events, memory safety, TypeScript types, and integration scenarios.
 
 ---
 
@@ -294,6 +299,7 @@ npx vitest                      # watch mode
 - [x] Generators for pages, components, stores, composables, actions
 - [ ] Production SSR build pipeline
 - [ ] Plugin system for third-party extensions
+- [ ] JSX/TSX Support
 
 ---
 
