@@ -15,11 +15,16 @@ export default defineConfig({
     ],
 
     resolve: {
-        alias: {
-            'fusee-framework': path.resolve(__dirname, './framework'),
-            '@app': path.resolve(__dirname, './app'),
-            '@shared/config': path.resolve(__dirname, '../shared-config/index.ts')
-        }
+        alias: [
+            { find: 'fusee-framework/server', replacement: path.resolve(__dirname, './framework/server/index.js') },
+            { find: 'fusee-framework/router', replacement: path.resolve(__dirname, './framework/router/index.js') },
+            { find: 'fusee-framework/actions.server', replacement: path.resolve(__dirname, './framework/server/actions.js') },
+            { find: /^fusee-framework\/core\/(.*)$/, replacement: path.resolve(__dirname, './framework/core/$1') },
+            { find: /^fusee-framework\/(.*)$/, replacement: path.resolve(__dirname, './framework/$1') },
+            { find: 'fusee-framework', replacement: path.resolve(__dirname, './framework/index.js') },
+            { find: '@app', replacement: path.resolve(__dirname, './app') },
+            { find: '@shared/config', replacement: path.resolve(__dirname, '../shared-config/index.ts') }
+        ]
     },
 
     optimizeDeps: {
@@ -35,11 +40,15 @@ export default defineConfig({
     build: {
         outDir: 'dist',
         emptyOutDir: true,
+        target: 'esnext',
 
         rollupOptions: {
             input: {
                 main: path.resolve(__dirname, 'index.html'),
-            }
+            },
+            external: [
+                /^node:/
+            ]
         }
     },
 

@@ -134,7 +134,6 @@ func main() {
 			return
 		}
 
-		// Build serialized hydration signals
 		signals := map[string][]any{}
 		if c, ok := scope["count"]; ok {
 			signals["count"] = []any{c}
@@ -222,7 +221,7 @@ func main() {
 	})
 
 	addr := fmt.Sprintf(":%d", *port)
-	log.Printf("🚀 Fusee Go SSR Server listening on http://localhost:%d", *port)
+	log.Printf("Fusee Go Server listening on http://localhost:%d", *port)
 	if err := http.ListenAndServe(addr, dispatcher); err != nil {
 		log.Fatalf("Server error: %v", err)
 	}

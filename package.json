@@ -2,8 +2,9 @@
   "name": "fusee-framework",
   "version": "1.9.1",
   "description": "Fusée - Signals-first JS Framework | Peak Performance",
-  "main": "framework/index.js",
-  "types": "framework/types/index.d.ts",
+  "main": "./framework/index.js",
+  "types": "./framework/types/index.d.ts",
+  "module": "./framework/index.js",
   "bin": {
     "fusee": "./bin/index.js",
     "create-fusee": "./bin/index.js",
@@ -39,9 +40,23 @@
     "vitest": "^4.1.4"
   },
   "exports": {
-    ".": "./framework/index.js",
-    "./server": "./framework/server/index.js",
-    "./runtime/ssr.js": "./framework/core/ssr.js"
+    ".": {
+      "types": "./framework/types/index.d.ts",
+      "import": "./framework/index.js"
+    },
+    "./server": {
+      "types": "./framework/types/server.d.ts",
+      "import": "./framework/server/index.js"
+    },
+    "./router": {
+      "types": "./framework/types/router.d.ts",
+      "import": "./framework/router/index.js"
+    },
+    "./runtime/ssr": {
+      "import": "./framework/core/ssr.js"
+    },
+    "./core/*": "./framework/core/*",
+    "./*": "./framework/*"
   },
   "dependencies": {
     "benchmark": "^2.1.4"

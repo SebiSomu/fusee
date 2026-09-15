@@ -3,6 +3,7 @@
     "target": "ES2020",
     "module": "ES2020",
     "moduleResolution": "bundler",
+    "baseUrl": ".",
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
     "types": ["vite/client"],
     
@@ -28,8 +29,22 @@
     "allowImportingTsExtensions": true,
     "noEmit": true,
     "paths": {
-      "fusee-framework": ["./framework/types/index.d.ts"],
-      "fusee-framework/*": ["./framework/*"]
+      "fusee-framework": [
+        "./framework/index.js",
+        "./framework/types/index.d.ts"
+      ],
+      "fusee-framework/server": [
+        "./framework/server/index.js",
+        "./framework/types/server.d.ts"
+      ],
+      "fusee-framework/router": [
+        "./framework/router/index.js",
+        "./framework/types/router.d.ts"
+      ],
+      "fusee-framework/*": [
+        "./framework/*",
+        "./framework/types/*"
+      ]
     }
   },
   "include": [

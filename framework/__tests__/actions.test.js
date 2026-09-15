@@ -4,7 +4,7 @@ import {
     defineAction as serverDefineAction,
     handleActionRequest,
     getRegisteredActions
-} from '../server-legacy/actions.server.js'
+} from 'fusee-framework/server'
 
 import {
     defineAction as clientDefineAction,
@@ -15,7 +15,7 @@ import {
     clearActionHydration,
     extractActionHydration,
     loadActionHydration
-} from '../server/actions.js'
+} from 'fusee-framework/server'
 
 let _counter = 0
 function uniqueName(base) {
