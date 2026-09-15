@@ -38,7 +38,7 @@ func CopyEmbeddedDir(srcDir, destDir string, keepTypes bool) error {
 
 		parts := strings.Split(relPath, "/")
 		for _, part := range parts {
-			if part == "bin" || part == "node_modules" || part == ".git" || part == "dist" || part == "__tests__" {
+			if part == "bin" || part == "node_modules" || part == ".git" || part == "dist" || part == "__tests__" || part == "target" || part == ".idea" || part == ".cargo" {
 				return nil
 			}
 		}

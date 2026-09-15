@@ -81,6 +81,16 @@ function _sendJson(res, status, body) {
         return res.status(status).json(body)
     }
 
+    if (typeof res.writeHead === 'function') {
+        const json = JSON.stringify(body)
+        res.writeHead(status, {
+            'Content-Type': 'application/json; charset=utf-8',
+            'Content-Length': Buffer.byteLength(json)
+        })
+        res.end(json)
+        return
+    }
+
     return new Response(JSON.stringify(body), {
         status,
         headers: { 'Content-Type': 'application/json' }

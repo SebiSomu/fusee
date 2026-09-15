@@ -1,0 +1,22 @@
+export const use{{.ProjectName}} = defineComposable(() => {
+    assertSetupContext('use{{.ProjectName}}');
+
+    const value = signal(null);
+    const loading = signal(false);
+
+    async function execute() {
+        loading(true);
+        try {
+            // Composable logic here
+            value('ready');
+        } finally {
+            loading(false);
+        }
+    }
+
+    return {
+        value,
+        loading,
+        execute
+    };
+});

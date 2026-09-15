@@ -1,14 +1,21 @@
+import { getResourceRegistry, isSSRContext } from './async-context.js'
+import { extractSignalRegistrySnapshot, loadSignalRegistry } from './signal-scope.js'
+import { effect } from './signal.js'
+import { findAnchors, flattenAnchors, getBoundTextNode, clearBetween, insertHtmlBefore } from './dom-anchors.js'
+
 const _hydrationRegistry = new Map()
-const _registeredCaches = []
+const DATA_SCRIPT_ID = '__FUSEE_DATA__'
 
 export function _registerResourceCache(resourceKey, cache) {
-    _registeredCaches.push({ resourceKey, cache })
+    const registry = getResourceRegistry()
+    registry.caches.push({ resourceKey, cache })
 }
 
-export function extractHydrationData() {
+export function extractHydrationData(ctxOrNothing) {
+    const registry = ctxOrNothing?.resourceRegistry ?? getResourceRegistry()
     const snapshot = {}
 
-    for (const { resourceKey, cache } of _registeredCaches) {
+    for (const { resourceKey, cache } of registry.caches) {
         const entries = {}
         for (const [cacheKey, entry] of cache) {
             entries[cacheKey] = { data: entry.data, updatedAt: entry.updatedAt }
@@ -31,6 +38,31 @@ export function dehydrate(snapshot = extractHydrationData()) {
     }
 }
 
+export function renderDehydrationScript(ctxOrNothing) {
+    const payload = {
+        resources: extractHydrationData(ctxOrNothing),
+        signals: extractSignalRegistrySnapshot()
+    }
+
+    let json
+    try {
+        json = JSON.stringify(payload).replace(/<\/script/gi, '<\\/script')
+    } catch (err) {
+        console.error('[fusée] renderDehydrationScript() failed to serialize state:', err)
+        json = '{}'
+    }
+
+    return `<script id="${DATA_SCRIPT_ID}">window.__FUSEE_STATE__ = ${json};</script>`
+}
+
+/** Client-side: read the payload written by renderDehydrationScript(), or null if absent/malformed. */
+export function readWindowState() {
+    if (typeof window === 'undefined') return null
+    const state = window.__FUSEE_STATE__
+    if (!state || typeof state !== 'object') return null
+    return state
+}
+
 export function loadHydration(snapshot) {
     if (!snapshot || typeof snapshot !== 'object') {
         console.warn('[fusée] loadHydration() received invalid snapshot')
@@ -50,8 +82,15 @@ export function loadHydration(snapshot) {
 
 export function hydrateFromWindow() {
     if (typeof window === 'undefined') return
-    const raw = window.__FUSEE_HYDRATION__
-    if (raw) loadHydration(raw)
+    const state = readWindowState()
+    if (state) {
+        if (state.resources) loadHydration(state.resources)
+        if (state.signals) loadSignalRegistry(state.signals)
+        return
+    }
+
+    const legacy = window.__FUSEE_HYDRATION__
+    if (legacy) loadHydration(legacy)
 }
 
 export function getHydratedEntries(resourceKey) {
@@ -68,7 +107,6 @@ export function isHydrationFresh(resourceKey, cacheKey, staleTime = 0) {
 
 export function clearHydration() {
     _hydrationRegistry.clear()
-    _registeredCaches.length = 0
 }
 
 export function getHydrationSnapshot() {
@@ -80,4 +118,61 @@ export function getHydrationSnapshot() {
         }
     }
     return out
+}
+
+export function hydrateAnchors(root, bindings = []) {
+    const anchors = flattenAnchors(findAnchors(root))
+    const cleanups = []
+
+    anchors.forEach((anchor, i) => {
+        const spec = bindings[i]
+        if (!spec) return
+
+        if (anchor.type === 'f-bind' && spec.type === 'bind') {
+            cleanups.push(hydrateTextBinding(anchor, spec.get))
+        } else if (anchor.type === 'element' && spec.type === 'attrs') {
+            cleanups.push(hydrateElementAttrs(anchor.element, spec.get))
+        } else if (anchor.type === 'f-if' && spec.type === 'if') {
+            cleanups.push(hydrateIfBinding(anchor, spec.branches))
+        }
+    })
+
+    return () => cleanups.forEach(c => typeof c === 'function' && c())
+}
+
+export function hydrateApp(root, bindings = []) {
+    hydrateFromWindow()
+    return hydrateAnchors(root, bindings)
+}
+
+function hydrateTextBinding(anchor, get) {
+    const textNode = getBoundTextNode(anchor)
+    if (!textNode) return null
+    return effect(() => {
+        textNode.textContent = String(get() ?? '')
+    })
+}
+
+function hydrateElementAttrs(element, get) {
+    return effect(() => {
+        const attrs = get() ?? {}
+        for (const [name, value] of Object.entries(attrs)) {
+            if (value === false || value == null) element.removeAttribute(name)
+            else if (value === true) element.setAttribute(name, '')
+            else element.setAttribute(name, String(value))
+        }
+    })
+}
+
+function hydrateIfBinding(anchor, branches) {
+    let activeIndex = -1
+    return effect(() => {
+        const nextIndex = branches.findIndex(b => b.cond())
+        if (nextIndex === activeIndex) return
+        activeIndex = nextIndex
+        clearBetween(anchor.startNode, anchor.endNode)
+        if (nextIndex !== -1) {
+            insertHtmlBefore(anchor.endNode, branches[nextIndex].render())
+        }
+    })
 }

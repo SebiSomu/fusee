@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"create-fusee/internal/assets"
+
 	"github.com/spf13/cobra"
 )
 
@@ -15,11 +16,17 @@ var genCmd = &cobra.Command{
 	Aliases: []string{"g"},
 	Short:   "Generate a new page or component",
 	Long: `Generate a new Fusée resource. 
-Types available: page (p), component (c)`,
+Types available:
+  - page (p): app/pages/<name>.<ext>
+  - component (c): app/components/<name>.<ext>
+  - store (s): app/stores/<name>.<ext>
+  - composable (use): app/composables/use<name>.<ext>
+  - action (a): app/actions/<name>.<ext>`,
 	Args: cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		genType := strings.ToLower(args[0])
-		name := strings.Title(args[1])
+		rawName := args[1]
+		name := strings.Title(rawName)
 
 		// Check if we are in a Fusée project
 		if _, err := os.Stat("framework"); os.IsNotExist(err) {
@@ -43,13 +50,31 @@ Types available: page (p), component (c)`,
 
 		switch genType {
 		case "page", "p":
-			dest = filepath.Join("app/pages", args[1]+"."+ext)
+			dest = filepath.Join("app/pages", rawName+"."+ext)
 			tmpl = "templates/page.tmpl"
 		case "component", "c":
-			dest = filepath.Join("app/components", args[1]+"."+ext)
+			dest = filepath.Join("app/components", name+"."+ext)
 			tmpl = "templates/component.tmpl"
+		case "store", "s":
+			dest = filepath.Join("app/stores", rawName+"."+ext)
+			tmpl = "templates/store.tmpl"
+		case "composable", "use":
+			compName := rawName
+			if !strings.HasPrefix(strings.ToLower(compName), "use") {
+				compName = "use" + name
+			}
+			dest = filepath.Join("app/composables", compName+"."+ext)
+			tmpl = "templates/composable.tmpl"
+		case "action", "a":
+			dest = filepath.Join("app/actions", rawName+"."+ext)
+			tmpl = "templates/action.tmpl"
 		default:
-			fmt.Printf("❌ Error: Unknown type '%s'. Use 'page' or 'component'.\n", genType)
+			fmt.Printf("❌ Error: Unknown type '%s'. Use page (p), component (c), store (s), composable (use), or action (a).\n", genType)
+			os.Exit(1)
+		}
+
+		if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
+			fmt.Printf("❌ Error: Could not create directory %s: %v\n", filepath.Dir(dest), err)
 			os.Exit(1)
 		}
 

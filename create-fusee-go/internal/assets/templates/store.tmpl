@@ -1,0 +1,21 @@
+export const use{{.ProjectName}}Store = defineStore('{{.ProjectName}}', () => {
+    const state = signal({
+        initialized: true,
+        count: 0
+    });
+
+    const isReady = computed(() => state().initialized);
+
+    function increment() {
+        state({
+            ...state(),
+            count: state().count + 1
+        });
+    }
+
+    return {
+        state,
+        isReady,
+        increment
+    };
+});

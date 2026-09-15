@@ -80,7 +80,16 @@ func runInitWithParams(projectName string, isTS bool) {
 		config.ProjectName = "fusee-project"
 	}
 
-	dirs := []string{"app/components", "app/pages", "app/routes", "framework"}
+	dirs := []string{
+		"app/components",
+		"app/pages",
+		"app/routes",
+		"app/stores",
+		"app/composables",
+		"app/actions",
+		"framework",
+		".fusee",
+	}
 	for _, d := range dirs {
 		if err := os.MkdirAll(filepath.Join(projectPath, d), 0755); err != nil {
 			fmt.Printf("❌ Error: Could not create directory %s: %v\n", d, err)
