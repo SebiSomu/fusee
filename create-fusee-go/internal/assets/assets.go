@@ -12,6 +12,9 @@ import (
 //go:embed all:templates all:embed/framework
 var EmbeddedFiles embed.FS
 
+//go:embed all:embed/engine-go
+var EmbeddedEngineGo embed.FS
+
 type Config struct {
 	ProjectName string
 	IsTS        bool
@@ -79,4 +82,43 @@ func WriteTemplate(tmplPath, destPath string, config Config) error {
 	defer f.Close()
 
 	return tmpl.Execute(f, config)
+}
+
+// CopyEngineGo installs the embedded Go SSR engine into destDir (typically framework/engine-go).
+// This is intentionally NOT called during project init — it is only used by `fusee add server`.
+func CopyEngineGo(destDir string) error {
+	const srcDir = "embed/engine-go"
+
+	if err := os.MkdirAll(destDir, 0755); err != nil {
+		return err
+	}
+
+	return fs.WalkDir(EmbeddedEngineGo, srcDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		relPath := strings.TrimPrefix(path, srcDir)
+		relPath = strings.TrimPrefix(relPath, "/")
+
+		if relPath == "" {
+			return nil
+		}
+
+		destPath := filepath.Join(destDir, filepath.FromSlash(relPath))
+
+		if strings.HasSuffix(destPath, "go.mod.txt") {
+			destPath = strings.TrimSuffix(destPath, ".txt")
+		}
+
+		if d.IsDir() {
+			return os.MkdirAll(destPath, 0755)
+		}
+
+		data, err := EmbeddedEngineGo.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		return os.WriteFile(destPath, data, 0644)
+	})
 }

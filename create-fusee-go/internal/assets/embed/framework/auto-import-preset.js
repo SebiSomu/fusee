@@ -1,4 +1,4 @@
-export const FuseePresets = {
+export const FuseePreset = {
     'fusee-framework': [
         'signal', 'computed', 'effect', 'watch',
         'batch', 'untrack', 'inspect', 'onCleanup', 'resource', 'defineResource',

@@ -127,9 +127,13 @@ func runInitWithParams(projectName string, isTS bool) {
 	}
 
 	fmt.Println("\n✅ Fusée Project Ready!")
-	fmt.Printf("cd %s && npm install\n", projectName)
+	fmt.Printf("👉  cd %s && npm install\n", projectName)
 	fmt.Println()
-	fmt.Println("Go SSR Engine: npm run dev -> port 3000")
-	fmt.Println("Vite SPA Mode: npm run dev:spa -> port 5173")
+	fmt.Println("   ⚡  SPA mode (no server needed):")
+	fmt.Println("        npm run dev:spa     → Vite dev server on port 5173")
+	fmt.Println()
+	fmt.Println("   🚀  SSR mode (optional Go server):")
+	fmt.Println("        fusee add server    → install the Go SSR engine")
+	fmt.Println("        npm run dev         → start Go server on port 3000")
 	fmt.Println()
 }
