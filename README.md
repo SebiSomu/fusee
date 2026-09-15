@@ -1,8 +1,8 @@
 # Fusée Framework
 
-**v1.9.1 — Signals-First JS Framework | Atomic Reactivity | Peak Performance**
+**v1.9.1 — Signals-First JS Framework | Atomic Reactivity | Rust-Compiler | Go-Powered Toolchain**
 
-Fusée is a custom, high-performance fine-grained reactive JavaScript framework built for speed and simplicity. It features a recursive, non-greedy compiler, a signals-based reactivity engine, Dependency Injection for components and a comprehensive CLI for instant application scaffolding.
+Fusée is a custom, high-performance fine-grained reactive JavaScript framework built for speed and simplicity. It features a recursive, non-greedy Rust compiler, a signals-based reactivity engine, fully integrated Dependency Injection support, file-based routing, and a fully self-contained Go CLI for instant application scaffolding — with an optional Go SSR engine for server-side rendering.
 
 ---
 
@@ -11,60 +11,135 @@ Fusée is a custom, high-performance fine-grained reactive JavaScript framework 
 The fastest way to get started with Fusée is via the **Go-Powered CLI**:
 
 ```bash
-# 1. Install Fusée CLI globally
+# Install globally from npm
 npm install -g fusee-framework
 
-# 2. Scaffold a new high-performance project
-create-fusee-app my-awesome-app
-# or simply
-fusee init my-awesome-app
+# Scaffold a new project (JS or TS)
+fusee init my-app
+
+# Or use the binary directly
+create-fusee-app init my-app
 ```
 
-Follow the interactive prompt to choose your template (**JavaScript** or **TypeScript**) and launch your app instantly!
-
----
-
-## File-Based Routing (Nuxt-style)
-
-Fusée now supports automated, file-based routing!
-
-- **Pages**: Just drop a file in `app/pages/` and it becomes a route.
-- **Layouts**: Use `app/pages/_layout.js` to wrap your pages in consistent UI structures.
-- **Dynamic Routes**: Support for `[id].js` style dynamic parameters.
+Follow the interactive prompt to choose **JavaScript** or **TypeScript**, then:
 
 ```bash
-# Generate a new page instantly
-fusee generate page contact
+cd my-app && npm install
+
+# Start in SPA mode (no Go required)
+npm run dev:spa     # → Vite dev server on port 5173
 ```
 
 ---
 
-## Build-Time HTML Template Compiler (New in v1.9)
+## CLI Commands
 
-Fusée now features a fully integrated **Build-Time Template Compiler** powered by the `fuseeCompilerPlugin` for Vite. Instead of parsing and compiling HTML strings at runtime, Fusée compiles external HTML templates into highly optimized virtual DOM creation calls (`h`, `hText`, `hIf`, `hFor`) during the build/dev stage.
+The `fusee` CLI is a single self-contained binary (no Node.js runtime needed) compiled for all platforms.
 
-### Why use the Build-Time Compiler?
+### `fusee init <name>`
 
-- **Zero Runtime Overhead**: No template parsing in the browser, leading to smaller bundles and faster page load speeds.
-- **Separation of Concerns**: Write clean HTML in `.template.html` files with full editor autocomplete, syntax highlighting, and formatting support.
-- **Compile-Time Warnings**: Errors in template syntax are caught immediately in your terminal or browser console during development.
+Scaffold a new Fusée project. Includes the full framework core, file-based routing, Vite config, and sample pages.
 
-### How to use it:
+```bash
+fusee init my-app           # JavaScript template
+fusee init my-app --ts      # TypeScript template
+```
 
-1. **Create an HTML template file** (e.g., `Welcome.template.html`):
+### `fusee generate <type> <name>`
+
+Generate boilerplate for common resource types:
+
+```bash
+fusee generate page    dashboard   # → app/pages/dashboard.js
+fusee generate component Button    # → app/components/Button.js
+fusee generate store   auth        # → app/stores/auth.js
+fusee generate composable useFetch # → app/composables/useFetch.js
+fusee generate action  sendEmail   # → app/actions/sendEmail.js
+```
+
+Aliases: `fusee g page dashboard`
+
+### `fusee add server`
+
+Install the optional **Go SSR Engine** into an existing project:
+
+```bash
+cd my-app
+fusee add server        # → installs framework/engine-go
+npm run dev             # → generate manifest + start Go server on port 3000
+```
+
+Aliases: `fusee add go-server`, `fusee add engine-go`
+
+---
+
+## Development Modes
+
+| Mode                | Command            | Port | Requires Go |
+| ------------------- | ------------------ | ---- | ----------- |
+| SPA (Vite)          | `npm run dev:spa`  | 5173 | ❌          |
+| SSR (Go server)     | `npm run dev`      | 3000 | ✅          |
+| Regenerate manifest | `npm run manifest` | —    | ❌          |
+| Production build    | `npm run build`    | —    | ❌          |
+
+> **SSR mode** requires Go 1.22+ (`https://go.dev/dl/`) and running `fusee add server` first.
+
+---
+
+## Go SSR Engine (`engine-go`)
+
+The Go SSR engine is a decoupled, optional package — **not bundled** at project init. Install it when you need server-side rendering:
+
+```bash
+fusee add server
+```
+
+Once installed at `framework/engine-go`, it:
+
+- Reads `.fusee/manifest.json` (generated by `npm run manifest`) for route discovery
+- Renders components server-side and hydrates them in the browser
+- Serves static assets and handles client-side navigation
+
+The engine is a standalone Go module and can also be used independently of the CLI.
+
+---
+
+## File-Based Routing
+
+Drop a file in `app/pages/` and it becomes a route automatically:
+
+```
+app/pages/
+  _layout.js        → wraps all pages
+  index.js          → /
+  about.js          → /about
+  blog/[slug].js    → /blog/:slug  (dynamic)
+```
+
+Generate pages instantly:
+
+```bash
+fusee generate page contact     # → app/pages/contact.js
+```
+
+---
+
+## Build-Time Template Compiler
+
+Fusée compiles HTML templates into optimized virtual DOM calls at build time via the `fuseeCompilerPlugin` for Vite — zero runtime parsing overhead.
+
+**Template file** (`Welcome.template.html`):
 
 ```html
 <div class="card">
   <h2>Hello, {{ name }}!</h2>
   <input f-model="name" placeholder="Type a name..." />
-
   <button @click="increment">Clicked {{ count }} times</button>
-
   <p f-if="count() > 0">Double: <strong>{{ double }}</strong></p>
 </div>
 ```
 
-2. **Import and bind the `render` function** in your component file (e.g., `Welcome.js`):
+**Component file** (`Welcome.js`):
 
 ```javascript
 import { render } from "./Welcome.template.html";
@@ -75,83 +150,49 @@ export const Welcome = defineComponent({
     const name = signal("World");
     const count = signal(0);
     const double = computed(() => count() * 2);
-
-    return {
-      name,
-      count,
-      double,
-      increment: () => count(count() + 1),
-    };
+    return { name, count, double, increment: () => count(count() + 1) };
   },
 });
 ```
-
-Vite intercepts the `.template.html` import, runs the compiler, and inlines the generated JavaScript render code seamlessly!
-
-Benchmark results for specific stress tests (from https://github.com/codegenixdev/js-frontend-frameworks-benchmark):
-
-| Action                             | Avg Duration (ms) |
-| :--------------------------------- | :---------------- |
-| Create 50,000 Rows                 | 12.60             |
-| Update Every 10th Row (Salary +50) | 15.90             |
-| Swap 2nd and 9th-to-last Rows      | 4.60              |
-| Clear All Rows                     | 0.70              |
-| **Total Average**                  | **33.80**         |
 
 ---
 
 ## Key Features
 
-- **New Go-Powered CLI**: Blazing fast project scaffolding and resource generation.
-- **Signals/Resources-First Reactivity**: Modern atomic updates that ensure only the modified parts of the DOM are touched.
-- **Nuxt-style File Routing**: Automated route discovery with layout support.
-- **Recursive Hybrid Compiler**: A robust architectural approach to node traversal.
-- **Optimized Directives**: Native support for `f-if`, `f-for`, `f-model`, `f-text`, `f-cloak` and more.
-- **Performance Shield (`f-once`)**: Isolate and stabilize static subtrees.
-- **Vite Integration**: Full support for the fastest development workflow and HMR.
-- **Dependency Injection**: Nested Provide/Inject and Shadowing.
-- **Memory Safety**: Explicit checks for memory leaks and automatic effect disposal.
-
----
-
-## Project Structure
-
-A typical Fusée project looks like this:
-
-- **`framework/`**: The core reactive engine.
-- **`app/`**: Your application logic (routes, components).
-- **`index.html`**: The entry point of your reactive world.
+- **Go-Powered CLI** — Blazing-fast scaffolding with cross-platform binaries (Windows, Linux, macOS Intel/ARM)
+- **Optional Go SSR Engine** — Decoupled server package, install only when needed
+- **Signals-First Reactivity** — Atomic fine-grained updates, only modified DOM nodes touched
+- **File-Based Routing** — Nuxt-style automatic route discovery with layout support
+- **Build-Time Compiler** — Recursive hybrid compiler + optional Rust WASM backend for peak throughput
+- **Directives** — `f-if`, `f-for`, `f-model`, `f-text`, `f-cloak`, `f-once`, `@event` modifiers
+- **Dependency Injection** — Nested `provide`/`inject` with shadowing
+- **Composables & Stores** — Reactive state management patterns baked in
+- **Server Actions** — Type-safe RPC-style functions for client→server communication
+- **Full TypeScript Support** — Comprehensive `.d.ts` types for all framework primitives
+- **Vite Integration** — Full HMR support and production build pipeline
+- **Memory Safety** — Automatic effect disposal and explicit leak checks
 
 ---
 
 ## Example Component
 
 ```javascript
-export const Welcome = defineComponent({
+export const Counter = defineComponent({
   setup() {
-    const name = signal("World");
     const count = signal(0);
     const double = computed(() => count() * 2);
 
     return {
-      name,
       count,
       double,
       inc: () => count(count() + 1),
       template: `
-                <div class="card">
-                    <h2>Hello, {{ name }}!</h2>
-                    <input f-model="name" placeholder="Name" />
-                    
-                    <button @click.debounce.300ms="inc">
-                        Clicked {{ count }} times
-                    </button>
-                    
-                    <p f-if="count() > 0">
-                        Double: <strong>{{ double }}</strong>
-                    </p>
-                </div>
-            `,
+        <div class="card">
+          <h2>Count: {{ count }}</h2>
+          <button @click.debounce.300ms="inc">Increment</button>
+          <p f-if="count() > 0">Double: <strong>{{ double }}</strong></p>
+        </div>
+      `,
     };
   },
 });
@@ -159,48 +200,101 @@ export const Welcome = defineComponent({
 
 ---
 
-## Quality Assurance & Testing
+## Project Structure
 
-Fusée is built with a test-driven mindset to ensure the reliability of its reactivity engine and component lifecycle.
+A scaffolded Fusée project:
 
-- **Total Tests:** `550`
-- **Status:** `All Passed`
-- **Framework:** [Vitest](https://vitest.dev/)
-- **Environment:** JSDOM (Browser simulation)
-
-### Running Tests
-
-```bash
-# Run all tests (easiest)
-npm test
-
-# Run all tests with verbose output
-npx vitest --reporter=verbose
-
-# Run type tests only
-npx vitest run --typecheck
-
-# Run tests in watch mode
-npx vitest
 ```
-
-### Test Coverage includes:
-
-- **Reactivity Engine:** 100% (Signals, Batching, Computed, Watchers).
-- **Component System:** Props, Slots, Async Components, and Lifecycle Hooks.
-- **Dependency Injection:** Nested Provide/Inject and Shadowing.
-- **Directives:** `f-if`, `f-for`, `f-model`, and Event Modifiers.
-- **Events:** Event delegation and native event handling.
-- **Memory Safety:** Explicit checks for memory leaks and automatic effect disposal.
-- **Type Safety:** Comprehensive TypeScript definitions and type tests.
-- **Integration Tests:** Advanced module combinations and edge cases.
+my-app/
+├── app/
+│   ├── pages/          # File-based routes (_layout, index, about, ...)
+│   ├── components/     # Reusable UI components
+│   ├── stores/         # Reactive state stores
+│   ├── composables/    # Reusable logic hooks
+│   └── actions/        # Server actions
+├── framework/          # Fusée core engine (injected by CLI)
+│   ├── core/           # Reactivity, compiler, directives, DI
+│   ├── router/         # Client-side router
+│   ├── server/         # Manifest generator & dev helpers
+│   ├── types/          # TypeScript definitions
+│   └── engine-go/      # Go SSR engine (optional, fusee add server)
+├── .fusee/             # Runtime manifest (generated)
+├── index.html
+├── vite.config.js
+└── package.json
+```
 
 ---
 
-## Future Roadmap
+## TypeScript Support
 
-- [ ] Advanced state management and SSR support
-- [x] Optimising the existing HTML compiler and remove useless DOM trasversals in lists
-- [ ] Integrated backend development support
+Full type definitions are available for all framework primitives:
 
-Built by me, Sebi Somu, a forward-thinking JavaScript Architect.
+```typescript
+import type {
+  Signal,
+  Computed,
+  Component,
+  Router,
+  ServerAction,
+} from "./framework/types";
+```
+
+All auto-imports are declared in `framework/auto-imports.d.ts` — no explicit imports needed in `.ts` files.
+
+---
+
+## Performance Benchmarks
+
+From [js-frontend-frameworks-benchmark](https://github.com/codegenixdev/js-frontend-frameworks-benchmark):
+
+| Action                        | Avg Duration (ms) |
+| :---------------------------- | :---------------- |
+| Create 50,000 rows            | 12.60             |
+| Update every 10th row         | 15.90             |
+| Swap 2nd and 9th-to-last rows | 4.60              |
+| Clear all rows                | 0.70              |
+| **Total average**             | **33.80**         |
+
+---
+
+## Building the CLI
+
+The CLI is built from source using the included `build-cli.mjs` script:
+
+```bash
+# From the repo root — syncs framework files and cross-compiles all platforms
+node bin/build-cli.mjs
+```
+
+Output: `bin/create-fusee-{win.exe,linux,mac-arm64,mac-intel}`
+
+---
+
+## Testing
+
+```bash
+npm test                        # all tests
+npx vitest --reporter=verbose   # verbose output
+npx vitest                      # watch mode
+```
+
+**550 tests — all passing.** Coverage includes: reactivity engine, component lifecycle, DI, directives, events, memory safety, TypeScript types, and integration scenarios.
+
+---
+
+## Roadmap
+
+- [x] Go-powered CLI with cross-platform binaries
+- [x] Optional Go SSR engine (`fusee add server`)
+- [x] File-based routing with layout support
+- [x] Build-time HTML template compiler
+- [x] Rust WASM compiler backend
+- [x] Comprehensive TypeScript definitions
+- [x] Generators for pages, components, stores, composables, actions
+- [ ] Production SSR build pipeline
+- [ ] Plugin system for third-party extensions
+
+---
+
+Built by Sebi Somu — a forward-thinking JavaScript Architect.
