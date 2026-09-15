@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"create-fusee/internal/assets"
+
 	"github.com/spf13/cobra"
 )
 
@@ -126,5 +127,9 @@ func runInitWithParams(projectName string, isTS bool) {
 	}
 
 	fmt.Println("\n✅ Fusée Project Ready!")
-	fmt.Printf("👉 Run: cd %s && npm install && npm run dev\n\n", projectName)
+	fmt.Printf("cd %s && npm install\n", projectName)
+	fmt.Println()
+	fmt.Println("Go SSR Engine: npm run dev -> port 3000")
+	fmt.Println("Vite SPA Mode: npm run dev:spa -> port 5173")
+	fmt.Println()
 }

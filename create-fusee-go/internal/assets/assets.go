@@ -45,6 +45,10 @@ func CopyEmbeddedDir(srcDir, destDir string, keepTypes bool) error {
 
 		destPath := filepath.Join(destDir, filepath.FromSlash(relPath))
 
+		if strings.HasSuffix(destPath, "go.mod.txt") {
+			destPath = strings.TrimSuffix(destPath, ".txt")
+		}
+
 		if d.IsDir() {
 			return os.MkdirAll(destPath, 0755)
 		}
