@@ -1,6 +1,6 @@
 # Fusée Framework
 
-**v1.9.1 — Signals-First JS Framework | Atomic Reactivity | Rust-Compiler | Go-Powered Toolchain**
+**v2.0.0 — Signals-First JS Framework | Atomic Reactivity | Rust-Compiler | Go-Powered Toolchain**
 
 Fusée is a custom, high-performance fine-grained reactive JavaScript framework built for speed and simplicity. It features a recursive, non-greedy Rust compiler, a signals-based reactivity engine, fully integrated Dependency Injection support, file-based routing, and a fully self-contained Go CLI for instant application scaffolding — with an optional Go SSR engine for server-side rendering.
 
