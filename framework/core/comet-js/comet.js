@@ -1,6 +1,8 @@
 import { config } from "./comet-config.js";
 import { ATTR, METHOD_ATTRS, DEFAULT_TRIGGER_BY_TAG } from "./comet-methods.js";
 
+export { config, ATTR };
+
 // --- Event dispatch ---------------------------------------------------
 
 /**

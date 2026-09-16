@@ -19,15 +19,19 @@ export type CometOobSwap = {
     targetSelector: string | null
 }
 
+export type CometConfig = {
+    defaultSwap: string
+    attrPrefix: string
+    requestingClass: string
+    timeout: number
+    hydrator: ((node: Node, detail: any) => void) | null
+    cleanup: ((target: Element, mode: string) => void) | null
+}
+
 export type CometApi = {
     init(root: Element): void
     process(element: Element): void
-    config: {
-        defaultSwap: string
-        attrPrefix: string
-        requestingClass: string
-        timeout: number
-    }
+    config: CometConfig
     parseTriggerSpec(raw: string | null): CometTriggerSpec[]
     getRequestConfig(element: Element): CometRequestConfig | null
     gatherParams(element: Element): URLSearchParams
@@ -36,7 +40,12 @@ export type CometApi = {
         mainHTML: string
         oobSwaps: CometOobSwap[]
     }
+    setHydrator(fn: ((node: Node, detail: any) => void) | null): void
+    setCleanup(fn: ((target: Element, mode: string) => void) | null): void
 }
+
+export declare const config: CometConfig
+export declare const ATTR: Record<string, string>
 
 export function parseTriggerSpec(raw: string | null): CometTriggerSpec[]
 export function getRequestConfig(element: Element): CometRequestConfig | null
@@ -51,6 +60,8 @@ export function wireElement(element: Element): void
 export function process(element: Element): void
 export function init(root: Element): void
 export function stopObserving(): void
+export function setHydrator(fn: ((node: Node, detail: any) => void) | null): void
+export function setCleanup(fn: ((target: Element, mode: string) => void) | null): void
 
 declare global {
     interface Window {

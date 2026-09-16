@@ -11,6 +11,8 @@ export * from './reconcile'
 export * from './resource'
 export * from './actions'
 export * from './actions.server'
+export * from '../core/comet-js/comet'
+export * from '../core/comet-js/comet-fusee'
 
 declare global {
     type Signal<T = any> = import('./signal').Signal<T>
