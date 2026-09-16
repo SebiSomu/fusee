@@ -346,7 +346,7 @@ Compared to other popular JS Frameworks:
 
 ## Building the CLI
 
-The CLI is built from source using the included `build-cli.mjs` script:
+The CLI, being cross-platform for windows, linux, mac-arm64 and mac-intel, is built from source using the included `build-cli.mjs` script:
 
 ```bash
 node bin/build-cli.mjs
