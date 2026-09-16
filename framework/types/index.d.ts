@@ -1,4 +1,4 @@
-import { App, createApp as createAppFn } from './app-registry'
+import { createApp as createAppFn } from './app-registry'
 
 export * from './signal'
 export * from './component'
@@ -35,7 +35,6 @@ declare global {
     type RuntimeAdapter = import('./plugins').RuntimeAdapter
     type FuseePlugin = import('./plugins').FuseePlugin
 
-    const App: typeof import('./app-registry').App
     const createApp: typeof createAppFn
 
     const defineCompilerPlugin: typeof import('./plugins').defineCompilerPlugin

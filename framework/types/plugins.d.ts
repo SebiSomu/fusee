@@ -1,11 +1,11 @@
 export interface CompilerPluginDef {
     name?: string;
     enforce?: 'pre' | 'post';
-    buildStart?: Function;
-    resolveId?: Function;
-    load?: Function;
-    transform?: Function;
-    generateBundle?: Function;
+    buildStart?: (...args: any[]) => any;
+    resolveId?: (...args: any[]) => any;
+    load?: (...args: any[]) => any;
+    transform?: (...args: any[]) => any;
+    generateBundle?: (...args: any[]) => any;
     [key: string]: any;
 }
 
@@ -16,11 +16,11 @@ export interface CompilerPlugin extends CompilerPluginDef {
 
 export interface ServerPluginDef {
     name?: string;
-    configureServer?: Function;
-    middleware?: Function | Function[];
-    ssrHooks?: Record<string, Function>;
-    routeActions?: Record<string, Function>;
-    manifestExtensions?: Record<string, any> | Function;
+    configureServer?: (...args: any[]) => any;
+    middleware?: (...args: any[]) => any | Array<(...args: any[]) => any>;
+    ssrHooks?: Record<string, (...args: any[]) => any>;
+    routeActions?: Record<string, (...args: any[]) => any>;
+    manifestExtensions?: Record<string, any> | ((...args: any[]) => any);
     [key: string]: any;
 }
 
@@ -32,8 +32,8 @@ export interface ServerPlugin extends ServerPluginDef {
 export interface DevToolsPluginDef {
     name?: string;
     panels?: any[];
-    inspectHooks?: Record<string, Function>;
-    stateTracking?: Record<string, Function>;
+    inspectHooks?: Record<string, (...args: any[]) => any>;
+    stateTracking?: Record<string, (...args: any[]) => any>;
     [key: string]: any;
 }
 

@@ -1,4 +1,4 @@
-import { ComponentFactory, ComponentInstance } from './component';
+import type { ComponentFactory, ComponentInstance } from './component';
 
 export type PluginInstallFunction<Options extends any[] = any[]> = (app: App, ...options: Options) => void;
 
@@ -18,20 +18,8 @@ export interface AppConfig {
 
 export type AppHook = (app: App) => void;
 
-export class App {
-    rootComponent: ComponentFactory<any>;
-    rootProps: Record<string, any>;
+export interface App {
     config: AppConfig;
-
-    private _installedPlugins: Set<any>;
-    private _provides: Record<string | symbol, any>;
-    private _components: Record<string, ComponentFactory<any>>;
-    private _directives: Record<string, any>;
-    private _hooks: Record<string, AppHook[]>;
-    private _rootInstance: { render: Function; unmount: Function; instance: ComponentInstance } | null;
-    private _container: Element | null;
-
-    constructor(rootComponent: ComponentFactory<any>, rootProps?: Record<string, any>);
 
     use<Options extends any[] = any[]>(plugin: Plugin<Options>, ...options: Options): this;
     provide<T = any>(key: string | symbol, value: T): this;

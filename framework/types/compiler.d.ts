@@ -8,7 +8,7 @@ export function mountTemplate(
 ): { effects: (() => void)[] }
 
 export function compileNode(
-    node: HTMLElement,
+    node: Node,
     context: ComponentResult,
     components: Record<string, ComponentFactory>,
     effects: (() => void)[]

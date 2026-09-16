@@ -36,3 +36,5 @@ npm_recovery_codes.txt
 # Go test files
 comet-test.go
 *_test.go
+
+*.txt

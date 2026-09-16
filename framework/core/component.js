@@ -18,6 +18,9 @@ export function setCurrentInstance(instance) {
     currentInstance = instance
 }
 
+// Global accessor hook for di.js execution context guard
+globalThis.__FUSEE_GET_CURRENT_INSTANCE__ = getCurrentInstance
+
 /** Resolves received props against a declared schema, including defaults and checks. */
 function resolveProps(schema, received) {
     const isArray = Array.isArray(schema)
@@ -139,14 +142,41 @@ export function onUnmount(fn) {
 /** Creates a component factory with setup, rendering, props, slots, and lifecycle state. */
 export function defineComponent(options) {
     return function ComponentFactory(props = {}, { listeners = {}, slots = {}, parent = null } = {}) {
-        const parentInjector = (parent && parent._injector) || rootInjector;
-        const parentProvides = parent ? parent.provides : null;
-        const parentApp = parent ? parent._app : (options._app || null);
-        const parentComponents = parent ? parent._components : (parentApp ? parentApp._components : {});
-        const mergedComponents = {
-            ...parentComponents,
+        const effectiveParent = parent || currentInstance
+
+        const parentInjector = (effectiveParent && effectiveParent._injector) || rootInjector
+        const parentProvides = effectiveParent ? (effectiveParent.provides || effectiveParent._provides || null) : null
+        const parentApp = effectiveParent ? (effectiveParent._app || (effectiveParent._provides ? effectiveParent : null)) : (options._app || null)
+        const parentComponents = effectiveParent ? (effectiveParent._components || effectiveParent.components || null) : (parentApp ? (parentApp._components || parentApp.components || null) : {})
+
+        const rawMergedComponents = {
+            ...(parentComponents || {}),
             ...(options.components || {})
-        };
+        }
+
+        // Case-insensitive proxy handling PascalCase to lowercase HTML tag matching
+        const mergedComponents = new Proxy(rawMergedComponents, {
+            get(target, prop, receiver) {
+                if (typeof prop !== 'string') return Reflect.get(target, prop, receiver)
+                if (prop in target) return target[prop]
+                const lower = prop.toLowerCase()
+                for (const key of Object.keys(target)) {
+                    if (key.toLowerCase() === lower) {
+                        return target[key]
+                    }
+                }
+                return undefined
+            },
+            has(target, prop) {
+                if (typeof prop !== 'string') return Reflect.has(target, prop)
+                if (prop in target) return true
+                const lower = prop.toLowerCase()
+                for (const key of Object.keys(target)) {
+                    if (key.toLowerCase() === lower) return true
+                }
+                return false
+            }
+        })
 
         const instance = {
             props: options.props ? resolveProps(options.props, props) : props,
@@ -154,7 +184,7 @@ export function defineComponent(options) {
             _unmountHooks: [],
             _effects: [],
             _element: null,
-            _parent: parent,
+            _parent: effectiveParent,
             _app: parentApp,
             _components: mergedComponents,
             provides: parentProvides ? Object.create(parentProvides) : Object.create(null),
@@ -166,8 +196,8 @@ export function defineComponent(options) {
 
         currentInstance = instance
         const result = runInContext(instance._injector, () => {
-            return options.setup(instance.props, { emit, slots });
-        });
+            return options.setup ? options.setup(instance.props, { emit, slots }) : {}
+        })
         instance.state = result
         if (result && typeof result === 'object') {
             result._instance = instance
@@ -175,45 +205,51 @@ export function defineComponent(options) {
         currentInstance = null
 
         function render(container) {
-            instance._element = container
+            const prevInstance = currentInstance
+            currentInstance = instance
+            try {
+                instance._element = container
 
-            if (options.render) {
-                const nodes = options.render(result, mergedComponents)
-                container.innerHTML = ''
-                
-                function mountNode(fnode) {
-                    if (!fnode || !fnode.node) return
-                    container.appendChild(fnode.node)
+                if (options.render) {
+                    const nodes = options.render(result, mergedComponents)
+                    container.innerHTML = ''
                     
-                    if (fnode.effects) {
-                        instance._effects.push(...fnode.effects)
-                    }
-                    
-                    if (fnode.children) {
-                        for (const child of fnode.children) {
-                            mountNode(child)
+                    function mountNode(fnode) {
+                        if (!fnode || !fnode.node) return
+                        container.appendChild(fnode.node)
+                        
+                        if (fnode.effects) {
+                            instance._effects.push(...fnode.effects)
+                        }
+                        
+                        if (fnode.children) {
+                            for (const child of fnode.children) {
+                                mountNode(child)
+                            }
                         }
                     }
+                    
+                    for (const node of nodes) {
+                        mountNode(node)
+                    }
+                } else {
+                    const resolvedTemplate = resolveSlots(result?.template || '', slots)
+                    const { effects } = mountTemplate(
+                        resolvedTemplate,
+                        container,
+                        result,
+                        mergedComponents
+                    )
+                    instance._effects.push(...effects)
                 }
-                
-                for (const node of nodes) {
-                    mountNode(node)
-                }
-            } else {
-                const resolvedTemplate = resolveSlots(result.template, slots)
-                const { effects } = mountTemplate(
-                    resolvedTemplate,
-                    container,
-                    result,
-                    mergedComponents
-                )
-                instance._effects.push(...effects)
+
+                for (const hook of instance._mountHooks) 
+                    hook()
+
+                return instance
+            } finally {
+                currentInstance = prevInstance
             }
-
-            for (const hook of instance._mountHooks) 
-                hook()
-
-            return instance
         }
 
         function unmount() {
@@ -234,23 +270,23 @@ export function defineComponent(options) {
 }
 
 export function provide(key, value) {
-    if (!currentInstance) return;
+    if (!currentInstance) return
 
-    const provideKey = (key && typeof key === 'object' && key.provide) ? key.provide : key;
-    currentInstance.provides[provideKey] = value;
+    const provideKey = (key && typeof key === 'object' && key.provide) ? key.provide : key
+    currentInstance.provides[provideKey] = value
 
     if (!currentInstance._ownsInjector) {
-        currentInstance._injector = new EnvironmentInjector([], currentInstance._injector);
-        currentInstance._ownsInjector = true;
-        replaceActiveInjector(currentInstance._injector);
+        currentInstance._injector = new EnvironmentInjector([], currentInstance._injector)
+        currentInstance._ownsInjector = true
+        replaceActiveInjector(currentInstance._injector)
     }
     
     if (value === undefined && key && key.provide) {
-        currentInstance._injector.provide(key);
+        currentInstance._injector.provide(key)
     } else if (value && typeof value === 'object' && (value.useClass || value.useFactory || value.useExisting)) {
-        currentInstance._injector.provide({ provide: key, ...value });
+        currentInstance._injector.provide({ provide: key, ...value })
     } else {
-        currentInstance._injector.provide({ provide: key, useValue: value });
+        currentInstance._injector.provide({ provide: key, useValue: value })
     }
 }
 
@@ -260,10 +296,11 @@ export function defineAsyncComponent(loaderOrOptions) {
         : loaderOrOptions
 
     return function AsyncComponentFactory(props = {}, { listeners = {}, slots = {}, parent = null } = {}) {
-        const parentInjector = (parent && parent._injector) || rootInjector;
-        const parentProvides = parent ? parent.provides : null;
-        const parentApp = parent ? parent._app : null;
-        const parentComponents = parent ? parent._components : (parentApp ? parentApp._components : {});
+        const effectiveParent = parent || currentInstance
+        const parentInjector = (effectiveParent && effectiveParent._injector) || rootInjector
+        const parentProvides = effectiveParent ? effectiveParent.provides : null
+        const parentApp = effectiveParent ? effectiveParent._app : null
+        const parentComponents = effectiveParent ? effectiveParent._components : (parentApp ? parentApp._components : {})
 
         const instance = {
             props,
@@ -271,7 +308,7 @@ export function defineAsyncComponent(loaderOrOptions) {
             _unmountHooks: [],
             _effects: [],
             _element: null,
-            _parent: parent,
+            _parent: effectiveParent,
             _app: parentApp,
             _components: parentComponents,
             provides: parentProvides ? Object.create(parentProvides) : Object.create(null),
@@ -284,39 +321,45 @@ export function defineAsyncComponent(loaderOrOptions) {
         let isUnmounted = false
 
         function render(container) {
-            instance._element = container
+            const prevInstance = currentInstance
+            currentInstance = instance
+            try {
+                instance._element = container
 
-            if (options.loadingComponent) {
-                loadingApi = options.loadingComponent({}, { parent: instance })
-                loadingApi.render(container)
-            } else {
-                container.innerHTML = '<!-- async component boundary -->'
+                if (options.loadingComponent) {
+                    loadingApi = options.loadingComponent({}, { parent: instance })
+                    loadingApi.render(container)
+                } else {
+                    container.innerHTML = '<!-- async component boundary -->'
+                }
+
+                Promise.resolve(options.loader())
+                    .then(comp => {
+                        if (isUnmounted) return
+                        let ComponentFn = comp.default || comp
+
+                        if (typeof ComponentFn === 'object' && ComponentFn !== null) {
+                            ComponentFn = Object.values(ComponentFn).find(v => typeof v === 'function') || ComponentFn
+                        }
+
+                        if (loadingApi) {
+                            loadingApi.unmount()
+                            loadingApi = null
+                        }
+
+                        childApi = ComponentFn(props, { listeners, slots, parent: instance })
+
+                        container.innerHTML = ''
+                        childApi.render(container)
+                    })
+                    .catch(err => {
+                        console.error('[framework] Failed to load async component:', err)
+                    })
+
+                return instance
+            } finally {
+                currentInstance = prevInstance
             }
-
-            Promise.resolve(options.loader())
-                .then(comp => {
-                    if (isUnmounted) return
-                    let ComponentFn = comp.default || comp
-
-                    if (typeof ComponentFn === 'object' && ComponentFn !== null) {
-                        ComponentFn = Object.values(ComponentFn).find(v => typeof v === 'function') || ComponentFn
-                    }
-
-                    if (loadingApi) {
-                        loadingApi.unmount()
-                        loadingApi = null
-                    }
-
-                    childApi = ComponentFn(props, { listeners, slots, parent: instance })
-
-                    container.innerHTML = ''
-                    childApi.render(container)
-                })
-                .catch(err => {
-                    console.error('[framework] Failed to load async component:', err)
-                })
-
-            return instance
         }
 
         function unmount() {
@@ -332,24 +375,40 @@ export function defineAsyncComponent(loaderOrOptions) {
     }
 }
 
-/**
- * Enhanced inject function:
- * 1. Checks component-level prototypal `provides` (Vue 3 style).
- * 2. Falls back to active `di.js` EnvironmentInjector (Angular style).
- */
-export function inject(key, defaultValue, options = {}) {
-    const instance = getCurrentInstance();
+export function inject(key, defaultValue, options) {
+    const instance = getCurrentInstance()
+
+    let actualOptions = undefined
+    let actualDefaultValue = undefined
+
+    if (defaultValue && typeof defaultValue === 'object' && 
+        ('optional' in defaultValue || 'skipSelf' in defaultValue || 'self' in defaultValue)) {
+        actualOptions = defaultValue
+    } else {
+        actualDefaultValue = defaultValue
+        if (options && typeof options === 'object') {
+            actualOptions = options
+        }
+    }
 
     if (instance && instance.provides && key in instance.provides) {
-        return instance.provides[key];
+        const val = instance.provides[key]
+        
+        if (val && typeof val === 'object' && ('useClass' in val || 'useFactory' in val || 'useExisting' in val)) {
+            return instance._injector.get(key, actualOptions)
+        }
+        if (val && typeof val === 'object' && 'useValue' in val) {
+            return val.useValue
+        }
+        return val
     }
 
     try {
-        return diInject(key, typeof options === 'object' ? options : { optional: defaultValue !== undefined });
+        return diInject(key, actualOptions !== undefined ? actualOptions : actualDefaultValue)
     } catch (err) {
-        if (defaultValue !== undefined) {
-            return defaultValue;
+        if (actualDefaultValue !== undefined) {
+            return actualDefaultValue
         }
-        throw err;
+        throw err
     }
 }
