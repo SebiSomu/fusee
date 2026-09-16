@@ -30,7 +30,7 @@ Types available:
 
 		// Check if we are in a Fusée project
 		if _, err := os.Stat("framework"); os.IsNotExist(err) {
-			fmt.Println("❌ Error: This command must be run from the root of a Fusée project.")
+			fmt.Println("Error: This command must be run from the root of a Fusée project.")
 			os.Exit(1)
 		}
 
@@ -69,26 +69,26 @@ Types available:
 			dest = filepath.Join("app/actions", rawName+"."+ext)
 			tmpl = "templates/action.tmpl"
 		default:
-			fmt.Printf("❌ Error: Unknown type '%s'. Use page (p), component (c), store (s), composable (use), or action (a).\n", genType)
+			fmt.Printf("Error: Unknown type '%s'. Use page (p), component (c), store (s), composable (use), or action (a).\n", genType)
 			os.Exit(1)
 		}
 
 		if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
-			fmt.Printf("❌ Error: Could not create directory %s: %v\n", filepath.Dir(dest), err)
+			fmt.Printf("Error: Could not create directory %s: %v\n", filepath.Dir(dest), err)
 			os.Exit(1)
 		}
 
 		if _, err := os.Stat(dest); err == nil {
-			fmt.Printf("❌ Error: File '%s' already exists.\n", dest)
+			fmt.Printf("Error: File '%s' already exists.\n", dest)
 			os.Exit(1)
 		}
 
 		if err := assets.WriteTemplate(tmpl, dest, config); err != nil {
-			fmt.Printf("❌ Error: Could not generate %s: %v\n", genType, err)
+			fmt.Printf("Error: Could not generate %s: %v\n", genType, err)
 			os.Exit(1)
 		}
 
-		fmt.Printf("✅ %s created: %s\n", strings.Title(genType), dest)
+		fmt.Printf("%s created: %s\n", strings.Title(genType), dest)
 	},
 }
 

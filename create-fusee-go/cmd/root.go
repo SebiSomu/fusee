@@ -25,7 +25,7 @@ and manage your Fusée application development workflow.`,
 			isTS := IsTSFlag
 			if !cmd.Flags().Changed("ts") {
 				reader := bufio.NewReader(os.Stdin)
-				fmt.Printf("🧬 Select language template [JavaScript (js) / TypeScript (ts)] (default: js): ")
+				fmt.Printf("Select language template [JavaScript (js) / TypeScript (ts)] (default: js): ")
 				langInput, _ := reader.ReadString('\n')
 				isTS = strings.TrimSpace(strings.ToLower(langInput)) == "ts"
 			}
@@ -49,18 +49,18 @@ func init() {
 
 func runInitWithParams(projectName string, isTS bool) {
 	if strings.ContainsAny(projectName, " !@#$%^&*()") {
-		fmt.Printf("❌ Error: Project name '%s' contains invalid characters.\n", projectName)
+		fmt.Printf("Error: Project name '%s' contains invalid characters.\n", projectName)
 		os.Exit(1)
 	}
 
 	projectPath, err := filepath.Abs(projectName)
 	if err != nil {
-		fmt.Printf("❌ Error: Could not determine absolute path: %v\n", err)
+		fmt.Printf("Error: Could not determine absolute path: %v\n", err)
 		os.Exit(1)
 	}
 
 	if _, err := os.Stat(projectPath); !os.IsNotExist(err) && projectName != "." {
-		fmt.Printf("❌ Error: Directory '%s' already exists.\n", projectName)
+		fmt.Printf("Error: Directory '%s' already exists.\n", projectName)
 		os.Exit(1)
 	}
 
@@ -69,7 +69,7 @@ func runInitWithParams(projectName string, isTS bool) {
 		ext = "ts"
 	}
 
-	fmt.Printf("\n🚀 Scaffolding a new project in: %s...\n", projectPath)
+	fmt.Printf("\nScaffolding a new project in: %s...\n", projectPath)
 
 	config := assets.Config{
 		ProjectName: filepath.Base(projectName),
@@ -93,14 +93,14 @@ func runInitWithParams(projectName string, isTS bool) {
 	}
 	for _, d := range dirs {
 		if err := os.MkdirAll(filepath.Join(projectPath, d), 0755); err != nil {
-			fmt.Printf("❌ Error: Could not create directory %s: %v\n", d, err)
+			fmt.Printf("Error: Could not create directory %s: %v\n", d, err)
 			os.Exit(1)
 		}
 	}
 
-	fmt.Println("📦 Injecting Fusée Core Engine...")
+	fmt.Println("Injecting Fusée Core Engine...")
 	if err := assets.CopyEmbeddedDir("embed/framework", filepath.Join(projectPath, "framework"), isTS); err != nil {
-		fmt.Printf("❌ Error: Could not inject framework: %v\n", err)
+		fmt.Printf("Error: Could not inject framework: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -121,18 +121,18 @@ func runInitWithParams(projectName string, isTS bool) {
 
 	for src, dest := range files {
 		if err := assets.WriteTemplate(src, filepath.Join(projectPath, dest), config); err != nil {
-			fmt.Printf("❌ Error: Could not write file %s: %v\n", dest, err)
+			fmt.Printf("Error: Could not write file %s: %v\n", dest, err)
 			os.Exit(1)
 		}
 	}
 
-	fmt.Println("\n✅ Fusée Project Ready!")
-	fmt.Printf("👉  cd %s && npm install\n", projectName)
+	fmt.Println("\nFusée Project Ready!")
+	fmt.Printf("   cd %s && npm install\n", projectName)
 	fmt.Println()
-	fmt.Println("   ⚡  SPA mode (no server needed):")
+	fmt.Println("   SPA mode (no server needed):")
 	fmt.Println("        npm run dev:spa     → Vite dev server on port 5173")
 	fmt.Println()
-	fmt.Println("   🚀  SSR mode (optional Go server):")
+	fmt.Println("   SSR mode (optional Go server):")
 	fmt.Println("        fusee add server    → install the Go SSR engine")
 	fmt.Println("        npm run dev         → start Go server on port 3000")
 	fmt.Println()

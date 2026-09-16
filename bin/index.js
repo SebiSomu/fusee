@@ -26,7 +26,7 @@ const binPath = path.join(__dirname, binName);
 const finalPath = fs.existsSync(binPath) ? binPath : path.join(__dirname, 'create-fusee.exe');
 
 if (!fs.existsSync(finalPath)) {
-  console.error(`\n❌ Error: Fusée binary not found for your platform (${process.platform})`);
+  console.error(`\nError: Fusée binary not found for your platform (${process.platform})`);
   process.exit(1)
 }
 

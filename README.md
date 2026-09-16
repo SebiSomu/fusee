@@ -5,12 +5,18 @@
 <h1 align="center">Fusée Framework</h1>
 
 <p align="center">
-  <strong>v2.0.0 — Signals-First JS Framework | Atomic Reactivity | Rust Compiler | Go Toolchain</strong>
+  <strong>v2.0.1 — Signals-First JS Framework | Atomic Reactivity | Rust Compiler | Go Toolchain</strong>
 </p>
 
 <br />
 
 Fusée is a custom, high-performance fine-grained reactive JavaScript framework built for speed and simplicity. It features a recursive, non-greedy Rust compiler, a signals-based reactivity engine, fully integrated Dependency Injection support, file-based routing, and a fully self-contained Go CLI for instant application scaffolding — with an optional Go SSR engine for server-side rendering.
+
+---
+
+## What's New in 2.0.1
+
+Auto-imports now follow a deliberate ownership boundary. Fusée's core reactivity, lifecycle, dependency-injection, composable, directive, and compiler primitives remain available without imports. Application-owned code — including services, components, stores, actions, router APIs, utilities, and types — must use explicit imports, keeping dependencies visible and preventing domain code from becoming ambient globals.
 
 ---
 
@@ -248,7 +254,7 @@ import type {
 } from "./framework/types";
 ```
 
-All auto-imports are declared in `framework/auto-imports.d.ts` — no explicit imports needed in `.ts` files.
+Core auto-imports are declared in `framework/auto-imports.d.ts`. Application-owned services, components, stores, actions, router APIs, utilities, and types should be imported explicitly.
 
 ---
 

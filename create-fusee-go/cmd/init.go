@@ -9,7 +9,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-
 var initCmd = &cobra.Command{
 	Use:   "init [project-name]",
 	Short: "Initialize a new Fusée project",
@@ -19,15 +18,15 @@ var initCmd = &cobra.Command{
 		if len(args) > 0 {
 			projectName = args[0]
 		}
-		
+
 		isTS := IsTSFlag
 		if !cmd.Flags().Changed("ts") {
 			reader := bufio.NewReader(os.Stdin)
-			fmt.Printf("🧬 Select language template [JavaScript (js) / TypeScript (ts)] (default: js): ")
+			fmt.Printf("Select language template [JavaScript (js) / TypeScript (ts)] (default: js): ")
 			langInput, _ := reader.ReadString('\n')
 			isTS = strings.TrimSpace(strings.ToLower(langInput)) == "ts"
 		}
-		
+
 		runInitWithParams(projectName, isTS)
 	},
 }

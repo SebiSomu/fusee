@@ -27,7 +27,7 @@ Available packages:
 		case "server", "go-server", "engine-go":
 			runAddServer()
 		default:
-			fmt.Printf("❌ Unknown package '%s'.\n\nAvailable packages:\n  server   — Go SSR Engine\n", pkg)
+			fmt.Printf("Unknown package '%s'.\n\nAvailable packages:\n  server   — Go SSR Engine\n", pkg)
 			os.Exit(1)
 		}
 	},
@@ -36,26 +36,26 @@ Available packages:
 func runAddServer() {
 	// Must be run from inside a Fusée project
 	if _, err := os.Stat("framework"); os.IsNotExist(err) {
-		fmt.Println("❌ Error: Run this command from the root of a Fusée project (where framework/ lives).")
+		fmt.Println("Error: Run this command from the root of a Fusée project (where framework/ lives).")
 		os.Exit(1)
 	}
 
 	destDir := filepath.Join("framework", "engine-go")
 
 	if _, err := os.Stat(destDir); err == nil {
-		fmt.Printf("ℹ️  Go SSR Engine already installed at %s\n", destDir)
+		fmt.Printf("Go SSR Engine already installed at %s\n", destDir)
 		fmt.Println("   To reinstall, remove the directory first and run again.")
 		os.Exit(0)
 	}
 
-	fmt.Println("🚀 Installing Fusée Go SSR Engine...")
+	fmt.Println("Installing Fusée Go SSR Engine...")
 
 	if err := assets.CopyEngineGo(destDir); err != nil {
-		fmt.Printf("❌ Failed to install Go SSR Engine: %v\n", err)
+		fmt.Printf("Failed to install Go SSR Engine: %v\n", err)
 		os.Exit(1)
 	}
 
-	fmt.Println("\n✅ Go SSR Engine installed at framework/engine-go")
+	fmt.Println("\nGo SSR Engine installed at framework/engine-go")
 	fmt.Println()
 	fmt.Println("   Run your app with the Go server:")
 	fmt.Println("     npm run dev         — generate manifest + start Go server (port 3000)")
