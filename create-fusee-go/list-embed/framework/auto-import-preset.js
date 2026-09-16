@@ -4,15 +4,8 @@ export const FuseePresets = {
         'batch', 'untrack', 'inspect', 'onCleanup', 'resource', 'defineResource',
         'createSuspense', 'scheduleAsyncJob',
         'defineComponent', 'defineAsyncComponent', 'onMount', 'onUnmount', 'parseSlots',
-        'directive', 'reconcile',
-        'createRouter', 'navigate', 'mountOutlet', 'currentRoute', 'routeParams', 'routeQuery', 'matchedRoutes', 'routeMeta',
-        'beforeEach', 'afterEach', 'use', 'onError', 'generateRoutes', 'mountTemplate', 'emit',
-        'defineStore', 'resetStore', 'clearStores',
-        'registerStorePlugin', 'useNestedStore',
-        'storeToRefs', 'storeToState', 'storeToGetters',
-        'MutationType',
+        'directive', 'reconcile', 'mountTemplate', 'emit',
         'provide', 'inject', 'provideGlobal', 'InjectionToken',
-        'defineComposable', 'assertSetupContext',
-        'defineAction', 'createActionProxy', 'useAction'
+        'defineComposable', 'assertSetupContext'
     ]
 }
