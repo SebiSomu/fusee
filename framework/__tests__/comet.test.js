@@ -561,4 +561,60 @@ describe('wireElement + process — real trigger events', () => {
 
         comet.stopObserving()
     })
+
+    it('invokes config.cleanup and fires comet:cleanup before swapping target content', async () => {
+        let cleanupCalledWith = null
+        let cleanupEventFired = false
+
+        comet.setCleanup((target, mode) => {
+            cleanupCalledWith = { targetId: target.id, mode }
+        })
+
+        document.body.innerHTML = `
+            <button comet-get="${testServer.url}/greeting" comet-target="#out" comet-swap="innerHTML"></button>
+            <div id="out"><span>old content</span></div>
+        `
+        const target = document.getElementById('out')
+        target.addEventListener('comet:cleanup', (e) => {
+            cleanupEventFired = true
+            expect(e.detail.mode).toBe('innerHTML')
+        })
+
+        const btn = document.querySelector('button')
+        await comet.performRequest(btn, null)
+
+        expect(cleanupCalledWith).toEqual({ targetId: 'out', mode: 'innerHTML' })
+        expect(cleanupEventFired).toBe(true)
+
+        comet.setCleanup(null)
+    })
+
+    it('invokes config.hydrator and fires comet:hydrate on newly inserted nodes', async () => {
+        const hydratedNodes = []
+        let hydrateEventDetail = null
+
+        comet.setHydrator((node, detail) => {
+            hydratedNodes.push(node)
+        })
+
+        document.body.innerHTML = `
+            <button comet-get="${testServer.url}/greeting" comet-target="#out" comet-swap="innerHTML"></button>
+            <div id="out"></div>
+        `
+        document.body.addEventListener('comet:hydrate', (e) => {
+            hydrateEventDetail = e.detail
+        }, { once: true })
+
+        const btn = document.querySelector('button')
+        await comet.performRequest(btn, null)
+
+        expect(hydratedNodes.length).toBeGreaterThan(0)
+        expect(hydratedNodes[0].id).toBe('out')
+        expect(hydrateEventDetail).not.toBeNull()
+        expect(hydrateEventDetail.node.id).toBe('out')
+        expect(document.getElementById('msg')).not.toBeNull()
+
+        comet.setHydrator(null)
+    })
+
 })

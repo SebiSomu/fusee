@@ -7,4 +7,8 @@ export const config = {
     requestingClass: 'comet-requesting',
     /** Default request timeout in ms. 0 disables the timeout. */
     timeout: 0,
+    /** Optional hydrator hook called on newly swapped DOM nodes: (node, detail) => void */
+    hydrator: null,
+    /** Optional cleanup hook called on DOM targets before they are replaced/removed: (target, swapMode) => void */
+    cleanup: null,
 }
