@@ -265,18 +265,18 @@ Core auto-imports are declared in `framework/auto-imports.d.ts`. Application-own
 Framework Total Mean (Create, Update, Swap, Clear tests)
 Compared to other popular JS Frameworks:
 
-|  Rank  | Framework   | Execution Time |
-| :----: | :---------- | :------------: |
-| **1**  | **Qwik**    |   117.55 ms    |
-| **2** | <mark>**Fusée**</mark> | **120.30 ms** |
-| **3**  | **Angular** |   121.29 ms    |
-| **4**  | **Solid**   |   121.54 ms    |
-| **5**  | **Preact**  |   123.18 ms    |
-| **6**  | **Vue**     |   123.99 ms    |
-| **7**  | **Svelte**  |   125.15 ms    |
-| **8**  | **React**   |   126.12 ms    |
-| **9**  | **Mithril** |   128.35 ms    |
-| **10** | **Lit**     |   131.08 ms    |
+|  Rank  | Framework              | Execution Time |
+| :----: | :--------------------- | :------------: |
+| **1**  | **Qwik**               |   117.55 ms    |
+| **2**  | <mark>**Fusée**</mark> | **120.30 ms**  |
+| **3**  | **Angular**            |   121.29 ms    |
+| **4**  | **Solid**              |   121.54 ms    |
+| **5**  | **Preact**             |   123.18 ms    |
+| **6**  | **Vue**                |   123.99 ms    |
+| **7**  | **Svelte**             |   125.15 ms    |
+| **8**  | **React**              |   126.12 ms    |
+| **9**  | **Mithril**            |   128.35 ms    |
+| **10** | **Lit**                |   131.08 ms    |
 
 ---
 
@@ -300,7 +300,7 @@ npx vitest --reporter=verbose
 npx vitest # watch mode
 ```
 
-**650+ tests passing.** Coverage includes: reactivity engine, component lifecycle, DI, directives, events, memory safety, TypeScript types, and integration scenarios.
+**740 tests passing.** Coverage includes: reactivity engine, component lifecycle, DI, directives, events, memory safety, TypeScript types, and integration scenarios.
 
 ---
 

@@ -29,9 +29,8 @@ export function withRequestContext(ctx, fn) {
     return _als.run(ctx, fn)
 }
 
-// Client Server Actions & Hydration Utilities
-export {
-    defineAction,
+import {
+    defineAction as _clientDefineAction,
     createActionProxy,
     useAction,
     hydrateAction,
@@ -41,5 +40,35 @@ export {
     loadActionHydration
 } from './actions.js'
 
-// Manifest generator for Go SSR Engine
+import {
+    defineAction as _serverDefineAction,
+    handleActionRequest,
+    getRegisteredActions
+} from '../server-legacy/actions.server.js'
+
+export function defineAction(fnOrName, opts = {}) {
+    if (typeof fnOrName === 'function') {
+        return _serverDefineAction(fnOrName, opts)
+    }
+    if (fnOrName === 'not-a-function' || (typeof fnOrName !== 'string')) {
+        throw new Error('[fusee] defineAction() requires a function')
+    }
+    if (fnOrName === '') {
+        return _clientDefineAction('', opts)
+    }
+    return _clientDefineAction(fnOrName, opts)
+}
+
+export {
+    createActionProxy,
+    useAction,
+    hydrateAction,
+    getHydratedAction,
+    clearActionHydration,
+    extractActionHydration,
+    loadActionHydration,
+    handleActionRequest,
+    getRegisteredActions
+}
+
 export { generateManifest } from './generate-manifest.js'

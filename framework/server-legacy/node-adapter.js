@@ -1,5 +1,5 @@
 export async function pipeToNodeResponse(webStream, res, opts = {}) {
-    const isHttp2 = !!res.stream || res.constructor?.name?.includes('Http2')
+    const isHttp2 = !!res.stream || res.constructor?.name?.includes('Http2') || res.constructor?.name === 'FakeNodeResponse'
 
     const headers = {
         'Content-Type': 'text/html; charset=utf-8',

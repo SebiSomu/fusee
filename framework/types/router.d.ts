@@ -62,7 +62,7 @@ export declare function use(middleware: Middleware): () => void
 export declare function onError(handler: ErrorHandler): () => void
 
 export declare function createRouter(routes: Route[], options?: { cacheSize?: number; routerViewTimeout?: number; scrollBehavior?: ScrollBehaviorOptions }): Router
-export declare function navigate(path: string, options?: NavigateOptions): Promise<void>
+export declare function navigate(path: string, options?: NavigateOptions): void
 export declare function mountOutlet(el: HTMLElement): void
 
 export type FileRouterOptions = {
