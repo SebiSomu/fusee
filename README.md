@@ -5,7 +5,7 @@
 <h1 align="center">Fusée Framework</h1>
 
 <p align="center">
-  <strong>v2.0.1 — Signals-First JS Framework | Atomic Reactivity | Rust Compiler | Go Toolchain</strong>
+  <strong>v2.0.2 — Signals-First JS Framework | Atomic Reactivity | Rust Compiler | Go Toolchain</strong>
 </p>
 
 <br />
@@ -14,9 +14,10 @@ Fusée is a custom, high-performance fine-grained reactive JavaScript framework 
 
 ---
 
-## What's New in 2.0.1
+## What's New in 2.0.1 and 2.0.2
 
-Auto-imports now follow a deliberate ownership boundary. Fusée's core reactivity, lifecycle, dependency-injection, composable, directive, and compiler primitives remain available without imports. Application-owned code — including services, components, stores, actions, router APIs, utilities, and types — must use explicit imports, keeping dependencies visible and preventing domain code from becoming ambient globals.
+- Auto-imports now follow a deliberate ownership boundary. Fusée's core reactivity, lifecycle, dependency-injection, composable, directive, and compiler primitives remain available without imports. Application-owned code — including services, components, stores, actions, router APIs, utilities, and types — must use explicit imports, keeping dependencies visible and preventing domain code from becoming ambient globals.
+- Removed compiler-legacy and server-legacy implementations from npm; now only available for curious developers in git.
 
 ---
 
@@ -266,7 +267,7 @@ Compared to other popular JS Frameworks:
 |  Rank  | Framework   | Execution Time |
 | :----: | :---------- | :------------: |
 | **1**  | **Qwik**    |   117.55 ms    |
-| **2**  | **Fusée**   |   120.30 ms    |
+| **2** | <mark>**Fusée**</mark> | **120.30 ms** |
 | **3**  | **Angular** |   121.29 ms    |
 | **4**  | **Solid**   |   121.54 ms    |
 | **5**  | **Preact**  |   123.18 ms    |
