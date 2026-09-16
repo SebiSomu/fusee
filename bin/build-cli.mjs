@@ -44,7 +44,7 @@ function syncFramework(src, dest) {
   fs.mkdirSync(dest, { recursive: true });
   for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
     const name = entry.name;
-    if (EXCLUDE.has(name) || name === 'engine-go') continue; // engine-go is separate
+    if (EXCLUDE.has(name) || name === 'engine-go' || name === 'compiler-legacy' || name === 'server-legacy') continue;
     const srcPath = path.join(src, name);
     const destPath = path.join(dest, name);
     if (entry.isDirectory()) {
