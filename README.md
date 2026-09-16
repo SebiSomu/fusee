@@ -5,7 +5,7 @@
 <h1 align="center">Fusée Framework</h1>
 
 <p align="center">
-  <strong>v2.0.3 — Signals-First JS Framework | Atomic Reactivity | Rust Compiler | Go Toolchain</strong>
+  <strong>v2.1.0 — Signals-First JS Framework | Atomic Reactivity | Rust Compiler | Go Toolchain</strong>
 </p>
 
 <br />
@@ -14,11 +14,10 @@ Fusée is a custom, high-performance fine-grained reactive JavaScript framework 
 
 ---
 
-## What's New in 2.0.1, 2.0.2 and 2.0.3
+## What's New in 2.1.0
 
-- Auto-imports now follow a deliberate ownership boundary. Fusée's core reactivity, lifecycle, dependency-injection, composable, directive, and compiler primitives remain available without imports. Application-owned code — including services, components, stores, actions, router APIs, utilities, and types — must use explicit imports, keeping dependencies visible and preventing domain code from becoming ambient globals;
-- Removed compiler-legacy and server-legacy implementations from npm; now only available for curious developers in git;
-- Refactored CLI generated texts to be cleaner.
+- Finished building the Comet package entirely out and exporting it as a standalone Go module.
+- Finished setting up the dev environment for the new Comet package.
 
 ---
 
