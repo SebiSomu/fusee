@@ -1,5 +1,6 @@
 import { createRequestContext, withRequestContext } from './index.js'
 
+/** Wraps a request handler in isolated context and consistent 500 error handling. */
 export function createRequestPipeline(handler) {
     return function requestListener(req, res) {
         const ctx = createRequestContext()

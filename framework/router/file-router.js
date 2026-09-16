@@ -1,5 +1,6 @@
 import { defineAsyncComponent } from '../core/component.js';
 
+/** Builds a nested route tree from Vite-style page module glob results. */
 export function generateRoutes(globResults, options = {}) {
     const entries = _parseGlobEntries(globResults, options);
     const tree = _buildRouteTree(entries, false);
@@ -7,6 +8,7 @@ export function generateRoutes(globResults, options = {}) {
     return tree;
 }
 
+/** Converts page module paths into normalized route entries and async components. */
 function _parseGlobEntries(globResults, options) {
     const entries = [];
 
@@ -45,12 +47,14 @@ function _parseGlobEntries(globResults, options) {
     return entries;
 }
 
+/** Converts bracket-style page segments into router parameter or wildcard syntax. */
 function _transformSegment(seg) {
     return seg
         .replace(/\[\.\.\.([^\]]+)\]/g, '*')
         .replace(/\[([^\]]+)\]/g, ':$1');
 }
 
+/** Groups route entries by directory and promotes matching files to layouts. */
 function _buildRouteTree(entries, isChild) {
     const filesHere = new Map();
     const grouped = new Map();
@@ -135,6 +139,7 @@ function _buildRouteTree(entries, isChild) {
     return routes;
 }
 
+/** Sorts every route level from most specific to least specific. */
 function _sortRoutesRecursive(routes) {
     routes.sort(_compareRoutes);
     for (const route of routes) {
@@ -142,10 +147,12 @@ function _sortRoutesRecursive(routes) {
     }
 }
 
+/** Normalizes a route path into an array for comparison. */
 function _getPathArray(path) {
     return Array.isArray(path) ? path : [path];
 }
 
+/** Orders static, layout, dynamic, and wildcard routes deterministically. */
 function _compareRoutes(a, b) {
     const aPaths = _getPathArray(a.path);
     const bPaths = _getPathArray(b.path);

@@ -1,6 +1,7 @@
 import { createRequestContext, withRequestContext } from './index.js'
 import { getStreamBoundaryStore } from '../core/async-context.js'
 
+/** Creates a fallback placeholder and registers its async replacement boundary. */
 export function renderSuspenseBoundary({ fetcher, render, fallback, onError, id } = {}) {
     if (typeof fetcher !== 'function' || typeof render !== 'function') {
         throw new Error('[fusee] renderSuspenseBoundary requires { fetcher, render } functions')
@@ -30,6 +31,7 @@ export function renderSuspenseBoundary({ fetcher, render, fallback, onError, id 
     return `<div id="${boundaryId}" data-f-boundary>${fallbackHtml}</div>`
 }
 
+/** Streams the shell, resolved suspense chunks, and an optional tail in order. */
 export function createSSRStreamResponse(renderShell, opts = {}) {
     const ctx = createRequestContext()
     const encoder = new TextEncoder()
@@ -79,6 +81,7 @@ export function createSSRStreamResponse(renderShell, opts = {}) {
     })
 }
 
+/** Serializes one resolved boundary into a template plus client-side replacement script. */
 function renderBoundaryChunk(entry) {
     const templateId = `tpl-${entry.id}`
     return (
@@ -92,11 +95,12 @@ function renderBoundaryChunk(entry) {
     )
 }
 
+/** Reports whether a value implements the async iterable protocol. */
 function isAsyncIterable(x) {
     return x != null && typeof x[Symbol.asyncIterator] === 'function'
 }
 
-/** Test/debug convenience: drain a ReadableStream<Uint8Array> to a string. */
+/** Drains a readable byte stream into one decoded string for tests and adapters. */
 export async function streamToString(stream) {
     const decoder = new TextDecoder()
     let out = ''

@@ -1,3 +1,4 @@
+/** Compiles a file-route pattern into a matching regex and parameter schema. */
 export function compileRoute(pattern) {
     const segments = pattern.split('/').filter(Boolean)
     const params = []
@@ -22,10 +23,12 @@ export function compileRoute(pattern) {
     return { regex: new RegExp(`^${regexBody}/?$`), params }
 }
 
+/** Escapes regex metacharacters in a static route segment. */
 function escapeRegex(str) {
     return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
+/** Returns the first route matching a pathname and its decoded parameters. */
 export function matchRoute(routes, pathname) {
     const normalized = pathname === '' ? '/' : pathname
 

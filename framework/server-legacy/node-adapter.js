@@ -1,3 +1,4 @@
+/** Pipes a web stream to a Node response while supporting HTTP/1 and HTTP/2. */
 export async function pipeToNodeResponse(webStream, res, opts = {}) {
     const isHttp2 = !!res.stream || res.constructor?.name?.includes('Http2') || res.constructor?.name === 'FakeNodeResponse'
 

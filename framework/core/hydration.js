@@ -6,11 +6,13 @@ import { findAnchors, flattenAnchors, getBoundTextNode, clearBetween, insertHtml
 const _hydrationRegistry = new Map()
 const DATA_SCRIPT_ID = '__FUSEE_DATA__'
 
+/** Registers a resource cache so its resolved entries can be dehydrated. */
 export function _registerResourceCache(resourceKey, cache) {
     const registry = getResourceRegistry()
     registry.caches.push({ resourceKey, cache })
 }
 
+/** Extracts resolved resource entries from the active request registry. */
 export function extractHydrationData(ctxOrNothing) {
     const registry = ctxOrNothing?.resourceRegistry ?? getResourceRegistry()
     const snapshot = {}
@@ -28,6 +30,7 @@ export function extractHydrationData(ctxOrNothing) {
     return snapshot
 }
 
+/** Serializes a hydration snapshot and protects embedded script terminators. */
 export function dehydrate(snapshot = extractHydrationData()) {
     try {
         const json = JSON.stringify(snapshot)
@@ -38,6 +41,7 @@ export function dehydrate(snapshot = extractHydrationData()) {
     }
 }
 
+/** Renders the combined resource and signal hydration payload as a script tag. */
 export function renderDehydrationScript(ctxOrNothing) {
     const payload = {
         resources: extractHydrationData(ctxOrNothing),
@@ -80,6 +84,7 @@ export function loadHydration(snapshot) {
     }
 }
 
+/** Loads resource and signal state from the current window, including legacy state. */
 export function hydrateFromWindow() {
     if (typeof window === 'undefined') return
     const state = readWindowState()
@@ -93,10 +98,12 @@ export function hydrateFromWindow() {
     if (legacy) loadHydration(legacy)
 }
 
+/** Returns hydrated resource entries for a resource key, if any exist. */
 export function getHydratedEntries(resourceKey) {
     return _hydrationRegistry.get(resourceKey) ?? null
 }
 
+/** Reports whether a hydrated resource entry is younger than the supplied limit. */
 export function isHydrationFresh(resourceKey, cacheKey, staleTime = 0) {
     const entries = _hydrationRegistry.get(resourceKey)
     if (!entries) return false
@@ -105,10 +112,12 @@ export function isHydrationFresh(resourceKey, cacheKey, staleTime = 0) {
     return (Date.now() - entry.updatedAt) <= staleTime
 }
 
+/** Removes all client-side hydrated resource entries. */
 export function clearHydration() {
     _hydrationRegistry.clear()
 }
 
+/** Returns a detached snapshot of the current client hydration registry. */
 export function getHydrationSnapshot() {
     const out = {}
     for (const [resourceKey, map] of _hydrationRegistry) {
@@ -120,6 +129,7 @@ export function getHydrationSnapshot() {
     return out
 }
 
+/** Binds reactive updates to the server-rendered anchors and returns cleanup. */
 export function hydrateAnchors(root, bindings = []) {
     const anchors = flattenAnchors(findAnchors(root))
     const cleanups = []
@@ -140,11 +150,13 @@ export function hydrateAnchors(root, bindings = []) {
     return () => cleanups.forEach(c => typeof c === 'function' && c())
 }
 
+/** Loads window state before attaching hydration bindings to the DOM. */
 export function hydrateApp(root, bindings = []) {
     hydrateFromWindow()
     return hydrateAnchors(root, bindings)
 }
 
+/** Keeps a text-binding anchor synchronized with its value getter. */
 function hydrateTextBinding(anchor, get) {
     const textNode = getBoundTextNode(anchor)
     if (!textNode) return null
@@ -153,6 +165,7 @@ function hydrateTextBinding(anchor, get) {
     })
 }
 
+/** Keeps an element's attributes synchronized with an attribute getter. */
 function hydrateElementAttrs(element, get) {
     return effect(() => {
         const attrs = get() ?? {}
@@ -164,6 +177,7 @@ function hydrateElementAttrs(element, get) {
     })
 }
 
+/** Switches the rendered branch inside an SSR conditional anchor. */
 function hydrateIfBinding(anchor, branches) {
     let activeIndex = -1
     return effect(() => {

@@ -235,6 +235,7 @@ export const Welcome = defineComponent({
 
 - **Go-Powered CLI** — Blazing-fast scaffolding with cross-platform binaries (Windows, Linux, macOS Intel/ARM)
 - **Optional Go SSR Engine** — Decoupled server package, install only when needed
+- **Optional Comet Module(HTML-Over-the-Wire)** — Keep interactive behavior close to HTML and HTTP
 - **Signals-First Reactivity** — Atomic fine-grained updates, only modified DOM nodes touched
 - **File-Based Routing** — Nuxt-style automatic route discovery with layout support
 - **Rust WASM Build-Time Compiler** — Recursive hybrid compiler + optional Rust WASM backend for peak throughput

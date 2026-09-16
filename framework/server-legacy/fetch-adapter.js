@@ -1,3 +1,4 @@
+/** Adapts a stream renderer to the standard Fetch Request/Response contract. */
 export function createFetchHandler(renderToStream, opts = {}) {
     return async function fetchHandler(request) {
         let stream

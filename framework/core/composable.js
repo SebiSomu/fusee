@@ -1,5 +1,6 @@
 import { getCurrentInstance } from './component.js'
 
+/** Marks a function as a composable while preserving its name and call shape. */
 export function defineComposable(fn) {
     const composable = function (...args) {
         return fn(...args)
@@ -15,6 +16,7 @@ export function defineComposable(fn) {
     return composable
 }
 
+/** Warns when a composable runs outside component setup and returns the instance. */
 export function assertSetupContext(name) {
     const instance = getCurrentInstance()
     if (!instance) {

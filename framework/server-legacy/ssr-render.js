@@ -2,6 +2,7 @@ import { createRequestContext, withRequestContext } from './index.js'
 
 const DEFAULT_MAX_PASSES = 10
 
+/** Re-renders until request-scoped resources settle or the pass limit is reached. */
 export async function renderPageSSR(runPass, opts = {}) {
     const maxPasses = opts.maxPasses ?? DEFAULT_MAX_PASSES
     const ctx = createRequestContext()

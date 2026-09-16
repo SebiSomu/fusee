@@ -1,3 +1,4 @@
+/** Reconciles keyed DOM entries while preserving reusable nodes and cleanups. */
 export function reconcileArrays(parentNode, anchor, oldList, newList, keyFn, createFn, updateFn) {
     let oldEnd = oldList.length - 1;
     let newEnd = newList.length - 1;
@@ -116,6 +117,7 @@ export function reconcileArrays(parentNode, anchor, oldList, newList, keyFn, cre
     return nextOrder;
 }
 
+/** Reconciles a container's rendered list using its stored node mapping. */
 export function reconcile(container, oldList, newList, keyFn, createFn) {
     if (!container._renderedNodes) {
         container._renderedNodes = [];

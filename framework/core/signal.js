@@ -6,8 +6,10 @@ let currentEffect = null
 let currentOwner = null
 let onEffectCreated = null
 
+/** Registers the hook used by components to track effect disposers. */
 export function setEffectHook(fn) { onEffectCreated = fn }
 
+/** Registers cleanup work on the effect currently being evaluated. */
 export function onCleanup(fn) {
     if (!currentOwner) return
     currentOwner.cleanups.add(fn)
@@ -16,6 +18,7 @@ export function onCleanup(fn) {
 let batchDepth = 0
 const pendingEffects = new Set()
 
+/** Groups signal writes so dependent effects run once after the outer batch ends. */
 export function batch(fn) {
     batchDepth++
     try {
@@ -36,6 +39,7 @@ const asyncJobQueueHigh = []
 const asyncJobQueueLow = []
 let asyncJobFlushScheduled = false
 
+/** Runs queued async jobs in priority order and keeps one failed job isolated. */
 function flushAsyncJobs() {
     asyncJobFlushScheduled = false
 
@@ -49,6 +53,7 @@ function flushAsyncJobs() {
     }
 }
 
+/** Schedules a callback for the next async flush, with optional low priority. */
 export function scheduleAsyncJob(fn, opts = {}) {
     const priority = opts.priority || 'high'
     if (priority === 'low') asyncJobQueueLow.push(fn)
@@ -60,6 +65,7 @@ export function scheduleAsyncJob(fn, opts = {}) {
     }
 }
 
+/** Runs an effect immediately or defers it until the active batch completes. */
 function scheduleEffect(effectFn) {
     if (batchDepth > 0) {
         pendingEffects.add(effectFn)
@@ -68,6 +74,7 @@ function scheduleEffect(effectFn) {
     }
 }
 
+/** Creates a readable/writable reactive accessor, including reactive array helpers. */
 export function signal(initialValue) {
     const { value: resolvedInitial } = resolveSignalValue(initialValue)
     let value = resolvedInitial
@@ -100,6 +107,7 @@ export function signal(initialValue) {
     return accessor
 }
 
+/** Creates an immediately-running tracked computation and returns its disposer. */
 export function effect(fn) {
     let active = true
     let running = false
@@ -161,6 +169,7 @@ export function effect(fn) {
     return cleanup
 }
 
+/** Creates a tracked computation without component ownership or nested cleanup. */
 export function microEffect(fn) {
     let active = true
 
@@ -190,6 +199,7 @@ export function microEffect(fn) {
     return cleanup
 }
 
+/** Creates a lazily recomputed, read-only signal derived from other signals. */
 export function computed(fn) {
     let value
     let dirty = true
@@ -272,6 +282,7 @@ export function computed(fn) {
     return accessor
 }
 
+/** Evaluates a callback without recording signal reads as dependencies. */
 export function untrack(fn) {
     const prevEffect = currentEffect
     currentEffect = null
@@ -282,6 +293,7 @@ export function untrack(fn) {
     }
 }
 
+/** Watches one or more signal sources and invokes a callback when their values change. */
 export function watch(source, callback, options = {}) {
     if (typeof callback !== 'function') {
         console.warn('[framework] watch() callback must be a function')
@@ -332,6 +344,7 @@ export function watch(source, callback, options = {}) {
     }
 }
 
+/** Logs reactive values in development and returns the effect disposer. */
 export function inspect(...args) {
     const isDev = typeof import.meta.env !== 'undefined' ? !!import.meta.env.DEV : true
     if (!isDev) return
@@ -382,6 +395,7 @@ function addReactiveArrayMethods(accessor) {
     }
 }
 
+/** Adds immutable-style array mutations that publish a new array value. */
 function addMutatingArrayMethods(accessor) {
     accessor.push = (...items) => {
         const next = [...accessor(), ...items]
@@ -439,6 +453,7 @@ function addMutatingArrayMethods(accessor) {
     }
 }
 
+/** Normalizes a single or multi-source watch declaration into getter functions. */
 function normalizeWatchSource(source) {
     if (Array.isArray(source)) {
         const getters = source.map(normalizeSingleWatchSource)
@@ -453,17 +468,20 @@ function normalizeWatchSource(source) {
     }
 }
 
+/** Normalizes one watch source and warns when the source is not callable. */
 function normalizeSingleWatchSource(source) {
     if (typeof source === 'function') return source
     console.warn('[framework] watch() source should be a signal, getter, or an array of those')
     return () => source
 }
 
+/** Copies multi-source snapshots so later mutations do not rewrite old values. */
 function cloneWatchValue(value, isMultiSource) {
     if (isMultiSource && Array.isArray(value)) return value.slice()
     return value
 }
 
+/** Applies the configured equality rule to single- and multi-source watches. */
 function hasWatchChanged(newValue, oldValue, isMultiSource, equals) {
     if (isMultiSource) {
         if (!Array.isArray(oldValue) || newValue.length !== oldValue.length) return true
@@ -475,6 +493,7 @@ function hasWatchChanged(newValue, oldValue, isMultiSource, equals) {
     return !equals(newValue, oldValue)
 }
 
+/** Creates an async resource accessor with caching, deduplication, and refetching. */
 export function resource(sourceOrFetcher, fetcherOrOptions, optionsObj) {
     let source = null
     let actualFetcher = null
@@ -510,6 +529,7 @@ export function resource(sourceOrFetcher, fetcherOrOptions, optionsObj) {
     const cache = hydratedEntries ? new Map(hydratedEntries) : new Map()
     _registerResourceCache(resourceKey, cache)
 
+    /** Converts resource inputs into stable cache keys. */
     function serializeKey(input) {
         if (input === undefined) return 'undefined'
         if (input === null) return 'null'
@@ -517,6 +537,7 @@ export function resource(sourceOrFetcher, fetcherOrOptions, optionsObj) {
         return String(input)
     }
 
+    /** Invokes a fetcher while converting synchronous throws into rejections. */
     function makeScheduledPromise(runFetcher) {
         try {
             return Promise.resolve(runFetcher())
@@ -525,6 +546,7 @@ export function resource(sourceOrFetcher, fetcherOrOptions, optionsObj) {
         }
     }
 
+    /** Loads a resource value, reusing fresh cache entries and in-flight work. */
     async function load(input, force = false) {
         const key = serializeKey(input)
         const cached = force ? null : cache.get(key)
@@ -657,6 +679,7 @@ export function resource(sourceOrFetcher, fetcherOrOptions, optionsObj) {
     return [accessor, { mutate, refetch }]
 }
 
+/** Runs and clears the cleanup registered by the previous watch callback. */
 function runWatchCleanup(cleanupRef) {
     if (typeof cleanupRef.fn === 'function') {
         const fn = cleanupRef.fn
@@ -665,6 +688,7 @@ function runWatchCleanup(cleanupRef) {
     }
 }
 
+/** Resolves promise-throwing renders into a signal with pending and error state. */
 export function createSuspense(renderFn, fallbackFn, options = {}) {
     const out = signal(undefined)
     const pending = signal(false)

@@ -1,12 +1,15 @@
 export class InjectionToken {
+    /** Creates a distinct dependency token with a readable diagnostic description. */
     constructor(description) {
         this.description = description;
     }
+    /** Returns the token's diagnostic label. */
     toString() {
         return `InjectionToken ${this.description}`;
     }
 }
 
+/** Reports whether a value can be used as a constructable class provider. */
 export function isClass(fn) {
     if (typeof fn !== 'function') return false;
     const str = fn.toString();
@@ -17,12 +20,14 @@ export function isClass(fn) {
 }
 
 export class Injector {
+    /** Defines the lookup contract implemented by concrete injectors. */
     get(token, options = { optional: false }) {
         throw new Error('Not implemented');
     }
 }
 
 export class NullInjector extends Injector {
+    /** Returns null for optional lookups or throws a missing-provider error. */
     get(token, options = { optional: false }) {
         if (options.optional) {
             return null;
@@ -35,6 +40,7 @@ export class NullInjector extends Injector {
 const NULL_INJECTOR = new NullInjector();
 
 export class EnvironmentInjector extends Injector {
+    /** Creates a hierarchical injector and normalizes its initial providers. */
     constructor(providers = [], parent = NULL_INJECTOR) {
         super();
         this.parent = parent;
@@ -44,6 +50,7 @@ export class EnvironmentInjector extends Injector {
         this._normalizeProviders(providers);
     }
 
+    /** Converts shorthand classes and provider records into lookup records. */
     _normalizeProviders(providers) {
         for (const provider of providers) {
             if (typeof provider === 'function' && isClass(provider)) {
@@ -56,11 +63,12 @@ export class EnvironmentInjector extends Injector {
         }
     }
 
+    /** Adds one provider to this injector. */
     provide(provider) {
         this._normalizeProviders([provider]);
     }
 
-    // Bubble-up algorithm for resolving hierarchical dependencies
+    /** Resolves a cached, local, or parent-provided dependency. */
     get(token, options = { optional: false }) {
         if (this.instances.has(token)) {
             return this.instances.get(token);
@@ -97,6 +105,7 @@ export class EnvironmentInjector extends Injector {
         return this.parent.get(token, options);
     }
 
+    /** Instantiates a provider record inside this injector's active context. */
     _instantiate(record) {
         return runInContext(this, () => {
             if (record.useValue !== undefined) {
@@ -116,10 +125,12 @@ export class EnvironmentInjector extends Injector {
         });
     }
 
+    /** Creates a child injector that falls back to this injector. */
     createChild(providers = []) {
         return new EnvironmentInjector(providers, this);
     }
 
+    /** Calls lifecycle cleanup hooks and releases this injector's records. */
     destroy() {
         for (const instance of this.instances.values()) {
             if (instance && typeof instance.destroy === 'function') {
@@ -143,6 +154,7 @@ export class EnvironmentInjector extends Injector {
 
 let _activeInjector = null;
 
+/** Runs a callback with the supplied injector as the active lookup context. */
 export function runInContext(injector, fn) {
     const previousInjector = _activeInjector;
     _activeInjector = injector;
@@ -153,10 +165,12 @@ export function runInContext(injector, fn) {
     }
 }
 
+/** Replaces the active injector for integrations that manage context themselves. */
 export function replaceActiveInjector(injector) {
     _activeInjector = injector;
 }
 
+/** Resolves a dependency from the active injector using optionality and scope rules. */
 export function inject(token, options = {}) {
     if (_activeInjector === null) {
         throw new Error('inject() called outside of an injection context');
@@ -182,6 +196,7 @@ export function inject(token, options = {}) {
 
 export const rootInjector = new EnvironmentInjector();
 
+/** Registers a provider on the process-wide root injector. */
 export function provideGlobal(provider) {
     rootInjector.provide(provider);
 }

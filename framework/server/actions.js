@@ -4,6 +4,7 @@ import { getCurrentInstance } from '../core/component.js'
 const ACTION_BASE_URL = '/__fusee/actions'
 const _actionHydrationRegistry = new Map()
 
+/** Creates a client action proxy from a function or explicit action name. */
 export function defineAction(fnOrName, opts = {}) {
     const name = opts.name
         || (typeof fnOrName === 'function' ? fnOrName.name : fnOrName)
@@ -15,9 +16,11 @@ export function defineAction(fnOrName, opts = {}) {
     return createActionProxy(name, opts)
 }
 
+/** Creates a proxy that POSTs action arguments and returns server data. */
 export function createActionProxy(name, opts = {}) {
     const baseUrl = opts.baseUrl ?? ACTION_BASE_URL
 
+    /** Sends one action invocation to the configured server endpoint. */
     async function actionProxy(...args) {
         const res = await fetch(`${baseUrl}/${name}`, {
             method: 'POST',
@@ -46,6 +49,7 @@ export function createActionProxy(name, opts = {}) {
     return actionProxy
 }
 
+/** Wraps an action in reactive pending, data, error, and reset state. */
 export function useAction(action, opts = {}) {
     if (typeof action !== 'function') {
         throw new Error('[fusee] useAction() requires an action function (result of defineAction or createActionProxy)')
@@ -59,6 +63,7 @@ export function useAction(action, opts = {}) {
 
     let callId = 0
 
+    /** Executes the action and ignores stale responses from superseded calls. */
     async function execute(...args) {
         const id = ++callId
 
@@ -101,6 +106,7 @@ export function useAction(action, opts = {}) {
         }
     }
 
+    /** Clears action state and invalidates any in-flight result. */
     function reset() {
         batch(() => {
             pending(false)
@@ -120,6 +126,7 @@ export function useAction(action, opts = {}) {
     return { execute, pending, data, error, reset }
 }
 
+/** Stores server-provided action data for client-side hydration. */
 export function hydrateAction(actionName, data, opts = {}) {
     const key = `action:${actionName}`
     _actionHydrationRegistry.set(key, {
@@ -129,6 +136,7 @@ export function hydrateAction(actionName, data, opts = {}) {
     })
 }
 
+/** Returns hydrated action data when its configured freshness window is valid. */
 export function getHydratedAction(actionName, staleTime) {
     const key = `action:${actionName}`
     const entry = _actionHydrationRegistry.get(key)
@@ -144,10 +152,12 @@ export function getHydratedAction(actionName, staleTime) {
     return entry.data
 }
 
+/** Clears all hydrated action entries. */
 export function clearActionHydration() {
     _actionHydrationRegistry.clear()
 }
 
+/** Serializes hydrated action entries for transfer to a client. */
 export function extractActionHydration() {
     const snapshot = {}
     for (const [key, entry] of _actionHydrationRegistry) {
@@ -160,6 +170,7 @@ export function extractActionHydration() {
     return snapshot
 }
 
+/** Loads a serialized action hydration snapshot into the client registry. */
 export function loadActionHydration(snapshot) {
     if (!snapshot || typeof snapshot !== 'object') return
 

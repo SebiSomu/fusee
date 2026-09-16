@@ -1,13 +1,16 @@
 import { runInSignalScope, getSignalFrame, getSignalRegistry } from './async-context.js'
 
+/** Runs work in a scope whose signal values can be recorded and replayed. */
 export function withSignalScope(scopeId, fn) {
     return runInSignalScope(scopeId, fn)
 }
 
+/** Returns the active positional signal frame. */
 function currentFrame() {
     return getSignalFrame()
 }
 
+/** Resolves a signal initializer from hydrated state or records its initial value. */
 export function resolveSignalValue(initial) {
     const frame = currentFrame()
     if (!frame) return { value: initial, hydrated: false }
@@ -28,6 +31,7 @@ export function resolveSignalValue(initial) {
     return { value: initial, hydrated: false }
 }
 
+/** Loads server-recorded signal values into the active hydration registry. */
 export function loadSignalRegistry(snapshot) {
     if (!snapshot || typeof snapshot !== 'object') return
     const registry = getSignalRegistry()
@@ -36,6 +40,7 @@ export function loadSignalRegistry(snapshot) {
     }
 }
 
+/** Returns a serializable snapshot of all recorded signal scopes. */
 export function extractSignalRegistrySnapshot() {
     const registry = getSignalRegistry()
     const out = {}
@@ -45,6 +50,7 @@ export function extractSignalRegistrySnapshot() {
     return out
 }
 
+/** Clears all recorded signal values in the active registry. */
 export function clearSignalRegistry() {
     getSignalRegistry().clear()
 }
