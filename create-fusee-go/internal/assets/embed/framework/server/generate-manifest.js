@@ -11,6 +11,7 @@ const pagesDir = path.join(projectRoot, 'app/pages')
 const outputDir = path.join(projectRoot, '.fusee')
 const manifestFile = path.join(outputDir, 'manifest.json')
 
+/** Recursively collects source files that can contain application templates. */
 function getAllFiles(dir, base = '') {
     const results = []
     if (!fs.existsSync(dir)) return results
@@ -29,6 +30,7 @@ function getAllFiles(dir, base = '') {
     return results
 }
 
+/** Extracts an inline template from a page source file. */
 function extractTemplate(source) {
     let tpl = null
     const templateLiteralMatch = source.match(/template\s*:\s*`([\s\S]*?)`/)
@@ -50,6 +52,7 @@ function extractTemplate(source) {
     return tpl.replace(/\bf-link\b(?!=)/g, 'f-link="true"')
 }
 
+/** Converts a page-relative source path into its URL route pattern. */
 function filePathToRoute(relPath) {
     let clean = relPath.replace(/\.[jt]sx?$/, '')
     if (clean.endsWith('/index')) clean = clean.slice(0, -6)
@@ -57,6 +60,7 @@ function filePathToRoute(relPath) {
     return '/' + clean
 }
 
+/** Compiles application pages and writes the route manifest consumed by SSR. */
 export function generateManifest() {
     console.log('🔍 [Fusee Manifest] Scanning pages in:', pagesDir)
     const files = getAllFiles(pagesDir)

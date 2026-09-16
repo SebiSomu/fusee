@@ -9,14 +9,17 @@ setEffectHook(eff => {
     if (currentInstance) currentInstance._effects.push(eff)
 })
 
+/** Returns the component instance currently running setup or a lifecycle hook. */
 export function getCurrentInstance() {
     return currentInstance
 }
 
+/** Sets the active component instance for framework internals and composables. */
 export function setCurrentInstance(instance) {
     currentInstance = instance
 }
 
+/** Resolves received props against a declared schema, including defaults and checks. */
 function resolveProps(schema, received) {
     const isArray = Array.isArray(schema)
     const resolved = {}
@@ -78,6 +81,7 @@ function resolveProps(schema, received) {
     return resolved
 }
 
+/** Creates a batched event emitter that dispatches to the component's listeners. */
 function createEmit(listeners) {
     return function emit(eventName, ...args) {
         const handler = listeners[eventName]
@@ -89,6 +93,7 @@ function createEmit(listeners) {
     }
 }
 
+/** Parses named template slots and returns their content grouped by slot name. */
 export function parseSlots(slotHTML) {
     const slots = { default: '' }
     if (!slotHTML || !slotHTML.trim()) return slots
@@ -108,6 +113,7 @@ export function parseSlots(slotHTML) {
     return slots
 }
 
+/** Replaces slot outlets in a component template with supplied slot content. */
 function resolveSlots(template, slots) {
     let result = template.replace(/<slot\s+name="([^"]+)"\s*>[\s\S]*?<\/slot>/gi, (match, name) => {
         return slots[name] ?? ''
@@ -121,14 +127,17 @@ function resolveSlots(template, slots) {
     return result
 }
 
+/** Registers a callback to run after the component has rendered. */
 export function onMount(fn) {
     if (currentInstance) currentInstance._mountHooks.push(fn)
 }
 
+/** Registers a callback to run when the component is unmounted. */
 export function onUnmount(fn) {
     if (currentInstance) currentInstance._unmountHooks.push(fn)
 }
 
+/** Creates a component factory with setup, rendering, props, slots, and lifecycle state. */
 export function defineComponent(options) {
     return function ComponentFactory(props = {}, { listeners = {}, slots = {}, parent = null } = {}) {
         const parentInjector = (parent && parent._injector) || rootInjector;

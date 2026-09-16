@@ -1,6 +1,8 @@
 import { config } from "./comet-config.js";
 import { ATTR, METHOD_ATTRS, DEFAULT_TRIGGER_BY_TAG } from "./comet-methods.js";
 
+export { config, ATTR };
+
 // --- Event dispatch ---------------------------------------------------
 
 /**
@@ -326,19 +328,24 @@ async function handleResponse(el, response, requestDetail) {
     const swapEvent = fire(el, 'beforeSwap', { ...requestDetail, target, swapMode, html: mainHTML })
     if (swapEvent.defaultPrevented) return
 
+    cleanupTarget(target, swapMode, el, requestDetail)
+
     const newNodes = swap(target, mainHTML, swapMode)
     for (const node of newNodes) {
-        if (node.nodeType === 1) process(node)
+        hydrateNode(node, el, requestDetail)
     }
 
     for (const { el: oobEl, mode, targetSelector } of oobSwaps) {
         if (!targetSelector) continue
         const oobTarget = doc.querySelector(targetSelector)
         if (!oobTarget) continue
+
+        cleanupTarget(oobTarget, mode, el, requestDetail)
+
         const oobHTML = mode === 'outerHTML' ? oobEl.outerHTML : oobEl.innerHTML
         const oobNewNodes = swap(oobTarget, oobHTML, mode)
         for (const node of oobNewNodes) {
-            if (node.nodeType === 1) process(node)
+            hydrateNode(node, el, requestDetail)
         }
     }
 
@@ -349,6 +356,42 @@ async function handleResponse(el, response, requestDetail) {
         const url = pushUrl === 'true' ? requestDetail.url : pushUrl
         doc.defaultView.history.pushState({ comet: true }, '', url)
     }
+}
+
+function cleanupTarget(target, mode, el, detail) {
+    if (!target) return
+    fire(target, 'cleanup', { ...detail, target, mode, triggerEl: el })
+    if (typeof config.cleanup === 'function') {
+        try {
+            config.cleanup(target, mode)
+        } catch (err) {
+            console.error('[comet] error in cleanup hook:', err)
+        }
+    }
+}
+
+function hydrateNode(node, el, detail) {
+    if (node.nodeType === 1) {
+        if (typeof config.hydrator === 'function') {
+            try {
+                config.hydrator(node, { ...detail, triggerEl: el })
+            } catch (err) {
+                console.error('[comet] error in hydrator hook:', err)
+            }
+        }
+        fire(node, 'hydrate', { ...detail, node, triggerEl: el })
+        process(node)
+    }
+}
+
+/** Registers a custom hydrator hook function. */
+export function setHydrator(fn) {
+    config.hydrator = fn
+}
+
+/** Registers a custom cleanup hook function. */
+export function setCleanup(fn) {
+    config.cleanup = fn
 }
 
 // --- Wiring --------------------------------------------------------------
@@ -487,5 +530,5 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined' && !window.
     } else {
         start()
     }
-    window.Comet = { init, process, config, parseTriggerSpec, getRequestConfig, gatherParams, swap, extractOOBSwaps }
+    window.Comet = { init, process, config, parseTriggerSpec, getRequestConfig, gatherParams, swap, extractOOBSwaps, setHydrator, setCleanup }
 }

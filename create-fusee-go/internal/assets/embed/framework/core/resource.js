@@ -2,6 +2,7 @@ import { signal } from './signal.js'
 import { getInFlightStore } from './async-context.js'
 import { _registerResourceCache } from './hydration.js'
 
+/** Defines a keyed async resource hook with request deduplication and hydration support. */
 export function defineResource(resourceKey, fetcher, opts = {}) {
     const cache = new Map()
     const deriveKey = opts.key ?? ((...args) => JSON.stringify(args))

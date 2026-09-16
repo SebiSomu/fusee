@@ -12,12 +12,14 @@ export const MutationType = {
     PATCH_FUNCTION: 'patch function'
 }
 
+/** Registers a plugin that receives each newly initialized store. */
 export function registerStorePlugin(plugin) {
     if (typeof plugin === 'function') {
         storePlugins.push(plugin)
     }
 }
 
+/** Resolves a nested store hook while detecting circular initialization. */
 export function useNestedStore(useStoreFn) {
     if (typeof useStoreFn !== 'function' || !useStoreFn.$id) {
         console.error('[framework] useNestedStore requires a valid store hook (defineStore result)')
@@ -45,6 +47,7 @@ export function defineStore(id, setup) {
         console.error('[framework] defineStore requires a valid string ID.')
     }
 
+    /** Creates the store once, then returns the cached store instance. */
     function useStore() {
         let store = storesRegistry.get(id)
 
@@ -89,6 +92,7 @@ export function defineStore(id, setup) {
             let subscriptionId = 0
             let currentMutation = null
 
+            /** Publishes the pending mutation to synchronous and queued subscribers. */
             function notifySubscribers() {
                 if (!currentMutation) return
                 const mutation = currentMutation
@@ -113,6 +117,7 @@ export function defineStore(id, setup) {
                 }
             }
 
+            /** Wraps a writable signal so direct writes produce store mutations. */
             function wrapSignal(key, originalSignal) {
                 const wrapped = function(newValue) {
                     if (arguments.length === 0) {
@@ -143,6 +148,7 @@ export function defineStore(id, setup) {
                 return wrapped
             }
 
+            /** Wraps a computed signal as a read-only store getter. */
             function wrapGetter(key, originalGetter) {
                 const wrapped = function(newValue) {
                     if (arguments.length === 0) {
@@ -280,14 +286,17 @@ export function defineStore(id, setup) {
     return useStore
 }
 
+/** Drops one cached store so its setup function runs again on next use. */
 export function resetStore(id) {
     storesRegistry.delete(id)
 }
 
+/** Removes every registered store instance. */
 export function clearStores() {
     storesRegistry.clear()
 }
 
+/** Returns all signal-backed properties from a store. */
 export function storeToRefs(store) {
     const refs = {}
     for (const key in store) {
@@ -299,6 +308,7 @@ export function storeToRefs(store) {
     return refs
 }
 
+/** Returns only writable signal-backed state from a store. */
 export function storeToState(store) {
     const state = {}
     for (const key in store) {
@@ -310,6 +320,7 @@ export function storeToState(store) {
     return state
 }
 
+/** Returns only read-only signal-backed getters from a store. */
 export function storeToGetters(store) {
     const getters = {}
     for (const key in store) {

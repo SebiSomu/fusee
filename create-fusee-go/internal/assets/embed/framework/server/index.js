@@ -6,6 +6,7 @@ _registerALS(_als)
 const _scopeALS = new AsyncLocalStorage()
 _registerScopeALS(_scopeALS)
 
+/** Creates isolated request stores for resources, streams, and signal hydration. */
 export function createRequestContext() {
     return {
         inFlightMaps: {
@@ -25,6 +26,7 @@ export function createRequestContext() {
     }
 }
 
+/** Runs work inside the supplied request AsyncLocalStorage context. */
 export function withRequestContext(ctx, fn) {
     return _als.run(ctx, fn)
 }
@@ -46,6 +48,7 @@ import {
     getRegisteredActions
 } from '../server-legacy/actions.server.js'
 
+/** Selects the server or client action implementation for the current input. */
 export function defineAction(fnOrName, opts = {}) {
     if (typeof fnOrName === 'function') {
         return _serverDefineAction(fnOrName, opts)

@@ -3,6 +3,7 @@ import { createEventHandler, registerDelegatedEvent, isDelegatedEvent } from '..
 
 export { effect as _effect, batch as _batch }
 
+/** Reports whether a function should be evaluated as a plain getter. */
 function isGetter(v) {
     return typeof v === 'function' && !v.isSignal
 }
@@ -10,6 +11,7 @@ function isGetter(v) {
 const SENSITIVE_ATTRS  = new Set(['href', 'src', 'srcset', 'formaction', 'xlink:href', 'data'])
 const DANGEROUS_SCHEME = /^(javascript|data|vbscript|file):/i
 
+/** Sanitizes URL-bearing DOM properties before they reach the browser. */
 function sanitize(name, value) {
     if (SENSITIVE_ATTRS.has(name.toLowerCase())) {
         const trimmed = String(value).trim()
@@ -21,6 +23,7 @@ function sanitize(name, value) {
     return value
 }
 
+/** Creates a framework node for an element and mounts its child nodes. */
 export function h(tag, props = {}, children = [], isStatic = false) {
     const el = document.createElement(tag)
     const effects = []
@@ -42,6 +45,7 @@ export function h(tag, props = {}, children = [], isStatic = false) {
     }
 }
 
+/** Creates a text node that optionally updates from a reactive getter. */
 export function hText(value) {
     const node = document.createTextNode('')
     const effects = []
@@ -58,6 +62,7 @@ export function hText(value) {
     return { node, effects }
 }
 
+/** Creates a reactive conditional anchored by a comment node. */
 export function hIf(branches) {
     const anchor  = document.createComment('f-if')
     const effects = []
@@ -102,6 +107,7 @@ export function hIf(branches) {
     }
 }
 
+/** Creates a keyed reactive list anchored by a comment node. */
 export function hFor(sourceGetter, renderItem, keyFn) {
     const anchor  = document.createComment('f-for')
     const effects = []

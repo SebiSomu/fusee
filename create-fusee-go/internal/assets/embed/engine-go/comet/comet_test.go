@@ -3,6 +3,7 @@ package comet
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	engine "fusee"
@@ -193,3 +194,48 @@ func TestFragmentAware_IntegratesWithARealDispatcher(t *testing.T) {
 		t.Fatalf("got %q", w2.Body.String())
 	}
 }
+
+func TestRenderFragment_WritesHTML(t *testing.T) {
+	w := httptest.NewRecorder()
+	RenderFragment(w, "<div>fragment</div>")
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	if w.Header().Get("Content-Type") != "text/html; charset=utf-8" {
+		t.Fatalf("expected text/html header, got %q", w.Header().Get("Content-Type"))
+	}
+	if w.Body.String() != "<div>fragment</div>" {
+		t.Fatalf("got %q", w.Body.String())
+	}
+}
+
+func TestRenderFragmentWithState_EmbedsHydrationScript(t *testing.T) {
+	w := httptest.NewRecorder()
+	resources := map[string]map[string]any{
+		"users": {"1": map[string]any{"data": "Alice"}},
+	}
+	signals := map[string][]any{
+		"count": {10},
+	}
+
+	err := RenderFragmentWithState(w, "<div id=\"frag\">Hello</div>", resources, signals)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, `<div id="frag">Hello</div>`) {
+		t.Fatalf("missing fragment HTML in body: %q", body)
+	}
+	if !strings.Contains(body, `<script id="__FUSEE_DATA__">window.__FUSEE_STATE__ =`) {
+		t.Fatalf("missing state script in body: %q", body)
+	}
+	if !strings.Contains(body, `"Alice"`) || !strings.Contains(body, `10`) {
+		t.Fatalf("missing resource/signal data in body: %q", body)
+	}
+}
+

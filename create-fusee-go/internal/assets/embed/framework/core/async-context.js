@@ -1,14 +1,17 @@
 let _als = null
 let _scopeALS = null
 
+/** Installs the request AsyncLocalStorage used by server runtimes. */
 export function _registerALS(als) {
     _als = als
 }
 
+/** Returns the currently installed request AsyncLocalStorage instance. */
 export function _getALS() {
     return _als
 }
 
+/** Installs the AsyncLocalStorage used for positional signal scopes. */
 export function _registerScopeALS(als) {
     _scopeALS = als
 }
@@ -18,6 +21,7 @@ export const _globalInFlightMaps = {
     byFetcher: new WeakMap()
 }
 
+/** Returns request-local in-flight maps, or browser-wide fallback maps. */
 export function getInFlightStore() {
     if (_als) {
         const ctx = _als.getStore()
@@ -26,6 +30,7 @@ export function getInFlightStore() {
     return _globalInFlightMaps
 }
 
+/** Reports whether execution is currently inside a server request context. */
 export function isSSRContext() {
     if (!_als) return false
     return _als.getStore() !== undefined
@@ -35,6 +40,7 @@ const _globalResourceRegistry = {
     caches: []
 }
 
+/** Returns the resource cache registry for the active request or browser. */
 export function getResourceRegistry() {
     if (_als) {
         const ctx = _als.getStore()
@@ -45,6 +51,7 @@ export function getResourceRegistry() {
 
 const _globalStreamBoundaries = { list: [], nextId: 0 }
 
+/** Returns the suspense boundary store for the active request or browser. */
 export function getStreamBoundaryStore() {
     if (_als) {
         const ctx = _als.getStore()
@@ -55,6 +62,7 @@ export function getStreamBoundaryStore() {
 
 const _globalSignalScope = { registry: new Map() }
 
+/** Returns the signal hydration registry for the active request or browser. */
 export function getSignalRegistry() {
     if (_als) {
         const ctx = _als.getStore()
@@ -65,6 +73,7 @@ export function getSignalRegistry() {
 
 const _fallbackScopeStack = []
 
+/** Runs sync or async work with an isolated positional signal frame. */
 export function runInSignalScope(scopeId, fn) {
     const frame = { scopeId, index: 0 }
 
@@ -97,6 +106,7 @@ export function runInSignalScope(scopeId, fn) {
     return result
 }
 
+/** Returns the current positional signal frame, if one is active. */
 export function getSignalFrame() {
     if (_scopeALS) return _scopeALS.getStore() ?? null
     return _fallbackScopeStack.length ? _fallbackScopeStack[_fallbackScopeStack.length - 1] : null

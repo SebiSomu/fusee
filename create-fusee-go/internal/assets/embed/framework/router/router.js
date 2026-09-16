@@ -24,6 +24,7 @@ let _routerEpoch = 0
 let _initialTimer = null
 const _MAX_REDIRECTS = 10
 
+/** Reads the browser URL including query string and hash. */
 function _getPath() {
     const pathname = window.location.pathname || '/'
     const search = window.location.search || ''
@@ -31,6 +32,7 @@ function _getPath() {
     return pathname + search + hash
 }
 
+/** Converts a URL query string into a plain object. */
 function _extractQuery(path) {
     const queryStr = path.split('?')[1]?.split('#')[0]
     if (!queryStr) return {}
@@ -42,14 +44,17 @@ function _extractQuery(path) {
     return query
 }
 
+/** Normalizes a route's single or alternate paths into an array. */
 function _getRoutePaths(routePath) {
     return Array.isArray(routePath) ? routePath : [routePath]
 }
 
+/** Synchronizes the current route signal with the browser URL. */
 function _updateRoute() {
     currentRoute(_getPath())
 }
 
+/** Registers a global navigation guard and returns its unregister function. */
 export function beforeEach(guard) {
     _beforeEachGuards.push(guard)
     return function unregister() {
@@ -58,6 +63,7 @@ export function beforeEach(guard) {
     }
 }
 
+/** Registers a post-navigation hook and returns its unregister function. */
 export function afterEach(hook) {
     _afterEachGuards.push(hook)
     return function unregister() {
@@ -66,6 +72,7 @@ export function afterEach(hook) {
     }
 }
 
+/** Registers global middleware and returns its unregister function. */
 export function use(middleware) {
     _globalMiddleware.push(middleware)
     return function unregister() {
@@ -74,6 +81,7 @@ export function use(middleware) {
     }
 }
 
+/** Registers a router error handler and returns its unregister function. */
 export function onError(handler) {
     _errorHandlers.push(handler)
     return function unregister() {
@@ -82,6 +90,7 @@ export function onError(handler) {
     }
 }
 
+/** Matches route segments, parameters, and trailing wildcards against a URL. */
 function _matchSegments(routePath, urlSegments) {
     const cleanPath = routePath.startsWith('/') ? routePath.slice(1) : routePath
 
@@ -118,6 +127,7 @@ function _matchSegments(routePath, urlSegments) {
     return { matched: true, consumed, params }
 }
 
+/** Recursively matches nested routes and returns the active route chain. */
 function _matchRouteTree(routes, urlSegments) {
     for (const route of routes) {
         const paths = _getRoutePaths(route.path)
@@ -147,6 +157,7 @@ function _matchRouteTree(routes, urlSegments) {
     return null
 }
 
+/** Compares one flat route pattern with an actual URL path. */
 function _matchSingleFlat(routePath, actualPath) {
     const actualPathWithoutParams = actualPath.split(/[?#]/)[0]
     const routeParts = routePath.split('/').filter(Boolean)
@@ -164,16 +175,19 @@ function _matchSingleFlat(routePath, actualPath) {
     return routeParts.every((part, i) => part.startsWith(':') || part === actualParts[i])
 }
 
+/** Tests alternate flat route patterns until one matches. */
 function _matchFlat(routePath, actualPath) {
     const paths = _getRoutePaths(routePath)
     return paths.some(p => _matchSingleFlat(p, actualPath))
 }
 
+/** Returns the alternate route pattern that matched an actual path. */
 function _findMatchingPath(routePath, actualPath) {
     const paths = _getRoutePaths(routePath)
     return paths.find(p => _matchSingleFlat(p, actualPath)) || null
 }
 
+/** Extracts named parameters from a matched flat route path. */
 function _extractParamsFromPath(singlePath, actualPath) {
     const params = {}
     if (singlePath === '*') return params
@@ -193,12 +207,14 @@ function _extractParamsFromPath(singlePath, actualPath) {
     return params
 }
 
+/** Finds a flat match first, then extracts its parameters. */
 function _extractParamsFlat(routePath, actualPath) {
     const matchingPath = _findMatchingPath(routePath, actualPath)
     if (!matchingPath) return {}
     return _extractParamsFromPath(matchingPath, actualPath)
 }
 
+/** Resolves and caches the route chain for a full URL path. */
 function _findMatchingChain(path) {
     const pathWithoutParams = path.split(/[?#]/)[0]
 
@@ -259,6 +275,7 @@ function _findMatchingChain(path) {
     return null
 }
 
+/** Stores a route chain in the bounded least-recently-used cache. */
 function _cacheResult(path, chain) {
     if (_routeCache.size >= _cacheMaxSize) {
         const firstKey = _routeCache.keys().next().value
@@ -267,10 +284,12 @@ function _cacheResult(path, chain) {
     _routeCache.set(path, chain)
 }
 
+/** Clears all cached route matches. */
 function _clearRouteCache() {
     _routeCache.clear()
 }
 
+/** Builds the destination location object passed to guards and middleware. */
 function _buildToLocation(fullPath, chain) {
     const params = {}
     for (const entry of chain) Object.assign(params, entry.params)
@@ -283,6 +302,7 @@ function _buildToLocation(fullPath, chain) {
     }
 }
 
+/** Builds the current location object from router signals. */
 function _buildFromLocation(fullPath) {
     return {
         path: fullPath ? fullPath.split(/[?#]/)[0] : null,
@@ -293,6 +313,7 @@ function _buildFromLocation(fullPath) {
     }
 }
 
+/** Normalizes guard return values into allow, cancel, or redirect outcomes. */
 function _normalizeGuardResult(result) {
     if (result === false) return { type: 'cancel' }
     if (typeof result === 'string') return { type: 'redirect', path: result, replace: false }
@@ -302,6 +323,7 @@ function _normalizeGuardResult(result) {
     return { type: 'allow' }
 }
 
+/** Runs a guard list in order and stops at the first non-allow result. */
 async function _runGuardList(guards, to, from) {
     for (const guard of guards) {
         if (typeof guard !== 'function') continue
@@ -318,6 +340,7 @@ async function _runGuardList(guards, to, from) {
     return { type: 'allow' }
 }
 
+/** Runs global guards followed by each matched route's beforeEnter guards. */
 async function _runAllGuards(to, from, chain) {
     const globalResult = await _runGuardList(_beforeEachGuards, to, from)
     if (globalResult.type !== 'allow') return globalResult
@@ -333,6 +356,7 @@ async function _runAllGuards(to, from, chain) {
     return { type: 'allow' }
 }
 
+/** Runs registered afterEach hooks without letting one hook stop the rest. */
 function _runAfterHooks(to, from) {
     for (const hook of _afterEachGuards) {
         try { hook(to, from) } catch (err) {
@@ -341,6 +365,7 @@ function _runAfterHooks(to, from) {
     }
 }
 
+/** Combines global and route-local middleware for a matched chain. */
 function _flattenMiddleware(chain) {
     const list = [..._globalMiddleware]
     for (const entry of chain) {
@@ -351,6 +376,7 @@ function _flattenMiddleware(chain) {
     return list.filter(mw => typeof mw === 'function')
 }
 
+/** Executes middleware in next() order and reports whether the chain completed. */
 async function _runMiddlewarePipeline(list, ctx) {
     let index = -1
 
@@ -369,6 +395,7 @@ async function _runMiddlewarePipeline(list, ctx) {
     return index >= list.length
 }
 
+/** Sends middleware failures to registered handlers or the console. */
 function _reportMiddlewareError(err, to, from) {
     if (_errorHandlers.length === 0) {
         console.error('[framework] Unhandled error in router middleware:', err)
@@ -381,6 +408,7 @@ function _reportMiddlewareError(err, to, from) {
     }
 }
 
+/** Saves the current scroll position when configured to do so. */
 function _saveScrollPosition(path) {
     if (!_scrollBehaviorOptions?.saveScrollPosition) return
     _scrollPositions.set(path, {
@@ -389,10 +417,12 @@ function _saveScrollPosition(path) {
     })
 }
 
+/** Returns a saved scroll position for a route, if available. */
 function _getSavedScrollPosition(path) {
     return _scrollPositions.get(path) || null
 }
 
+/** Applies configured anchor, top, saved, or custom scroll behavior. */
 function _applyScrollBehavior(to, from) {
     const options = _scrollBehaviorOptions
     if (!options) return
@@ -425,6 +455,7 @@ function _applyScrollBehavior(to, from) {
     }
 }
 
+/** Performs a normalized scroll target operation. */
 function _performScroll(position) {
     if (!position || position === false) return
 
@@ -438,6 +469,7 @@ function _performScroll(position) {
     }
 }
 
+/** Unmounts active route components from a given nesting level downward. */
 function _unmountFromLevel(level) {
     for (let i = _activeChain.length - 1; i >= level; i--) {
         const entry = _activeChain[i]
@@ -448,10 +480,12 @@ function _unmountFromLevel(level) {
     _activeChain.length = level
 }
 
+/** Returns the number of alternate path patterns declared by a route. */
 function _getRoutePathCount(route) {
     return Array.isArray(route.path) ? route.path.length : 1
 }
 
+/** Reuses compatible route instances and renders the remaining route chain. */
 function _renderChain(chain) {
     try {
         let reuseUntil = 0
@@ -494,6 +528,7 @@ function _renderChain(chain) {
     }
 }
 
+/** Renders one route level into its outlet and schedules nested levels. */
 function _renderFromLevel(chain, level) {
     if (level >= chain.length) return
 
@@ -522,6 +557,7 @@ function _renderFromLevel(chain, level) {
     if (level + 1 < chain.length) _scheduleNextLevel(chain, level + 1)
 }
 
+/** Renders a nested level immediately or waits for its router-view outlet. */
 function _scheduleNextLevel(chain, level) {
     const outlet = _getOutletForLevel(level)
     if (outlet) {
@@ -532,6 +568,7 @@ function _scheduleNextLevel(chain, level) {
     _waitForRouterView(level, () => _renderFromLevel(chain, level))
 }
 
+/** Resolves the DOM outlet belonging to a route nesting level. */
 function _getOutletForLevel(level) {
     if (level === 0) return _rootOutlet
 
@@ -541,6 +578,7 @@ function _getOutletForLevel(level) {
     return parentEntry.outlet.querySelector('[data-router-view]')
 }
 
+/** Waits for a parent component to render its nested router-view outlet. */
 function _waitForRouterView(level, callback) {
     const parentEntry = _activeChain[level - 1]
     if (!parentEntry || !parentEntry.outlet) return
@@ -566,6 +604,7 @@ function _waitForRouterView(level, callback) {
     setTimeout(() => observer.disconnect(), _routerViewTimeout)
 }
 
+/** Compares two consumed URL segment arrays. */
 function _segmentsEqual(a, b) {
     if (a.length !== b.length) return false
     for (let i = 0; i < a.length; i++) {
@@ -574,6 +613,7 @@ function _segmentsEqual(a, b) {
     return true
 }
 
+/** Commits history, rendering, signals, scroll state, and after hooks. */
 function _finalizeNavigation(path, chain, to, from, historyMode, meta = {}) {
     if (historyMode === 'push') window.history.pushState({}, '', path)
     else if (historyMode === 'replace') window.history.replaceState({}, '', path)
@@ -587,6 +627,7 @@ function _finalizeNavigation(path, chain, to, from, historyMode, meta = {}) {
     _runAfterHooks(to, from)
 }
 
+/** Resolves the current browser URL through guards, middleware, and rendering. */
 async function _resolveRoute(_redirectDepth = 0) {
     if (!_rootOutlet || _routes.length === 0) return
     const epoch = _routerEpoch
@@ -639,6 +680,7 @@ async function _resolveRoute(_redirectDepth = 0) {
     _finalizeNavigation(path, chain, to, from, 'none', ctx.meta)
 }
 
+/** Navigates to a path after guards and middleware have approved it. */
 export async function navigate(path, options = {}, _redirectDepth = 0) {
     if (_routes.length === 0 && !_rootOutlet) return
     const epoch = _routerEpoch
@@ -692,11 +734,13 @@ export async function navigate(path, options = {}, _redirectDepth = 0) {
     _resolveRoute()
 }
 
+/** Attaches the router to a root outlet and resolves the initial route. */
 export function mountOutlet(el) {
     _rootOutlet = el
     return _resolveRoute()
 }
 
+/** Reports whether an anchor should be handled by client-side navigation. */
 function _isInternalLink(anchor) {
     const href = anchor.getAttribute('href')
     if (!href) return false
@@ -708,6 +752,7 @@ function _isInternalLink(anchor) {
     return href.startsWith('/')
 }
 
+/** Finds the nearest anchor element represented by a click event. */
 function _getAnchorFromEvent(e) {
     if (e.composedPath) {
         return e.composedPath().find(el => el.tagName === 'A')
@@ -715,6 +760,7 @@ function _getAnchorFromEvent(e) {
     return e.target.tagName === 'A' ? e.target : null
 }
 
+/** Intercepts internal links and delegates them to navigate(). */
 function _handleLinkClick(e) {
     const anchor = _getAnchorFromEvent(e)
     if (!anchor) return
@@ -728,6 +774,7 @@ function _handleLinkClick(e) {
     }
 }
 
+/** Installs browser back/forward handling and returns the listener. */
 function _setupPopstateHandler() {
     const handler = () => {
         _updateRoute()
@@ -737,12 +784,14 @@ function _setupPopstateHandler() {
     return handler
 }
 
+/** Installs delegated document click handling for internal links. */
 function _setupClickHandler() {
     _clickHandler = _handleLinkClick
     document.addEventListener('click', _clickHandler)
     return _clickHandler
 }
 
+/** Resolves the initial route after the DOM is ready. */
 function _setupInitialRoute() {
     if (document.readyState === 'loading') {
         window.addEventListener('DOMContentLoaded', () => {
@@ -757,6 +806,7 @@ function _setupInitialRoute() {
     }
 }
 
+/** Creates a router instance and installs navigation listeners. */
 export function createRouter(routes, options = {}) {
     _routerEpoch++
     if (_initialTimer) {

@@ -3,6 +3,7 @@ export const MUSTACHE_RE = /\{\{\s*(.+?)\s*\}\}/
 const SENSITIVE_ATTRS = ['href', 'src', 'srcset', 'formaction', 'xlink:href', 'data']
 const DANGEROUS_SCHEMES = /^(javascript|data|vbscript|file):/i
 
+/** Evaluates a template expression against context values and safely unwraps signals. */
 export function evaluateExpression(expr, context, extraContext = {}, unwrapSignals = true) {
     const keys = []
     const values = []
@@ -49,6 +50,7 @@ export function evaluateExpression(expr, context, extraContext = {}, unwrapSigna
     }
 }
 
+/** Splits mustache text into static segments and dynamic expression parts. */
 export function parseInterpolation(str) {
     const parts = []
     let i = 0
@@ -140,6 +142,7 @@ export function parseInterpolation(str) {
     return parts
 }
 
+/** Replaces dangerous URL-like attribute schemes with a harmless blank URL. */
 export function sanitizeAttr(name, value) {
     const attrName = name.toLowerCase()
     if (SENSITIVE_ATTRS.includes(attrName)) {

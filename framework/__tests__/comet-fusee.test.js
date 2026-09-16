@@ -27,6 +27,10 @@ beforeAll(async () => {
                 <script id="__FUSEE_DATA__">window.__FUSEE_STATE__ = {"resources":{"userKey":{"1":{"data":{"name":"Alice"},"updatedAt":123456}}}};</script>
             `)
         },
+        'GET /interactive-card': (req, res) => {
+            res.writeHead(200, { 'Content-Type': 'text/html' })
+            res.end('<div id="card" data-bind-class="theme"><p id="label">{{ title }}</p></div>')
+        },
     })
 })
 
@@ -147,6 +151,34 @@ describe('Fusée + Comet Hydration Bridge', () => {
         const hydrated = getHydratedEntries('userKey')
         expect(hydrated).not.toBeNull()
         expect(hydrated.get('1')).toEqual({ data: { name: 'Alice' }, updatedAt: 123456 })
+
+        disable()
+    })
+
+    it('binds reactive attributes dynamically to swapped elements', async () => {
+        const theme = signal('dark-theme')
+        const title = signal('Card Title')
+        const disable = enableFuseeHydration({ context: { theme, title } })
+
+        document.body.innerHTML = `
+            <button id="card-btn" comet-get="${testServer.url}/interactive-card" comet-target="#out" comet-swap="innerHTML"></button>
+            <div id="out"></div>
+        `
+
+        const btn = document.getElementById('card-btn')
+        await comet.performRequest(btn, null)
+
+        const card = document.getElementById('card')
+        const label = document.getElementById('label')
+        expect(card).not.toBeNull()
+        expect(card.className).toContain('dark-theme')
+        expect(label.textContent).toBe('Card Title')
+
+        theme('light-theme')
+        expect(card.className).toContain('light-theme')
+
+        title('Updated Title')
+        expect(label.textContent).toBe('Updated Title')
 
         disable()
     })

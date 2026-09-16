@@ -1,3 +1,4 @@
+/** Finds nested hydration anchors and dynamic elements in a rendered DOM tree. */
 export function findAnchors(root) {
     const anchors = []
     const stack = []
@@ -66,6 +67,7 @@ export function findAnchors(root) {
     return anchors
 }
 
+/** Flattens nested anchor descriptors into document-order entries. */
 export function flattenAnchors(anchors) {
     const out = []
     for (const a of anchors) {
@@ -77,6 +79,7 @@ export function flattenAnchors(anchors) {
     return out
 }
 
+/** Returns the text node immediately inside a text-binding anchor. */
 export function getBoundTextNode(anchor) {
     if (anchor.type !== 'f-bind') return null
     const node = anchor.startNode.nextSibling
@@ -84,6 +87,7 @@ export function getBoundTextNode(anchor) {
     return null
 }
 
+/** Removes every node strictly between two DOM boundary nodes. */
 export function clearBetween(startNode, endNode) {
     let node = startNode.nextSibling
     while (node && node !== endNode) {
@@ -93,6 +97,7 @@ export function clearBetween(startNode, endNode) {
     }
 }
 
+/** Parses HTML into a fragment and inserts it immediately before a boundary node. */
 export function insertHtmlBefore(endNode, html) {
     const doc = endNode.ownerDocument
     const template = doc.createElement('template')

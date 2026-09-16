@@ -29,10 +29,12 @@ export const DELEGATED_EVENTS = new Set([
 const delegatedListeners = new Map()
 const documentListeners = new Map()
 
+/** Reports whether an event type is handled through document delegation. */
 export function isDelegatedEvent(eventName) {
     return DELEGATED_EVENTS.has(eventName.toLowerCase())
 }
 
+/** Installs one capturing document listener for a delegated event type. */
 function ensureDocumentListener(eventType) {
     if (documentListeners.has(eventType)) {
         return
@@ -57,6 +59,7 @@ function ensureDocumentListener(eventType) {
     documentListeners.set(eventType, handler)
 }
 
+/** Registers an element handler in the delegated event registry. */
 export function registerDelegatedEvent(element, eventType, handler, options = {}) {
     const { modifiers = [], context, expr, handlerState } = options
     const normalizedEvent = eventType.toLowerCase()
@@ -104,6 +107,7 @@ export function registerDelegatedEvent(element, eventType, handler, options = {}
     }
 }
 
+/** Builds an event callback with modifier, keyboard, debounce, and throttle behavior. */
 export function createEventHandler(handler, modifiers, context, expr, state = null) {
     const timeoutId = { value: null }
     const throttleTimeoutId = { value: null }

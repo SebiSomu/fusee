@@ -7,6 +7,7 @@ import { currentRoute, navigate } from '../router/router.js'
 
 const customDirectives = new Map()
 
+/** Registers a custom f-* directive definition for later DOM processing. */
 export function directive(name, definition) {
     if (typeof name !== 'string' || !name.trim()) {
         console.error('[framework] directive() requires a non-empty name')
@@ -19,6 +20,7 @@ export function directive(name, definition) {
     customDirectives.set(name, definition)
 }
 
+/** Applies registered custom directive lifecycle hooks to one element. */
 export function processCustomDirectives(el, context, effects) {
     if (el.nodeType !== 1 || !el.hasAttribute || !el.attributes) return
 
@@ -72,6 +74,7 @@ export function processCustomDirectives(el, context, effects) {
     }
 }
 
+/** Runs structural directives first, then ordinary bindings and event processing. */
 export function processDirectives(root, context, components, effects) {
     if (processFor(root, context, components, effects)) return true
     if (processIf(root, context, components, effects)) return true
@@ -91,6 +94,7 @@ export function processDirectives(root, context, components, effects) {
     return false
 }
 
+/** Writes an element reference into a writable signal named by f-ref. */
 export function processRefs(el, context) {
     if (el.nodeType !== 1 || !el.hasAttribute('f-ref')) return
 
@@ -106,6 +110,7 @@ export function processRefs(el, context) {
     }
 }
 
+/** Connects f-model to a writable signal and the element's input event. */
 export function processModel(el, context, effects) {
     if (el.nodeType !== 1 || !el.hasAttribute('f-model')) return
 
@@ -136,6 +141,7 @@ export function processModel(el, context, effects) {
     }
 }
 
+/** Expands f-for into keyed reactive DOM entries for arrays, ranges, or objects. */
 export function processFor(el, context, components, effects) {
     if (el.nodeType !== 1 || !el.hasAttribute('f-for')) return false
 
