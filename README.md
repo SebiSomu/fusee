@@ -16,8 +16,7 @@ Fusée is a custom, high-performance fine-grained reactive JavaScript framework 
 
 ## What's New in 2.1.0
 
-- Finished building the Comet package entirely out and exporting it as a standalone Go module.
-- Finished setting up the dev environment for the new Comet package.
+- Added Comet, Fusée's lightweight HTMX-style HTML-over-the-wire module for making HTTP requests from HTML and updating targeted DOM regions with server-rendered responses. It includes browser-side `comet-*` attributes and a standalone Go integration for Comet-aware server responses.
 
 ---
 
@@ -116,6 +115,65 @@ Once installed at `framework/engine-go`, it:
 - Serves static assets and handles client-side navigation
 
 The engine is a standalone Go module and can also be used independently of the CLI.
+
+---
+
+## Comet HTML-Over-the-Wire Module
+
+Comet keeps interactive behavior close to HTML and HTTP. Elements can issue requests,
+send form values, and replace a selected part of the page with the returned HTML without
+requiring a client-side router or a large client-side state layer.
+
+The browser module uses `comet-*` attributes:
+
+```html
+<button
+  comet-get="/notifications"
+  comet-target="#notifications"
+  comet-swap="innerHTML"
+>
+  Refresh notifications
+</button>
+
+<form comet-post="/profile" comet-target="#profile">
+  <input name="displayName" />
+  <button type="submit">Save</button>
+</form>
+```
+
+Supported request attributes include:
+
+- `comet-get`, `comet-post`, `comet-put`, `comet-patch`, and `comet-delete`
+- `comet-trigger` for events such as `click`, `submit`, `change`, `load`, and polling with `every`
+- `comet-target` and `comet-swap` for selecting the target and controlling the DOM update
+- `comet-vals` and `comet-include` for adding request values
+- `comet-indicator` for loading-state styling and `comet-confirm` for confirmation prompts
+- `comet-push-url` for updating browser history
+- `comet-swap-oob` for updating additional page regions outside the main target
+
+Comet dispatches lifecycle events including `comet:beforeRequest`, `comet:afterRequest`,
+`comet:beforeSwap`, `comet:afterSwap`, `comet:responseError`, and `comet:sendError`.
+Handlers can cancel a request or a swap with `preventDefault()` and can inspect the
+request, response, target, and swap details from the event.
+
+Comet requests include metadata headers so the Go server can distinguish a fragment
+request from a normal page request. The Go integration provides response helpers:
+
+```go
+if comet.IsComet(r) {
+    comet.Retarget(w, "#content")
+    comet.Reswap(w, "outerHTML")
+    comet.PushURL(w, "/profile")
+}
+```
+
+The server can also use `comet.Redirect(w, "/login")`. Comet understands server response
+headers for retargeting, reswapping, redirects, and history updates, and supports
+fragment-aware rendering so the same route can return a focused HTML fragment for Comet
+requests or a complete document for a normal browser visit.
+
+The browser implementation lives in `framework/core/comet-js/`, while the Go helpers live
+in `framework/engine-go/comet/`.
 
 ---
 
@@ -258,6 +316,12 @@ import type {
 Core auto-imports are declared in `framework/auto-imports.d.ts`. Application-owned services, components, stores, actions, router APIs, utilities, and types should be imported explicitly.
 
 ---
+
+## Comet
+
+Fusee SSR module has a special package too - Comet: a HTMX-style package which is intended to be used in SSR-only builds to swap html content without a full page reload. It uses the same reactivity engine as the core engine, so you can use signals, computed, and effects in your Comet components too.
+
+It can be installed from the CLI after installing the SSR engine (default: not installed).
 
 ## Performance Benchmarks
 
