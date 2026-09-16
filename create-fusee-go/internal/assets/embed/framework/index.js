@@ -11,6 +11,8 @@ import * as storeModule from './core/store.js'
 import * as directivesModule from './core/directives.js'
 import * as reconcileModule from './core/reconcile.js'
 import * as actionsModule from './server/actions.js'
+import * as appRegistryModule from './core/app-registry.js'
+import * as pluginsModule from './core/plugins.js'
 
 export const emit = () => console.warn('[framework] emit() can only be used inside component setup()')
 
@@ -26,6 +28,8 @@ export { defineStore, resetStore, clearStores, registerStorePlugin, storeToRefs,
 export { directive } from './core/directives.js'
 export { reconcile } from './core/reconcile.js'
 export { defineAction, createActionProxy, useAction } from './server/actions.js'
+export { createApp, App } from './core/app-registry.js'
+export { defineCompilerPlugin, defineServerPlugin, defineDevToolsPlugin, defineRuntimeAdapter, defineFuseePlugin } from './core/plugins.js'
 
 if (typeof globalThis !== 'undefined') {
     Object.assign(globalThis, {
@@ -41,7 +45,8 @@ if (typeof globalThis !== 'undefined') {
         ...directivesModule,
         ...reconcileModule,
         ...actionsModule,
+        ...appRegistryModule,
+        ...pluginsModule,
         emit
     })
 }
-

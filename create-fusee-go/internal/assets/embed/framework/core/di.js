@@ -1,202 +1,226 @@
 export class InjectionToken {
-    /** Creates a distinct dependency token with a readable diagnostic description. */
     constructor(description) {
-        this.description = description;
+        this.description = description
     }
-    /** Returns the token's diagnostic label. */
     toString() {
-        return `InjectionToken ${this.description}`;
+        return `Token ${this.description}`
     }
 }
 
-/** Reports whether a value can be used as a constructable class provider. */
 export function isClass(fn) {
-    if (typeof fn !== 'function') return false;
-    const str = fn.toString();
-    if (/^\s*class\s+/.test(str)) return true;
-    return fn.prototype !== undefined && 
-           fn.prototype.constructor === fn && 
-           Object.getOwnPropertyNames(fn.prototype).length > 1;
+    return typeof fn === 'function' && /^class\s/.test(Function.prototype.toString.call(fn))
 }
 
 export class Injector {
-    /** Defines the lookup contract implemented by concrete injectors. */
-    get(token, options = { optional: false }) {
-        throw new Error('Not implemented');
+    get(token, options = {}) {
+        throw new Error('Abstract method get() must be implemented.')
     }
 }
 
 export class NullInjector extends Injector {
-    /** Returns null for optional lookups or throws a missing-provider error. */
-    get(token, options = { optional: false }) {
-        if (options.optional) {
-            return null;
+    get(token, options = {}) {
+        if (options && options.optional) {
+            return null
         }
-        const tokenName = token?.name || token?.description || token;
-        throw new Error(`NullInjectorError: No provider for ${tokenName}!`);
+        const tokenName = token?.name || token?.description || String(token)
+        throw new Error(`NullInjectorError: No provider found for ${tokenName}`)
     }
 }
 
-const NULL_INJECTOR = new NullInjector();
-
 export class EnvironmentInjector extends Injector {
-    /** Creates a hierarchical injector and normalizes its initial providers. */
-    constructor(providers = [], parent = NULL_INJECTOR) {
-        super();
-        this.parent = parent;
-        this.records = new Map(); 
-        this.instances = new Map(); 
-        this.resolutionStack = new Set(); 
-        this._normalizeProviders(providers);
-    }
+    constructor(providers = [], parent = new NullInjector()) {
+        super()
+        this.parent = parent
+        this.records = new Map()
+        this.instances = new Map()
+        this.resolutionStack = new Set()
 
-    /** Converts shorthand classes and provider records into lookup records. */
-    _normalizeProviders(providers) {
         for (const provider of providers) {
-            if (typeof provider === 'function' && isClass(provider)) {
-                this.records.set(provider, { useClass: provider });
-            } else if (provider && provider.provide) {
-                this.records.set(provider.provide, provider);
-            } else {
-                throw new Error(`Invalid provider configuration: ${provider}`);
-            }
+            this.provide(provider)
         }
     }
 
-    /** Adds one provider to this injector. */
     provide(provider) {
-        this._normalizeProviders([provider]);
+        let token
+        let record
+
+        if (typeof provider === 'function') {
+            token = provider
+            record = { useClass: provider }
+        } else if (provider && typeof provider === 'object' && provider.provide) {
+            token = provider.provide
+            record = provider
+        } else {
+            throw new Error('Invalid provider definition.')
+        }
+
+        this.records.set(token, record)
     }
 
-    /** Resolves a cached, local, or parent-provided dependency. */
-    get(token, options = { optional: false }) {
+    get(token, options = {}) {
+        if (options.skipSelf) {
+            return this.parent ? this.parent.get(token, { ...options, skipSelf: false }) : null
+        }
+
         if (this.instances.has(token)) {
-            return this.instances.get(token);
+            return this.instances.get(token)
         }
 
         if (this.records.has(token)) {
             if (this.resolutionStack.has(token)) {
-                const path = [...this.resolutionStack, token]
-                    .map(t => t?.name || t?.description || t)
-                    .join(' -> ');
-                throw new Error(`Circular dependency detected: ${path}`);
+                const path = [...Array.from(this.resolutionStack).map(t => t.name || t.description || String(t)), token.name || token.description || String(token)].join(' -> ')
+                throw new Error(`Circular dependency detected: ${path}`)
             }
 
-            this.resolutionStack.add(token);
-
+            this.resolutionStack.add(token)
             try {
-                const record = this.records.get(token);
-                const instance = this._instantiate(record);
-                this.instances.set(token, instance);
-                return instance;
+                const record = this.records.get(token)
+                let instance
+
+                if ('useValue' in record) {
+                    instance = record.useValue
+                } else if ('useClass' in record) {
+                    instance = runInContext(this, () => new record.useClass())
+                } else if ('useFactory' in record) {
+                    instance = runInContext(this, () => record.useFactory())
+                } else if ('useExisting' in record) {
+                    instance = this.get(record.useExisting, options)
+                }
+
+                this.instances.set(token, instance)
+                return instance
             } finally {
-                this.resolutionStack.delete(token);
+                this.resolutionStack.delete(token)
             }
         }
 
-        if (options.self === true) {
-            if (options.optional === true) {
-                return null;
-            }
-            const tokenName = token?.name || token?.description || token;
-            throw new Error(`NullInjectorError: No provider found for ${tokenName} locally (self: true)`);
+        if (options.self) {
+            if (options.optional) return null
+            const tokenName = token?.name || token?.description || String(token)
+            throw new Error(`NullInjectorError: No provider found for ${tokenName} locally`)
         }
 
-        return this.parent.get(token, options);
+        return this.parent.get(token, options)
     }
 
-    /** Instantiates a provider record inside this injector's active context. */
-    _instantiate(record) {
-        return runInContext(this, () => {
-            if (record.useValue !== undefined) {
-                return record.useValue;
-            }
-            if (record.useFactory) {
-                return record.useFactory();
-            }
-            if (record.useExisting) {
-                return inject(record.useExisting);
-            }
-            if (record.useClass) {
-                const ClassDef = record.useClass;
-                return new ClassDef();
-            }
-            throw new Error(`Invalid provider record configuration for ${record.provide?.name || record.provide}`);
-        });
-    }
-
-    /** Creates a child injector that falls back to this injector. */
     createChild(providers = []) {
-        return new EnvironmentInjector(providers, this);
+        return new EnvironmentInjector(providers, this)
     }
 
-    /** Calls lifecycle cleanup hooks and releases this injector's records. */
     destroy() {
         for (const instance of this.instances.values()) {
             if (instance && typeof instance.destroy === 'function') {
-                try {
-                    instance.destroy();
-                } catch (e) {
-                    console.error('Error during instance destroy:', e);
-                }
+                instance.destroy()
             } else if (instance && typeof instance.onDestroy === 'function') {
-                try {
-                    instance.onDestroy();
-                } catch (e) {
-                    console.error('Error during instance onDestroy:', e);
-                }
+                instance.onDestroy()
             }
         }
-        this.instances.clear();
-        this.records.clear();
+        this.instances.clear()
+        this.records.clear()
     }
 }
 
-let _activeInjector = null;
+export const rootInjector = new EnvironmentInjector()
 
-/** Runs a callback with the supplied injector as the active lookup context. */
-export function runInContext(injector, fn) {
-    const previousInjector = _activeInjector;
-    _activeInjector = injector;
-    try {
-        return fn();
-    } finally {
-        _activeInjector = previousInjector;
-    }
-}
-
-/** Replaces the active injector for integrations that manage context themselves. */
-export function replaceActiveInjector(injector) {
-    _activeInjector = injector;
-}
-
-/** Resolves a dependency from the active injector using optionality and scope rules. */
-export function inject(token, options = {}) {
-    if (_activeInjector === null) {
-        throw new Error('inject() called outside of an injection context');
-    }
-
-    const isOptional = options.optional === true;
-    const skipSelf = options.skipSelf === true;
-    const self = options.self === true;
-
-    if (skipSelf && self) {
-        throw new Error('Cannot combine both skipSelf and self InjectOptions');
-    }
-
-    const injectorToUse = skipSelf ? _activeInjector.parent : _activeInjector;
-
-    if (!injectorToUse) {
-        if (isOptional) return null;
-        throw new Error(`NullInjectorError: No provider found for ${token?.name || token}`);
-    }
-
-    return injectorToUse.get(token, options);
-}
-
-export const rootInjector = new EnvironmentInjector();
-
-/** Registers a provider on the process-wide root injector. */
 export function provideGlobal(provider) {
-    rootInjector.provide(provider);
+    rootInjector.provide(provider)
+}
+
+let activeInjector = null
+
+export function runInContext(injector, fn) {
+    const prev = activeInjector
+    activeInjector = injector
+    try {
+        return fn()
+    } finally {
+        activeInjector = prev
+    }
+}
+
+export function replaceActiveInjector(injector) {
+    const prev = activeInjector
+    activeInjector = injector
+    return prev
+}
+
+function getActiveComponentInstance() {
+    if (typeof globalThis.__FUSEE_GET_CURRENT_INSTANCE__ === 'function') {
+        return globalThis.__FUSEE_GET_CURRENT_INSTANCE__()
+    }
+    return null
+}
+
+export function inject(token, defaultValueOrOptions, treatDefaultAsFactory = false) {
+    const currentInstance = getActiveComponentInstance()
+
+    if (!currentInstance && !activeInjector) {
+        throw new Error('inject() called outside of an injection context')
+    }
+
+    let isOptionsObj = false
+    let options = {}
+    let hasDefault = false
+    let defaultValue = undefined
+
+    if (defaultValueOrOptions !== undefined) {
+        if (typeof defaultValueOrOptions === 'object' && defaultValueOrOptions !== null &&
+            ('optional' in defaultValueOrOptions || 'skipSelf' in defaultValueOrOptions || 'self' in defaultValueOrOptions)) {
+            isOptionsObj = true
+            options = defaultValueOrOptions
+        } else {
+            hasDefault = true
+            defaultValue = defaultValueOrOptions
+        }
+    }
+
+    if (isOptionsObj && options.skipSelf && options.self) {
+        throw new Error('Cannot combine both skipSelf and self')
+    }
+
+    if (currentInstance) {
+        let targetProvides = currentInstance.provides
+
+        if (options.skipSelf && targetProvides) {
+            targetProvides = Object.getPrototypeOf(targetProvides)
+        }
+
+        if (options.self && currentInstance.provides) {
+            if (Object.prototype.hasOwnProperty.call(currentInstance.provides, token)) {
+                return currentInstance.provides[token]
+            }
+            if (options.optional) return null
+            const tokenName = token?.name || token?.description || String(token)
+            throw new Error(`NullInjectorError: No provider found for ${tokenName} locally`)
+        }
+
+        if (targetProvides && token in targetProvides) {
+            const val = targetProvides[token]
+
+            if (val && typeof val === 'object' && ('useValue' in val || 'useClass' in val || 'useFactory' in val || 'useExisting' in val)) {
+                if ('useValue' in val) return val.useValue
+                if ('useClass' in val) return new val.useClass()
+                if ('useFactory' in val) return val.useFactory()
+                if ('useExisting' in val) return inject(val.useExisting, defaultValueOrOptions, treatDefaultAsFactory)
+            }
+
+            return val
+        }
+    }
+
+    const injector = activeInjector || (currentInstance ? currentInstance._injector : rootInjector)
+
+    try {
+        return injector.get(token, options)
+    } catch (err) {
+        if (hasDefault) {
+            return treatDefaultAsFactory && typeof defaultValue === 'function' 
+                ? defaultValue() 
+                : defaultValue
+        }
+        if (options.optional && err.message && err.message.includes('NullInjectorError')) {
+            return null
+        }
+        throw err
+    }
 }

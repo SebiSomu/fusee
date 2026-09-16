@@ -5,7 +5,7 @@
 <h1 align="center">Fusée Framework</h1>
 
 <p align="center">
-  <strong>v2.1.2 — Signals-First JS Framework | Atomic Reactivity | Rust Compiler | Go Toolchain</strong>
+  <strong>v2.2.0 — Signals-First JS Framework | Atomic Reactivity | Rust Compiler | Go Toolchain</strong>
 </p>
 
 <br />
@@ -14,11 +14,9 @@ Fusée is a custom, high-performance fine-grained reactive JavaScript framework 
 
 ---
 
-## What's New in 2.1.2
+## What's New in 2.2.0
 
-- Added Comet, Fusée's lightweight HTMX-style HTML-over-the-wire module for making HTTP requests from HTML and updating targeted DOM regions with server-rendered responses. It includes browser-side `comet-*` attributes and a standalone Go integration for Comet-aware server responses (2.1.0);
-- Added specific TS Types for Comet API (2.1.1);
-- Added much-needed phase 3 for Comet - Reactive Hydration & Component Activation support.
+- Custom plugins API embedded (Vue-Style)
 
 ---
 
@@ -247,6 +245,7 @@ export const Welcome = defineComponent({
 - **Full TypeScript Support** — Comprehensive `.d.ts` types for all framework primitives
 - **Vite Integration** — Full HMR support and production build pipeline
 - **Memory Safety** — Automatic effect disposal and explicit leak checks
+- **Custom Plugins API** — Vue-style `app.use()` hooks for shared extensions
 
 ---
 

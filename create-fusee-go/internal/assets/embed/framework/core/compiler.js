@@ -12,12 +12,16 @@ export function mountTemplate(template, container, context, components) {
     const effects = []
     let processed = template.replace(/(<[a-zA-Z0-9-]+\s[^>]*?)\s:([a-zA-Z][a-zA-Z0-9-]*)=/g, '$1 data-bind-$2=')
 
+    // Lower component tags before the browser parses the template as HTML.
+    processed = transformComponentTags(processed, components)
+
     for (const name of Object.keys(components)) {
+        const escapedName = escapeRegExp(name)
         const reWithSlot = new RegExp(
-            `\\{\\{\\s*${name}(\\s[^}]*?|\\s*)\\}\\}([\\s\\S]*?)\\{\\{\\s*\\/${name}\\s*\\}\\}`,
+            `\\{\\{\\s*${escapedName}(\\s[^}]*?|\\s*)\\}\\}([\\s\\S]*?)\\{\\{\\s*\\/${escapedName}\\s*\\}\\}`,
             'g'
         )
-        const reNoSlot = new RegExp(`\\{\\{\\s*${name}(\\s+.*?|\\s*)\\}\\}`, 'g')
+        const reNoSlot = new RegExp(`\\{\\{\\s*${escapedName}(\\s+.*?|\\s*)\\}\\}`, 'g')
 
         processed = processed.replace(reWithSlot, (match, propsStr, slotContent) => {
             const attrs = parseComponentAttrs(propsStr || '')
@@ -35,6 +39,40 @@ export function mountTemplate(template, container, context, components) {
     compileNode(container, context, components, effects)
 
     return { effects }
+}
+
+function transformComponentTags(template, components) {
+    let processed = template
+    const componentNames = Object.keys(components).sort((a, b) => b.length - a.length)
+
+    for (const name of componentNames) {
+        const escapedName = escapeRegExp(name)
+        const withChildren = new RegExp(
+            `<${escapedName}(\\s[^>]*)?>([\\s\\S]*?)<\\/${escapedName}\\s*>`,
+            'gi'
+        )
+        const selfClosing = new RegExp(
+            `<${escapedName}(\\s[^>]*?)?\\s*/>`,
+            'gi'
+        )
+
+        processed = processed.replace(withChildren, (match, propsStr, slotContent) => {
+            const attrs = parseComponentAttrs(propsStr || '')
+            const encodedSlot = encodeURIComponent(slotContent.trim())
+            return `<div data-component="${name}"${attrs} data-slot="${encodedSlot}"></div>`
+        })
+
+        processed = processed.replace(selfClosing, (match, propsStr) => {
+            const attrs = parseComponentAttrs(propsStr || '')
+            return `<div data-component="${name}"${attrs}></div>`
+        })
+    }
+
+    return processed
+}
+
+function escapeRegExp(value) {
+    return value.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')
 }
 
 function parseComponentAttrs(propsStr) {
