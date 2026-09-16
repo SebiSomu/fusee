@@ -194,15 +194,20 @@ export function defineComponent(options) {
 
         const emit = createEmit(listeners)
 
+        const previousInstance = currentInstance
         currentInstance = instance
-        const result = runInContext(instance._injector, () => {
-            return options.setup ? options.setup(instance.props, { emit, slots }) : {}
-        })
-        instance.state = result
-        if (result && typeof result === 'object') {
-            result._instance = instance
+        let result
+        try {
+            result = runInContext(instance._injector, () => {
+                return options.setup ? options.setup(instance.props, { emit, slots }) : {}
+            })
+            instance.state = result
+            if (result && typeof result === 'object') {
+                result._instance = instance
+            }
+        } finally {
+            currentInstance = previousInstance
         }
-        currentInstance = null
 
         function render(container) {
             const prevInstance = currentInstance
@@ -298,7 +303,9 @@ export function defineAsyncComponent(loaderOrOptions) {
     return function AsyncComponentFactory(props = {}, { listeners = {}, slots = {}, parent = null } = {}) {
         const effectiveParent = parent || currentInstance
         const parentInjector = (effectiveParent && effectiveParent._injector) || rootInjector
-        const parentProvides = effectiveParent ? effectiveParent.provides : null
+        const parentProvides = effectiveParent
+            ? (effectiveParent.provides || effectiveParent._provides || null)
+            : null
         const parentApp = effectiveParent ? effectiveParent._app : null
         const parentComponents = effectiveParent ? effectiveParent._components : (parentApp ? parentApp._components : {})
 
@@ -393,14 +400,19 @@ export function inject(key, defaultValue, options) {
 
     if (instance && instance.provides && key in instance.provides) {
         const val = instance.provides[key]
-        
-        if (val && typeof val === 'object' && ('useClass' in val || 'useFactory' in val || 'useExisting' in val)) {
-            return instance._injector.get(key, actualOptions)
+
+        // Token-only providers are registered in the injector and leave an
+        // undefined marker in the component provides prototype.
+        const isTokenProvider = key && typeof key === 'object' && key.provide
+        if (val !== undefined || !isTokenProvider) {
+            if (val && typeof val === 'object' && ('useClass' in val || 'useFactory' in val || 'useExisting' in val)) {
+                return instance._injector.get(key, actualOptions)
+            }
+            if (val && typeof val === 'object' && 'useValue' in val) {
+                return val.useValue
+            }
+            return val
         }
-        if (val && typeof val === 'object' && 'useValue' in val) {
-            return val.useValue
-        }
-        return val
     }
 
     try {
