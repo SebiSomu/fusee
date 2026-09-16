@@ -10,6 +10,7 @@ export async function pipeToNodeResponse(webStream, res, opts = {}) {
     res.writeHead(opts.status ?? 200, headers)
 
     const reader = webStream.getReader()
+    reader.closed.catch(() => {})
     try {
         while (true) {
             const { done, value } = await reader.read()

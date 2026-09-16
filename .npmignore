@@ -32,3 +32,7 @@ npm_recovery_codes.txt
 
 **/compiler-legacy/
 **/server-legacy/
+
+# Go test files
+comet-test.go
+*_test.go

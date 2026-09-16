@@ -20,6 +20,8 @@ let _beforeEachGuards = []
 let _afterEachGuards = []
 let _globalMiddleware = []
 let _errorHandlers = []
+let _routerEpoch = 0
+let _initialTimer = null
 const _MAX_REDIRECTS = 10
 
 function _getPath() {
@@ -587,6 +589,7 @@ function _finalizeNavigation(path, chain, to, from, historyMode, meta = {}) {
 
 async function _resolveRoute(_redirectDepth = 0) {
     if (!_rootOutlet || _routes.length === 0) return
+    const epoch = _routerEpoch
 
     const path = _getPath()
     const chain = _findMatchingChain(path)
@@ -604,6 +607,7 @@ async function _resolveRoute(_redirectDepth = 0) {
 
     const to = _buildToLocation(path, chain)
     const result = await _runAllGuards(to, from, chain)
+    if (epoch !== _routerEpoch) return
 
     if (result.type === 'cancel') {
         if (fromFullPath !== null && fromFullPath !== path) {
@@ -630,12 +634,15 @@ async function _resolveRoute(_redirectDepth = 0) {
         _reportMiddlewareError(err, to, from)
         return
     }
-    if (!completed) return
+    if (epoch !== _routerEpoch || !completed) return
 
     _finalizeNavigation(path, chain, to, from, 'none', ctx.meta)
 }
 
 export async function navigate(path, options = {}, _redirectDepth = 0) {
+    if (_routes.length === 0 && !_rootOutlet) return
+    const epoch = _routerEpoch
+
     const currentFullPath = _getPath()
     const currentPathOnly = currentFullPath.split(/[?#]/)[0]
     const targetPathOnly = path.split(/[?#]/)[0]
@@ -651,6 +658,7 @@ export async function navigate(path, options = {}, _redirectDepth = 0) {
         const to = _buildToLocation(path, chain)
         const from = _buildFromLocation(currentFullPath)
         const result = await _runAllGuards(to, from, chain)
+        if (epoch !== _routerEpoch) return
 
         if (result.type === 'cancel') return
 
@@ -671,7 +679,7 @@ export async function navigate(path, options = {}, _redirectDepth = 0) {
             _reportMiddlewareError(err, to, from)
             return
         }
-        if (!completed) return
+        if (epoch !== _routerEpoch || !completed) return
 
         _saveScrollPosition(currentFullPath)
         _finalizeNavigation(path, chain, to, from, options.replace ? 'replace' : 'push', ctx.meta)
@@ -742,18 +750,32 @@ function _setupInitialRoute() {
             _resolveRoute()
         }, { once: true })
     } else {
-        setTimeout(() => {
-            if (_activeChain.length === 0) _resolveRoute()
+        const epoch = _routerEpoch
+        _initialTimer = setTimeout(() => {
+            if (epoch === _routerEpoch && _activeChain.length === 0) _resolveRoute()
         }, 0)
     }
 }
 
 export function createRouter(routes, options = {}) {
+    _routerEpoch++
+    if (_initialTimer) {
+        clearTimeout(_initialTimer)
+        _initialTimer = null
+    }
     _routes = routes
     _activeChain = []
+    _currentPath = null
     _cacheMaxSize = options.cacheSize || 100
     _routerViewTimeout = options.routerViewTimeout || 10000
     _scrollBehaviorOptions = options.scrollBehavior || null
+    _clearRouteCache()
+
+    currentRoute._clearSubscribers?.()
+    routeParams._clearSubscribers?.()
+    routeQuery._clearSubscribers?.()
+    matchedRoutes._clearSubscribers?.()
+    routeMeta._clearSubscribers?.()
 
     _updateRoute()
 
@@ -764,6 +786,11 @@ export function createRouter(routes, options = {}) {
     return {
         navigate,
         destroy() {
+            _routerEpoch++
+            if (_initialTimer) {
+                clearTimeout(_initialTimer)
+                _initialTimer = null
+            }
             window.removeEventListener('popstate', popstateHandler)
             document.removeEventListener('click', _clickHandler)
             _unmountFromLevel(0)
@@ -778,6 +805,11 @@ export function createRouter(routes, options = {}) {
             _afterEachGuards = []
             _globalMiddleware = []
             _errorHandlers = []
+            currentRoute._clearSubscribers?.()
+            routeParams._clearSubscribers?.()
+            routeQuery._clearSubscribers?.()
+            matchedRoutes._clearSubscribers?.()
+            routeMeta._clearSubscribers?.()
         }
     }
 }

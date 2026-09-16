@@ -506,11 +506,12 @@ describe('wireElement + process — real trigger events', () => {
         const input = document.querySelector('input')
         comet.process(document.body)
 
+        const afterReq = waitForEvent(input, 'afterRequest')
         input.dispatchEvent(new window.Event('keyup'))
         input.dispatchEvent(new window.Event('keyup'))
         input.dispatchEvent(new window.Event('keyup'))
 
-        await new Promise(r => setTimeout(r, 80))
+        await afterReq
         expect(hitCount).toBe(1)
 
         await server4.close()
@@ -529,12 +530,13 @@ describe('wireElement + process — real trigger events', () => {
         document.body.innerHTML = `<div id="poller" comet-get="${server5.url}/poll" comet-target="#out" comet-trigger="every 20ms"></div><div id="out"></div>`
         comet.process(document.body)
 
-        await new Promise(r => setTimeout(r, 65))
+        await new Promise(r => setTimeout(r, 120))
         expect(hitCount).toBeGreaterThanOrEqual(2)
 
         document.getElementById('poller').remove()
+        await new Promise(r => setTimeout(r, 40))
         const countAtRemoval = hitCount
-        await new Promise(r => setTimeout(r, 60))
+        await new Promise(r => setTimeout(r, 80))
         expect(hitCount).toBe(countAtRemoval)
 
         await server5.close()

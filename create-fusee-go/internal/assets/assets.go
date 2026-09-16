@@ -41,7 +41,7 @@ func CopyEmbeddedDir(srcDir, destDir string, keepTypes bool) error {
 
 		parts := strings.Split(relPath, "/")
 		for _, part := range parts {
-			if part == "bin" || part == "node_modules" || part == ".git" || part == "dist" || part == "__tests__" || part == "target" || part == ".idea" || part == ".cargo" {
+			if part == "bin" || part == "node_modules" || part == ".git" || part == "dist" || part == "__tests__" || part == "target" || part == ".idea" || part == ".cargo" || part == "comet-js" || part == "comet" {
 				return nil
 			}
 		}
@@ -85,15 +85,15 @@ func WriteTemplate(tmplPath, destPath string, config Config) error {
 }
 
 // CopyEngineGo installs the embedded Go SSR engine into destDir (typically framework/engine-go).
-// This is intentionally NOT called during project init — it is only used by `fusee add server`.
-func CopyEngineGo(destDir string) error {
+// If includeComet is false, the optional comet Go package is skipped.
+func CopyEngineGo(destDir string, includeComet bool) error {
 	const srcDir = "embed/engine-go"
 
 	if err := os.MkdirAll(destDir, 0755); err != nil {
 		return err
 	}
 
-	return fs.WalkDir(EmbeddedEngineGo, srcDir, func(path string, d fs.DirEntry, err error) error {
+	err := fs.WalkDir(EmbeddedEngineGo, srcDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -102,6 +102,11 @@ func CopyEngineGo(destDir string) error {
 		relPath = strings.TrimPrefix(relPath, "/")
 
 		if relPath == "" {
+			return nil
+		}
+
+		// Skip comet Go package if not requested
+		if !includeComet && (strings.HasPrefix(relPath, "comet") || strings.Contains(relPath, "/comet")) {
 			return nil
 		}
 
@@ -121,4 +126,83 @@ func CopyEngineGo(destDir string) error {
 		}
 		return os.WriteFile(destPath, data, 0644)
 	})
+	if err != nil {
+		return err
+	}
+
+	if includeComet {
+		cometJSDest := filepath.Join(filepath.Dir(destDir), "core", "comet-js")
+		return CopyCometJS(cometJSDest)
+	}
+
+	return nil
 }
+
+// CopyCometJS copies the standalone Comet JavaScript runtime into destDir.
+func CopyCometJS(destDir string) error {
+	const srcDir = "embed/framework/core/comet-js"
+
+	if err := os.MkdirAll(destDir, 0755); err != nil {
+		return err
+	}
+
+	return fs.WalkDir(EmbeddedFiles, srcDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		relPath := strings.TrimPrefix(path, srcDir)
+		relPath = strings.TrimPrefix(relPath, "/")
+
+		if relPath == "" {
+			return nil
+		}
+
+		destPath := filepath.Join(destDir, filepath.FromSlash(relPath))
+
+		if d.IsDir() {
+			return os.MkdirAll(destPath, 0755)
+		}
+
+		data, err := EmbeddedFiles.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		return os.WriteFile(destPath, data, 0644)
+	})
+}
+
+// CopyCometGo copies the Comet Go package helpers into destDir.
+func CopyCometGo(destDir string) error {
+	const srcDir = "embed/engine-go/comet"
+
+	if err := os.MkdirAll(destDir, 0755); err != nil {
+		return err
+	}
+
+	return fs.WalkDir(EmbeddedEngineGo, srcDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		relPath := strings.TrimPrefix(path, srcDir)
+		relPath = strings.TrimPrefix(relPath, "/")
+
+		if relPath == "" {
+			return nil
+		}
+
+		destPath := filepath.Join(destDir, filepath.FromSlash(relPath))
+
+		if d.IsDir() {
+			return os.MkdirAll(destPath, 0755)
+		}
+
+		data, err := EmbeddedEngineGo.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		return os.WriteFile(destPath, data, 0644)
+	})
+}
+

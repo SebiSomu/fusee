@@ -5,8 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"fusee/dispatcher"
-	"fusee/router"
+	engine "fusee"
 )
 
 func TestIsComet(t *testing.T) {
@@ -27,11 +26,8 @@ func TestIsComet(t *testing.T) {
 }
 
 func TestIsComet_CaseInsensitiveHeaderLookup(t *testing.T) {
-	// Go's http.Header canonicalizes on Set, and Header.Get looks up via
-	// the same canonicalization — verifies this holds for our exact
-	// header name, not just in the abstract.
 	r := httptest.NewRequest(http.MethodGet, "/x", nil)
-	r.Header.Set("comet-request", "true") // lowercase, as a raw client might send it
+	r.Header.Set("comet-request", "true")
 	if !IsComet(r) {
 		t.Fatal("expected header lookup to be case-insensitive")
 	}
@@ -86,11 +82,6 @@ func TestRedirect_SetsHeaderWithoutForcingAStatusCode(t *testing.T) {
 	if w.Header().Get("Comet-Redirect") != "/elsewhere" {
 		t.Fatalf("got %q", w.Header().Get("Comet-Redirect"))
 	}
-	// Redirect() must NOT itself call WriteHeader with a 3xx — verifies
-	// the documented contract (a real 3xx would be auto-followed by
-	// comet.js's fetch() before the header is ever inspected client-side,
-	// silently breaking this feature). httptest.NewRecorder defaults
-	// Code to 200 until something calls WriteHeader.
 	if w.Code != http.StatusOK {
 		t.Fatalf("Redirect() must not set a redirect status itself, got %d", w.Code)
 	}
@@ -99,7 +90,7 @@ func TestRedirect_SetsHeaderWithoutForcingAStatusCode(t *testing.T) {
 func TestRedirect_ComposesWithA2xxStatusSetByTheCaller(t *testing.T) {
 	w := httptest.NewRecorder()
 	Redirect(w, "/elsewhere")
-	w.WriteHeader(http.StatusOK) // what a real handler would do
+	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(""))
 
 	if w.Code != http.StatusOK {
@@ -112,11 +103,11 @@ func TestRedirect_ComposesWithA2xxStatusSetByTheCaller(t *testing.T) {
 
 func TestFragmentAware_RoutesToFragmentForACometRequest(t *testing.T) {
 	var called string
-	fragment := func(w http.ResponseWriter, r *http.Request, route *router.Route, params map[string]string, data any) {
+	fragment := func(w http.ResponseWriter, r *http.Request, route *engine.Route, params map[string]string, data any) {
 		called = "fragment"
 		w.WriteHeader(http.StatusOK)
 	}
-	fullPage := func(w http.ResponseWriter, r *http.Request, route *router.Route, params map[string]string, data any) {
+	fullPage := func(w http.ResponseWriter, r *http.Request, route *engine.Route, params map[string]string, data any) {
 		called = "fullPage"
 		w.WriteHeader(http.StatusOK)
 	}
@@ -135,16 +126,16 @@ func TestFragmentAware_RoutesToFragmentForACometRequest(t *testing.T) {
 
 func TestFragmentAware_RoutesToFullPageForADirectVisit(t *testing.T) {
 	var called string
-	fragment := func(w http.ResponseWriter, r *http.Request, route *router.Route, params map[string]string, data any) {
+	fragment := func(w http.ResponseWriter, r *http.Request, route *engine.Route, params map[string]string, data any) {
 		called = "fragment"
 	}
-	fullPage := func(w http.ResponseWriter, r *http.Request, route *router.Route, params map[string]string, data any) {
+	fullPage := func(w http.ResponseWriter, r *http.Request, route *engine.Route, params map[string]string, data any) {
 		called = "fullPage"
 	}
 
 	renderFn := FragmentAware(fragment, fullPage)
 
-	r := httptest.NewRequest(http.MethodGet, "/x", nil) // no Comet-Request header
+	r := httptest.NewRequest(http.MethodGet, "/x", nil)
 	w := httptest.NewRecorder()
 	renderFn(w, r, nil, nil, nil)
 
@@ -154,11 +145,7 @@ func TestFragmentAware_RoutesToFullPageForADirectVisit(t *testing.T) {
 }
 
 func TestFragmentAware_IntegratesWithARealDispatcher(t *testing.T) {
-	// End-to-end through the actual dispatcher, not just calling the
-	// returned RenderFunc directly — proves FragmentAware's return
-	// value really does satisfy dispatcher.RenderFunc and works when
-	// wired into a real request/route match.
-	module := &dispatcher.Module{
+	module := &engine.Module{
 		Load: func(params map[string]string, query map[string][]string, r *http.Request) (any, error) {
 			return "loaded-data", nil
 		},
@@ -166,20 +153,20 @@ func TestFragmentAware_IntegratesWithARealDispatcher(t *testing.T) {
 
 	var gotComet bool
 	renderFn := FragmentAware(
-		func(w http.ResponseWriter, r *http.Request, route *router.Route, params map[string]string, data any) {
+		func(w http.ResponseWriter, r *http.Request, route *engine.Route, params map[string]string, data any) {
 			gotComet = true
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte("fragment:" + data.(string)))
 		},
-		func(w http.ResponseWriter, r *http.Request, route *router.Route, params map[string]string, data any) {
+		func(w http.ResponseWriter, r *http.Request, route *engine.Route, params map[string]string, data any) {
 			gotComet = false
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte("<html>full:" + data.(string) + "</html>"))
 		},
 	)
 
-	d := dispatcher.New(dispatcher.Config{
-		Routes: []*router.Route{router.Compile("/page", module)},
+	d := engine.NewDispatcher(engine.Config{
+		Routes: []*engine.Route{engine.Compile("/page", module)},
 		Render: renderFn,
 	})
 

@@ -90,6 +90,7 @@ export function signal(initialValue) {
     }
 
     accessor.isSignal = true
+    accessor._clearSubscribers = () => subscribers.clear()
 
     if (Array.isArray(initialValue)) {
         addMutatingArrayMethods(accessor)

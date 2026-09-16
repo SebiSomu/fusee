@@ -17,6 +17,7 @@ class FakeNodeResponse extends Writable {
         this.statusCode = null
         this.headers = null
         this.destroyedWith = null
+        this.on('error', () => {})
     }
     writeHead(status, headers) {
         this.statusCode = status
@@ -29,22 +30,12 @@ class FakeNodeResponse extends Writable {
 }
 
 function fakeReadableStream(chunks, { failAfter } = {}) {
-    // Signals failure by THROWING from pull() rather than calling
-    // controller.error() ourselves — per the WHATWG streams spec, a
-    // thrown/rejected pull() is the underlying source's documented way
-    // to signal failure, and the implementation calls controller.error()
-    // on our behalf. Calling controller.error() directly (tried in both
-    // pull() and start() forms) reproducibly triggered a spurious
-    // "unhandled error" in Node's webstreams implementation even though
-    // pipeToNodeResponse correctly caught and handled the resulting
-    // rejection every time — a real, verified Node quirk, not a flaky
-    // fluke, worked around by using the pattern the spec actually
-    // recommends instead of fighting the internals.
     let i = 0
     return new ReadableStream({
-        pull(controller) {
+        async pull(controller) {
             if (failAfter !== undefined && i === failAfter) {
-                throw new Error('stream boom')
+                controller.error(new Error('stream boom'))
+                return
             }
             if (i >= chunks.length) {
                 controller.close()
