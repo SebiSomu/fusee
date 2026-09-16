@@ -1,3 +1,5 @@
+import { getCurrentInstance } from './component.js';
+
 export class InjectionToken {
     /** Creates a distinct dependency token with a readable diagnostic description. */
     constructor(description) {
@@ -170,28 +172,54 @@ export function replaceActiveInjector(injector) {
     _activeInjector = injector;
 }
 
-/** Resolves a dependency from the active injector using optionality and scope rules. */
-export function inject(token, options = {}) {
-    if (_activeInjector === null) {
-        throw new Error('inject() called outside of an injection context');
+/** 
+ * Resolves a dependency from instance.provides or the active DI injector.
+ * Supports default values and optional factory evaluation.
+ */
+export function inject(token, defaultValueOrOptions, treatDefaultAsFactory = false) {
+    const instance = getCurrentInstance();
+    if (instance && instance.provides && token in instance.provides) {
+        return instance.provides[token];
     }
 
-    const isOptional = options.optional === true;
-    const skipSelf = options.skipSelf === true;
-    const self = options.self === true;
+    const isOptionsObject = 
+        defaultValueOrOptions && 
+        typeof defaultValueOrOptions === 'object' && 
+        ('optional' in defaultValueOrOptions || 'skipSelf' in defaultValueOrOptions || 'self' in defaultValueOrOptions);
 
-    if (skipSelf && self) {
-        throw new Error('Cannot combine both skipSelf and self InjectOptions');
+    const options = isOptionsObject ? defaultValueOrOptions : {};
+    const hasDefaultValue = !isOptionsObject && defaultValueOrOptions !== undefined;
+
+    if (_activeInjector !== null) {
+        const isOptional = options.optional === true || hasDefaultValue;
+        const skipSelf = options.skipSelf === true;
+        const self = options.self === true;
+
+        if (skipSelf && self) {
+            throw new Error('Cannot combine both skipSelf and self InjectOptions');
+        }
+
+        const injectorToUse = skipSelf ? _activeInjector.parent : _activeInjector;
+
+        if (injectorToUse) {
+            const resolved = injectorToUse.get(token, { ...options, optional: isOptional });
+            if (resolved !== null && resolved !== undefined) {
+                return resolved;
+            }
+        }
     }
 
-    const injectorToUse = skipSelf ? _activeInjector.parent : _activeInjector;
-
-    if (!injectorToUse) {
-        if (isOptional) return null;
-        throw new Error(`NullInjectorError: No provider found for ${token?.name || token}`);
+    if (hasDefaultValue) {
+        return (treatDefaultAsFactory && typeof defaultValueOrOptions === 'function')
+            ? defaultValueOrOptions()
+            : defaultValueOrOptions;
     }
 
-    return injectorToUse.get(token, options);
+    if (options.optional) {
+        return null;
+    }
+
+    throw new Error(`NullInjectorError: No provider found for ${token?.name || token?.description || token}`);
 }
 
 export const rootInjector = new EnvironmentInjector();
