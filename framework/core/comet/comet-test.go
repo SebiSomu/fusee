@@ -1,0 +1,208 @@
+package comet
+
+import (
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
+	"fusee/dispatcher"
+	"fusee/router"
+)
+
+func TestIsComet(t *testing.T) {
+	r := httptest.NewRequest(http.MethodGet, "/x", nil)
+	if IsComet(r) {
+		t.Fatal("expected false with no header")
+	}
+
+	r.Header.Set("Comet-Request", "true")
+	if !IsComet(r) {
+		t.Fatal("expected true with Comet-Request: true")
+	}
+
+	r.Header.Set("Comet-Request", "false")
+	if IsComet(r) {
+		t.Fatal("expected false with Comet-Request: false")
+	}
+}
+
+func TestIsComet_CaseInsensitiveHeaderLookup(t *testing.T) {
+	// Go's http.Header canonicalizes on Set, and Header.Get looks up via
+	// the same canonicalization — verifies this holds for our exact
+	// header name, not just in the abstract.
+	r := httptest.NewRequest(http.MethodGet, "/x", nil)
+	r.Header.Set("comet-request", "true") // lowercase, as a raw client might send it
+	if !IsComet(r) {
+		t.Fatal("expected header lookup to be case-insensitive")
+	}
+}
+
+func TestGetCometTarget(t *testing.T) {
+	r := httptest.NewRequest(http.MethodGet, "/x", nil)
+	if GetCometTarget(r) != "" {
+		t.Fatal("expected empty string when header absent")
+	}
+	r.Header.Set("Comet-Target", "#out")
+	if GetCometTarget(r) != "#out" {
+		t.Fatalf("got %q", GetCometTarget(r))
+	}
+}
+
+func TestGetCometTrigger(t *testing.T) {
+	r := httptest.NewRequest(http.MethodGet, "/x", nil)
+	r.Header.Set("Comet-Trigger", "click")
+	if GetCometTrigger(r) != "click" {
+		t.Fatalf("got %q", GetCometTrigger(r))
+	}
+}
+
+func TestRetarget_SetsHeader(t *testing.T) {
+	w := httptest.NewRecorder()
+	Retarget(w, "#alt")
+	if w.Header().Get("Comet-Retarget") != "#alt" {
+		t.Fatalf("got %q", w.Header().Get("Comet-Retarget"))
+	}
+}
+
+func TestReswap_SetsHeader(t *testing.T) {
+	w := httptest.NewRecorder()
+	Reswap(w, "outerHTML")
+	if w.Header().Get("Comet-Reswap") != "outerHTML" {
+		t.Fatalf("got %q", w.Header().Get("Comet-Reswap"))
+	}
+}
+
+func TestPushURL_SetsHeader(t *testing.T) {
+	w := httptest.NewRecorder()
+	PushURL(w, "/new")
+	if w.Header().Get("Comet-Push-Url") != "/new" {
+		t.Fatalf("got %q", w.Header().Get("Comet-Push-Url"))
+	}
+}
+
+func TestRedirect_SetsHeaderWithoutForcingAStatusCode(t *testing.T) {
+	w := httptest.NewRecorder()
+	Redirect(w, "/elsewhere")
+	if w.Header().Get("Comet-Redirect") != "/elsewhere" {
+		t.Fatalf("got %q", w.Header().Get("Comet-Redirect"))
+	}
+	// Redirect() must NOT itself call WriteHeader with a 3xx — verifies
+	// the documented contract (a real 3xx would be auto-followed by
+	// comet.js's fetch() before the header is ever inspected client-side,
+	// silently breaking this feature). httptest.NewRecorder defaults
+	// Code to 200 until something calls WriteHeader.
+	if w.Code != http.StatusOK {
+		t.Fatalf("Redirect() must not set a redirect status itself, got %d", w.Code)
+	}
+}
+
+func TestRedirect_ComposesWithA2xxStatusSetByTheCaller(t *testing.T) {
+	w := httptest.NewRecorder()
+	Redirect(w, "/elsewhere")
+	w.WriteHeader(http.StatusOK) // what a real handler would do
+	w.Write([]byte(""))
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	if w.Header().Get("Comet-Redirect") != "/elsewhere" {
+		t.Fatal("header should survive alongside an explicit 200 status")
+	}
+}
+
+func TestFragmentAware_RoutesToFragmentForACometRequest(t *testing.T) {
+	var called string
+	fragment := func(w http.ResponseWriter, r *http.Request, route *router.Route, params map[string]string, data any) {
+		called = "fragment"
+		w.WriteHeader(http.StatusOK)
+	}
+	fullPage := func(w http.ResponseWriter, r *http.Request, route *router.Route, params map[string]string, data any) {
+		called = "fullPage"
+		w.WriteHeader(http.StatusOK)
+	}
+
+	renderFn := FragmentAware(fragment, fullPage)
+
+	r := httptest.NewRequest(http.MethodGet, "/x", nil)
+	r.Header.Set("Comet-Request", "true")
+	w := httptest.NewRecorder()
+	renderFn(w, r, nil, nil, nil)
+
+	if called != "fragment" {
+		t.Fatalf("expected fragment to be called, got %q", called)
+	}
+}
+
+func TestFragmentAware_RoutesToFullPageForADirectVisit(t *testing.T) {
+	var called string
+	fragment := func(w http.ResponseWriter, r *http.Request, route *router.Route, params map[string]string, data any) {
+		called = "fragment"
+	}
+	fullPage := func(w http.ResponseWriter, r *http.Request, route *router.Route, params map[string]string, data any) {
+		called = "fullPage"
+	}
+
+	renderFn := FragmentAware(fragment, fullPage)
+
+	r := httptest.NewRequest(http.MethodGet, "/x", nil) // no Comet-Request header
+	w := httptest.NewRecorder()
+	renderFn(w, r, nil, nil, nil)
+
+	if called != "fullPage" {
+		t.Fatalf("expected fullPage to be called, got %q", called)
+	}
+}
+
+func TestFragmentAware_IntegratesWithARealDispatcher(t *testing.T) {
+	// End-to-end through the actual dispatcher, not just calling the
+	// returned RenderFunc directly — proves FragmentAware's return
+	// value really does satisfy dispatcher.RenderFunc and works when
+	// wired into a real request/route match.
+	module := &dispatcher.Module{
+		Load: func(params map[string]string, query map[string][]string, r *http.Request) (any, error) {
+			return "loaded-data", nil
+		},
+	}
+
+	var gotComet bool
+	renderFn := FragmentAware(
+		func(w http.ResponseWriter, r *http.Request, route *router.Route, params map[string]string, data any) {
+			gotComet = true
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("fragment:" + data.(string)))
+		},
+		func(w http.ResponseWriter, r *http.Request, route *router.Route, params map[string]string, data any) {
+			gotComet = false
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("<html>full:" + data.(string) + "</html>"))
+		},
+	)
+
+	d := dispatcher.New(dispatcher.Config{
+		Routes: []*router.Route{router.Compile("/page", module)},
+		Render: renderFn,
+	})
+
+	// Comet (fragment) request
+	w1 := httptest.NewRecorder()
+	r1 := httptest.NewRequest(http.MethodGet, "/page", nil)
+	r1.Header.Set("Comet-Request", "true")
+	d.ServeHTTP(w1, r1)
+	if !gotComet {
+		t.Fatal("expected the fragment path for a Comet request")
+	}
+	if w1.Body.String() != "fragment:loaded-data" {
+		t.Fatalf("got %q", w1.Body.String())
+	}
+
+	// Direct browser visit
+	w2 := httptest.NewRecorder()
+	r2 := httptest.NewRequest(http.MethodGet, "/page", nil)
+	d.ServeHTTP(w2, r2)
+	if gotComet {
+		t.Fatal("expected the full-page path for a direct visit")
+	}
+	if w2.Body.String() != "<html>full:loaded-data</html>" {
+		t.Fatalf("got %q", w2.Body.String())
+	}
+}

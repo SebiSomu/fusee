@@ -13,7 +13,7 @@ function waitForEvent(el, name) {
 
 beforeAll(async () => {
     setupDom()
-    comet = await import('../core/comet/comet.js')
+    comet = await import('../core/comet-js/comet.js')
     testServer = await startTestServer({
         'GET /greeting': (req, res) => {
             res.writeHead(200, { 'Content-Type': 'text/html' })
