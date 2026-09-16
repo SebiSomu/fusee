@@ -30,6 +30,10 @@ export declare type Provider =
 export declare class EnvironmentInjector extends Injector {
     constructor(providers?: Provider[], parent?: Injector);
     parent: Injector;
+    records: Map<any, any>;
+    instances: Map<any, any>;
+    resolutionStack: Set<any>;
+    
     provide(provider: Provider): void;
     get<T>(token: any, options?: InjectOptions): T;
     createChild(providers?: Provider[]): EnvironmentInjector;
@@ -37,6 +41,7 @@ export declare class EnvironmentInjector extends Injector {
 }
 
 export declare function runInContext<T>(injector: Injector, fn: () => T): T;
-export declare function replaceActiveInjector(injector: Injector): void;
-export declare function inject<T>(token: any, options: InjectOptions & { optional: true }): T | null;
-export declare function inject<T>(token: any, options?: InjectOptions): T;
+export declare function replaceActiveInjector(injector: Injector | null): void;
+export declare function inject<T>(token: any, defaultValueOrOptions?: T | InjectOptions | (() => T), treatDefaultAsFactory?: boolean): T;
+export declare const rootInjector: EnvironmentInjector;
+export declare function provideGlobal(provider: Provider): void;

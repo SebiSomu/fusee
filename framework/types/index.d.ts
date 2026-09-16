@@ -1,3 +1,5 @@
+import { App, createApp as createAppFn } from './app-registry'
+
 export * from './signal'
 export * from './component'
 export * from './composable'
@@ -11,6 +13,8 @@ export * from './reconcile'
 export * from './resource'
 export * from './actions'
 export * from './actions.server'
+export * from './plugins'
+export * from './app-registry'
 export * from '../core/comet-js/comet'
 export * from '../core/comet-js/comet-fusee'
 
@@ -22,6 +26,23 @@ declare global {
     type DirectiveBinding<V = any> = import('./directives').DirectiveBinding<V>
     type DirectiveHooks<V = any> = import('./directives').DirectiveHooks<V>
     type DelegatedEventOptions = import('./event-delegation').DelegatedEventOptions
+
+    type AppConfig = import('./app-registry').AppConfig
+    type Plugin<Options extends any[] = any[]> = import('./app-registry').Plugin<Options>
+    type CompilerPlugin = import('./plugins').CompilerPlugin
+    type ServerPlugin = import('./plugins').ServerPlugin
+    type DevToolsPlugin = import('./plugins').DevToolsPlugin
+    type RuntimeAdapter = import('./plugins').RuntimeAdapter
+    type FuseePlugin = import('./plugins').FuseePlugin
+
+    const App: typeof import('./app-registry').App
+    const createApp: typeof createAppFn
+
+    const defineCompilerPlugin: typeof import('./plugins').defineCompilerPlugin
+    const defineServerPlugin: typeof import('./plugins').defineServerPlugin
+    const defineDevToolsPlugin: typeof import('./plugins').defineDevToolsPlugin
+    const defineRuntimeAdapter: typeof import('./plugins').defineRuntimeAdapter
+    const defineFuseePlugin: typeof import('./plugins').defineFuseePlugin
 
     const emit: (eventName?: string, ...args: any[]) => void
     const signal: typeof import('./signal').signal
