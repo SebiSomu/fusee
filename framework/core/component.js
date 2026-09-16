@@ -1,7 +1,6 @@
 import { effect, setEffectHook, batch } from './signal.js'
 import { mountTemplate } from './compiler.js'
-import { rootInjector, runInContext, replaceActiveInjector, EnvironmentInjector } from './di.js'
-export { inject } from './di.js'
+import { inject as diInject, rootInjector, runInContext, replaceActiveInjector, EnvironmentInjector } from './di.js'
 
 let currentInstance = null
 
@@ -141,6 +140,13 @@ export function onUnmount(fn) {
 export function defineComponent(options) {
     return function ComponentFactory(props = {}, { listeners = {}, slots = {}, parent = null } = {}) {
         const parentInjector = (parent && parent._injector) || rootInjector;
+        const parentProvides = parent ? parent.provides : null;
+        const parentApp = parent ? parent._app : (options._app || null);
+        const parentComponents = parent ? parent._components : (parentApp ? parentApp._components : {});
+        const mergedComponents = {
+            ...parentComponents,
+            ...(options.components || {})
+        };
 
         const instance = {
             props: options.props ? resolveProps(options.props, props) : props,
@@ -149,6 +155,9 @@ export function defineComponent(options) {
             _effects: [],
             _element: null,
             _parent: parent,
+            _app: parentApp,
+            _components: mergedComponents,
+            provides: parentProvides ? Object.create(parentProvides) : Object.create(null),
             _injector: parentInjector,
             _ownsInjector: false
         }
@@ -160,14 +169,16 @@ export function defineComponent(options) {
             return options.setup(instance.props, { emit, slots });
         });
         instance.state = result
-        result._instance = instance
+        if (result && typeof result === 'object') {
+            result._instance = instance
+        }
         currentInstance = null
 
         function render(container) {
             instance._element = container
 
             if (options.render) {
-                const nodes = options.render(result, options.components || {})
+                const nodes = options.render(result, mergedComponents)
                 container.innerHTML = ''
                 
                 function mountNode(fnode) {
@@ -194,7 +205,7 @@ export function defineComponent(options) {
                     resolvedTemplate,
                     container,
                     result,
-                    options.components || {}
+                    mergedComponents
                 )
                 instance._effects.push(...effects)
             }
@@ -224,7 +235,10 @@ export function defineComponent(options) {
 
 export function provide(key, value) {
     if (!currentInstance) return;
-    
+
+    const provideKey = (key && typeof key === 'object' && key.provide) ? key.provide : key;
+    currentInstance.provides[provideKey] = value;
+
     if (!currentInstance._ownsInjector) {
         currentInstance._injector = new EnvironmentInjector([], currentInstance._injector);
         currentInstance._ownsInjector = true;
@@ -247,6 +261,9 @@ export function defineAsyncComponent(loaderOrOptions) {
 
     return function AsyncComponentFactory(props = {}, { listeners = {}, slots = {}, parent = null } = {}) {
         const parentInjector = (parent && parent._injector) || rootInjector;
+        const parentProvides = parent ? parent.provides : null;
+        const parentApp = parent ? parent._app : null;
+        const parentComponents = parent ? parent._components : (parentApp ? parentApp._components : {});
 
         const instance = {
             props,
@@ -255,6 +272,9 @@ export function defineAsyncComponent(loaderOrOptions) {
             _effects: [],
             _element: null,
             _parent: parent,
+            _app: parentApp,
+            _components: parentComponents,
+            provides: parentProvides ? Object.create(parentProvides) : Object.create(null),
             _injector: parentInjector,
             _ownsInjector: false
         }
@@ -267,7 +287,7 @@ export function defineAsyncComponent(loaderOrOptions) {
             instance._element = container
 
             if (options.loadingComponent) {
-                loadingApi = options.loadingComponent({}, { parent })
+                loadingApi = options.loadingComponent({}, { parent: instance })
                 loadingApi.render(container)
             } else {
                 container.innerHTML = '<!-- async component boundary -->'
@@ -287,7 +307,7 @@ export function defineAsyncComponent(loaderOrOptions) {
                         loadingApi = null
                     }
 
-                    childApi = ComponentFn(props, { listeners, slots, parent })
+                    childApi = ComponentFn(props, { listeners, slots, parent: instance })
 
                     container.innerHTML = ''
                     childApi.render(container)
@@ -309,5 +329,27 @@ export function defineAsyncComponent(loaderOrOptions) {
         }
 
         return { render, unmount, instance }
+    }
+}
+
+/**
+ * Enhanced inject function:
+ * 1. Checks component-level prototypal `provides` (Vue 3 style).
+ * 2. Falls back to active `di.js` EnvironmentInjector (Angular style).
+ */
+export function inject(key, defaultValue, options = {}) {
+    const instance = getCurrentInstance();
+
+    if (instance && instance.provides && key in instance.provides) {
+        return instance.provides[key];
+    }
+
+    try {
+        return diInject(key, typeof options === 'object' ? options : { optional: defaultValue !== undefined });
+    } catch (err) {
+        if (defaultValue !== undefined) {
+            return defaultValue;
+        }
+        throw err;
     }
 }
