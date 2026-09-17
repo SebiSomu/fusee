@@ -80,26 +80,26 @@ export declare class Enumerable<T> implements Iterable<T> {
 
     forEach(action: (item: T, index: number) => void): void
 
-    count(predicate?: (item: T) => boolean): number
-    any(predicate?: (item: T) => boolean): boolean
-    all(predicate: (item: T) => boolean): boolean
+    count(predicate?: (item: T, index: number) => boolean): number
+    any(predicate?: (item: T, index: number) => boolean): boolean
+    all(predicate: (item: T, index: number) => boolean): boolean
     contains(value: T, comparer?: (a: T, b: T) => boolean): boolean
     sequenceEqual(other: EnumerableSource<T>, comparer?: (a: T, b: T) => boolean): boolean
 
-    first(predicate?: (item: T) => boolean): T
+    first(predicate?: (item: T, index: number) => boolean): T
     firstOrDefault(): T | null
     firstOrDefault<D>(defaultValue: D): T | D
-    firstOrDefault<D = null>(predicate: (item: T) => boolean, defaultValue?: D): T | D
+    firstOrDefault<D = null>(predicate: (item: T, index: number) => boolean, defaultValue?: D): T | D
 
-    last(predicate?: (item: T) => boolean): T
+    last(predicate?: (item: T, index: number) => boolean): T
     lastOrDefault(): T | null
     lastOrDefault<D>(defaultValue: D): T | D
-    lastOrDefault<D = null>(predicate: (item: T) => boolean, defaultValue?: D): T | D
+    lastOrDefault<D = null>(predicate: (item: T, index: number) => boolean, defaultValue?: D): T | D
 
-    single(predicate?: (item: T) => boolean): T
+    single(predicate?: (item: T, index: number) => boolean): T
     singleOrDefault(): T | null
     singleOrDefault<D>(defaultValue: D): T | D
-    singleOrDefault<D = null>(predicate: (item: T) => boolean, defaultValue?: D): T | D
+    singleOrDefault<D = null>(predicate: (item: T, index: number) => boolean, defaultValue?: D): T | D
 
     elementAt(index: number): T
     elementAtOrDefault<D = null>(index: number, defaultValue?: D): T | D
@@ -111,14 +111,16 @@ export declare class Enumerable<T> implements Iterable<T> {
     minBy<K>(keySelector: (item: T) => K, comparer?: (a: K, b: K) => number): T | null
     maxBy<K>(keySelector: (item: T) => K, comparer?: (a: K, b: K) => number): T | null
 
-    aggregate(func: (acc: T, item: T) => T): T
-    aggregate<A>(seed: A, func: (acc: A, item: T) => A): A
-    aggregate<A, R>(seed: A, func: (acc: A, item: T) => A, resultSelector: (acc: A) => R): R
-    scan<A>(seed: A, func: (acc: A, item: T) => A): Enumerable<A>
+    aggregate(func: (acc: T, item: T, index: number) => T): T
+    aggregate<A>(seed: A, func: (acc: A, item: T, index: number) => A): A
+    aggregate<A, R>(seed: A, func: (acc: A, item: T, index: number) => A, resultSelector: (acc: A) => R): R
 
-    reduce(func: (acc: T, item: T) => T): T
-    reduce<A>(seed: A, func: (acc: A, item: T) => A): A
-    reduce<A, R>(seed: A, func: (acc: A, item: T) => A, resultSelector: (acc: A) => R): R
+    scan(func: (acc: T, item: T, index: number) => T): Enumerable<T>
+    scan<A>(seed: A, func: (acc: A, item: T, index: number) => A): Enumerable<A>
+
+    reduce(func: (acc: T, item: T, index: number) => T): T
+    reduce<A>(seed: A, func: (acc: A, item: T, index: number) => A): A
+    reduce<A, R>(seed: A, func: (acc: A, item: T, index: number) => A, resultSelector: (acc: A) => R): R
 
     toSignal(): Signal<T[]>
     toSignal<R>(terminalOp: (query: Enumerable<T>) => R): Signal<R>
