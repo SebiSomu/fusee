@@ -632,3 +632,87 @@ describe('reactivity: toSignal()', () => {
         expect(activeNames()).toEqual(['Abel', 'Ana'])
     })
 })
+
+describe('New LINQ Operators', () => {
+    describe('minBy & maxBy', () => {
+        const people = [
+            { name: 'Ana', age: 22 },
+            { name: 'Dan', age: 45 },
+            { name: 'Elena', age: 31 }
+        ]
+
+        it('minBy returns the element with the minimum key', () => {
+            const result = from(people).minBy(p => p.age)
+            expect(result).toEqual({ name: 'Ana', age: 22 })
+        })
+
+        it('maxBy returns the element with the maximum key', () => {
+            const result = from(people).maxBy(p => p.age)
+            expect(result).toEqual({ name: 'Dan', age: 45 })
+        })
+
+        it('returns null on empty sequences', () => {
+            expect(from([]).minBy(x => x)).toBeNull()
+            expect(from([]).maxBy(x => x)).toBeNull()
+        })
+    })
+
+    describe('takeLast & skipLast', () => {
+        const nums = [10, 20, 30, 40, 50]
+
+        it('takeLast yields only the last N elements', () => {
+            const result = from(nums).takeLast(3).toArray()
+            expect(result).toEqual([30, 40, 50])
+        })
+
+        it('takeLast returns all elements if N exceeds length', () => {
+            const result = from(nums).takeLast(10).toArray()
+            expect(result).toEqual([10, 20, 30, 40, 50])
+        })
+
+        it('skipLast skips the last N elements', () => {
+            const result = from(nums).skipLast(2).toArray()
+            expect(result).toEqual([10, 20, 30])
+        })
+
+        it('skipLast yields empty if N exceeds or equals length', () => {
+            const result = from(nums).skipLast(5).toArray()
+            expect(result).toEqual([])
+        })
+    })
+
+    describe('scan', () => {
+        it('emits intermediate accumulated values lazily', () => {
+            const numbers = [1, 2, 3, 4]
+            const runningSums = from(numbers).scan(0, (acc, x) => acc + x).toArray()
+            expect(runningSums).toEqual([1, 3, 6, 10])
+        })
+
+        it('handles objects in accumulator state', () => {
+            const items = ['a', 'b', 'c']
+            const history = from(items).scan('', (acc, item) => acc + item).toArray()
+            expect(history).toEqual(['a', 'ab', 'abc'])
+        })
+    })
+
+    describe('toObject', () => {
+        it('maps elements into a plain JavaScript object', () => {
+            const users = [
+                { id: 'u1', name: 'Alice' },
+                { id: 'u2', name: 'Bob' }
+            ]
+
+            const result = from(users).toObject(u => u.id, u => u.name)
+            expect(result).toEqual({
+                u1: 'Alice',
+                u2: 'Bob'
+            })
+        })
+
+        it('uses element itself if valueSelector is omitted', () => {
+            const users = [{ id: 'u1', name: 'Alice' }]
+            const result = from(users).toObject(u => u.id)
+            expect(result).toEqual({ u1: { id: 'u1', name: 'Alice' } })
+        })
+    })
+})
