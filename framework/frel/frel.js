@@ -1,4 +1,4 @@
-import { computed } from './signal.js'
+import { computed } from '../core/signal.js'
 
 /** Default ascending comparer used by orderBy()/thenBy() when no comparer is supplied. */
 function defaultComparer(a, b) {
