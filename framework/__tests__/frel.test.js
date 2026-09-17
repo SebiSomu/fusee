@@ -306,14 +306,12 @@ describe('orderBy / orderByDescending / thenBy / thenByDescending', () => {
 
     it('sorts descending by a key', () => {
         const result = from(people()).orderByDescending(p => p.age).select(p => p.name).toArray()
-        expect(result).toEqual(['Dan', 'Bogdan', 'Elena', 'Carmen', 'Ana'])
+        expect(result).toEqual(['Dan', 'Bogdan', 'Elena', 'Ana', 'Carmen'])
     })
 
     it('is a stable sort - equal keys keep their original relative order', () => {
         const result = from(people()).orderBy(p => p.age).select(p => p.name).toArray()
-        // Ana and Carmen are both 22; Ana appears first in the source and must stay first.
         expect(result.indexOf('Ana')).toBeLessThan(result.indexOf('Carmen'))
-        // Bogdan and Elena are both 31; Bogdan appears first in the source.
         expect(result.indexOf('Bogdan')).toBeLessThan(result.indexOf('Elena'))
     })
 

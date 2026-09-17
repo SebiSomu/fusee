@@ -505,7 +505,7 @@ export class OrderedEnumerable extends Enumerable {
                     const cmp = comparer(keySelector(items[a]), keySelector(items[b]))
                     if (cmp !== 0) return descending ? -cmp : cmp
                 }
-                return a - b // stable tie-break on original position
+                return a - b
             })
             for (const i of indices) yield items[i]
         })
