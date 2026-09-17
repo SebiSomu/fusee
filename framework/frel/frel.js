@@ -525,9 +525,7 @@ export class OrderedEnumerable extends Enumerable {
 /**
  * Wraps a source into a queryable, lazily-evaluated Enumerable.
  * Accepts arrays, strings, Maps/Sets, any iterable, another Enumerable, or a
- * function - including a Fusée signal/computed/resource accessor. Functions are
- * called fresh on every iteration, so a signal source keeps the query reactive
- * when consumed from inside computed()/effect() or via toSignal().
+ * function - including a Fusée signal/computed/resource accessor
  */
 export function from(source) {
     if (source instanceof Enumerable) return source
