@@ -33,8 +33,10 @@ export declare class Enumerable<T> implements Iterable<T> {
 
     take(count: number): Enumerable<T>
     takeWhile(predicate: (item: T, index: number) => boolean): Enumerable<T>
+    takeLast(count: number): Enumerable<T>
     skip(count: number): Enumerable<T>
     skipWhile(predicate: (item: T, index: number) => boolean): Enumerable<T>
+    skipLast(count: number): Enumerable<T>
 
     distinct(keySelector?: (item: T) => unknown): Enumerable<T>
 

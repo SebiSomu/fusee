@@ -98,6 +98,18 @@ export class Enumerable {
         })
     }
 
+    takeLast(count) {
+        return new Enumerable(() => {
+            if (count <= 0) return []
+            const buffer = []
+            for (const item of this) {
+                buffer.push(item)
+                if (buffer.length > count) buffer.shift()
+            }
+            return buffer
+        })
+    }
+
     skip(count) {
         const self = this
         return new Enumerable(function* () {
@@ -118,6 +130,24 @@ export class Enumerable {
                 if (skipping && predicate(item, i++)) continue
                 skipping = false
                 yield item
+            }
+        })
+    }
+
+    skipLast(count) {
+        const self = this
+        return new Enumerable(function* () {
+            if (count <= 0) {
+                yield* self
+                return
+            }
+
+            const buffer = []
+            for (const item of self) {
+                buffer.push(item)
+                if (buffer.length > count) {
+                    yield buffer.shift()
+                }
             }
         })
     }
