@@ -15,6 +15,17 @@ export interface Grouping<K, T> extends Enumerable<T> {
     readonly key: K
 }
 
+/** Helper type to map primitive type names to their TS types */
+type PrimitiveTypeMap = {
+    string: string
+    number: number
+    boolean: boolean
+    symbol: symbol
+    bigint: bigint
+    function: Function
+    object: object
+}
+
 export declare class Enumerable<T> implements Iterable<T> {
     protected constructor(iteratorFactory: () => Iterable<T> | Iterator<T>)
 
@@ -66,6 +77,9 @@ export declare class Enumerable<T> implements Iterable<T> {
     join<I, K, R>(inner: EnumerableSource<I>, outerKeySelector: (item: T) => K, innerKeySelector: (item: I) => K, resultSelector: (outer: T, inner: I) => R): Enumerable<R>
     groupJoin<I, K, R>(inner: EnumerableSource<I>, outerKeySelector: (item: T) => K, innerKeySelector: (item: I) => K, resultSelector: (outer: T, inners: I[]) => R): Enumerable<R>
 
+    ofType<K extends keyof PrimitiveTypeMap>(type: K): Enumerable<PrimitiveTypeMap[K]>
+    ofType<U>(type: new (...args: any[]) => U): Enumerable<U>
+    
     toArray(): T[]
 
     toMap<K>(keySelector: (item: T, index: number) => K): Map<K, T>

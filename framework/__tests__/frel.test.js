@@ -716,3 +716,57 @@ describe('New LINQ Operators', () => {
         })
     })
 })
+
+describe('ofType', () => {
+    class Person {
+        constructor(name) { this.name = name }
+    }
+    class Animal {
+        constructor(species) { this.species = species }
+    }
+
+    const mixedList = [
+        10,
+        'hello',
+        new Person('Alice'),
+        true,
+        new Animal('Dog'),
+        42,
+        'world',
+        new Person('Bob'),
+        null,
+        undefined
+    ]
+
+    it('filters elements by primitive type string ("string", "number", "boolean")', () => {
+        const strings = from(mixedList).ofType('string').toArray()
+        expect(strings).toEqual(['hello', 'world'])
+
+        const numbers = from(mixedList).ofType('number').toArray()
+        expect(numbers).toEqual([10, 42])
+
+        const booleans = from(mixedList).ofType('boolean').toArray()
+        expect(booleans).toEqual([true])
+    })
+
+    it('filters elements by class constructor instanceof', () => {
+        const people = from(mixedList).ofType(Person).toArray()
+        expect(people).toEqual([
+            new Person('Alice'),
+            new Person('Bob')
+        ])
+
+        const animals = from(mixedList).ofType(Animal).toArray()
+        expect(animals).toEqual([new Animal('Dog')])
+    })
+
+    it('returns empty sequence when no elements match', () => {
+        const result = from(mixedList).ofType('symbol').toArray()
+        expect(result).toEqual([])
+    })
+
+    it('handles empty sequences safely', () => {
+        expect(from([]).ofType('string').toArray()).toEqual([])
+        expect(from([]).ofType(Person).toArray()).toEqual([])
+    })
+})

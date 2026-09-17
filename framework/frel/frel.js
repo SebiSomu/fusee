@@ -336,6 +336,21 @@ export class Enumerable {
 
     // terminal (eager) operators
 
+    ofType(type) {
+        const self = this
+        return new Enumerable(function* () {
+            if (typeof type === 'string') {
+                for (const item of self) {
+                    if (typeof item === type) yield item
+                }
+            } else if (typeof type === 'function') {
+                for (const item of self) {
+                    if (item instanceof type) yield item
+                }
+            }
+        })
+    }
+
     toArray() {
         return [...this]
     }
@@ -383,7 +398,6 @@ export class Enumerable {
         }
         return obj
     }
-
 
     forEach(action) {
         let i = 0
