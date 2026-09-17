@@ -105,6 +105,8 @@ export declare class Enumerable<T> implements Iterable<T> {
     average(selector?: (item: T) => number): number
     min(selector?: (item: T) => number): number
     max(selector?: (item: T) => number): number
+    minBy<K>(keySelector: (item: T) => K, comparer?: (a: K, b: K) => number): T | null
+    maxBy<K>(keySelector: (item: T) => K, comparer?: (a: K, b: K) => number): T | null
 
     aggregate(func: (acc: T, item: T) => T): T
     aggregate<A>(seed: A, func: (acc: A, item: T) => A): A

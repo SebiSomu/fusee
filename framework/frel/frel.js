@@ -464,6 +464,25 @@ export class Enumerable {
         return result
     }
 
+    minBy(keySelector, comparer = (a, b) => (a < b ? -1 : a > b ? 1 : 0)) {
+        let minItem = null
+        let minKey = undefined
+
+        for (const item of this) {
+            const key = keySelector(item)
+            if (minKey === undefined || comparer(key, minKey) < 0) {
+                minKey = key
+                minItem = item
+            }
+        }
+
+        return minItem
+    }
+
+    maxBy(keySelector, comparer = (a, b) => (a < b ? -1 : a > b ? 1 : 0)) {
+        return this.minBy(keySelector, (a, b) => comparer(b, a))
+    }
+
     aggregate(...args) {
         if (args.length === 1) {
             const [func] = args
