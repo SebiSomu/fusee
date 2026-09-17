@@ -346,6 +346,14 @@ export class Enumerable {
         return map
     }
 
+    toObject(keySelector, valueSelector = x => x) {
+        const obj = {}
+        for (const item of this) {
+            obj[keySelector(item)] = valueSelector(item)
+        }
+        return obj
+    }
+
     toSet(keySelector) {
         const set = new Set()
         for (const item of this) set.add(keySelector ? keySelector(item) : item)
