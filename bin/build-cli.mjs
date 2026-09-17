@@ -33,11 +33,10 @@ function syncDir(src, dest, opts = {}) {
   }
 }
 
-// ─── Sync framework (excluding engine-go — that lives in its own embed) ───────
+// Sync framework
 const frameworkSrc  = path.resolve(rootDir, 'framework');
 const frameworkDest = path.resolve(cwd, 'internal/assets/embed/framework');
 
-// Clean and rebuild embed/framework
 if (fs.existsSync(frameworkDest)) fs.rmSync(frameworkDest, { recursive: true, force: true });
 
 function syncFramework(src, dest) {
@@ -56,14 +55,14 @@ function syncFramework(src, dest) {
 }
 syncFramework(frameworkSrc, frameworkDest);
 
-// ─── Sync engine-go into its own embed directory ──────────────────────────────
+// Sync engine-go into its own embed directory
 const engineSrc  = path.resolve(rootDir, 'framework/engine-go');
 const engineDest = path.resolve(cwd, 'internal/assets/embed/engine-go');
 
 if (fs.existsSync(engineDest)) fs.rmSync(engineDest, { recursive: true, force: true });
 syncDir(engineSrc, engineDest, { skipGoMod: true });
 
-// ─── Cross-compile for all platforms ─────────────────────────────────────────
+// Cross-compile for all platforms
 const targets = [
   { goos: 'windows', goarch: 'amd64', out: '../bin/create-fusee-win.exe' },
   { goos: 'linux',   goarch: 'amd64', out: '../bin/create-fusee-linux' },

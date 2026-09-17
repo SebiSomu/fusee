@@ -5,7 +5,7 @@
 <h1 align="center">Fusée Framework</h1>
 
 <p align="center">
-  <strong>v2.2.0 — Signals-First JS Framework | Atomic Reactivity | Rust Compiler | Go Toolchain</strong>
+  <strong>v2.3.0 — Signals-First JS Framework | Atomic Reactivity | Rust Compiler | Go Toolchain</strong>
 </p>
 
 <br />
@@ -14,9 +14,9 @@ Fusée is a custom, high-performance fine-grained reactive JavaScript framework 
 
 ---
 
-## What's New in 2.2.0
+## What's New in 2.3.0
 
-- Custom plugins API embedded (Vue-Style)
+- New package: FREL (Fusée Reactive Expression Language) - LINQ-to-Objects style queries over arrays, iterables, and signals.
 
 ---
 
@@ -115,6 +115,29 @@ Once installed at `framework/engine-go`, it:
 - Serves static assets and handles client-side navigation
 
 The engine is a standalone Go module and can also be used independently of the CLI.
+
+---
+
+## FREL (Fusée Reactive Expression Language)
+
+FREL provides LINQ-style queries over arrays, iterables, and signals — all while maintaining fine-grained reactivity. It can be available by installing it from the cli using `fusee add frel`.
+
+```typescript
+import { from, toSignal } from "./framework/frel/frel.js";
+
+// Reactive LINQ
+const users = [
+  { id: 1, name: "A" },
+  { id: 2, name: "B" },
+];
+const filtered = toSignal(
+  from(users)
+    .where((u) => u.id > 1)
+    .orderBy((u) => u.name),
+);
+
+filtered(); // [{id:2, name:"B"}]
+```
 
 ---
 

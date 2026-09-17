@@ -206,3 +206,9 @@ func CopyCometGo(destDir string) error {
 	})
 }
 
+func CopyFrelJS(dest string) error {
+	if err := os.MkdirAll(dest, 0755); err != nil {
+		return err
+	}
+	return CopyEmbeddedDir("embed/framework/frel", dest, true)
+}

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"create-fusee/internal/assets"
+
 	"github.com/spf13/cobra"
 )
 
@@ -21,7 +22,9 @@ var addCmd = &cobra.Command{
 Available packages:
   server   — Install the Go SSR Engine (framework/engine-go)
              Enables server-side rendering via: npm run dev
-  comet    — Install the Comet HTMX-like server-driven UI module`,
+  comet    — Install the Comet HTMX-like server-driven UI module
+  frel     — Install FREL, the Fusée Reactive Expression Language
+             (LINQ-to-Objects style queries over arrays, iterables, and signals)`,
 	Args:    cobra.ExactArgs(1),
 	Aliases: []string{"install", "i"},
 	Run: func(cmd *cobra.Command, args []string) {
@@ -32,8 +35,10 @@ Available packages:
 			runAddServer(cmd)
 		case "comet", "comet-js":
 			runAddComet()
+		case "frel", "reactive":
+			runAddFrel()
 		default:
-			fmt.Printf("Unknown package '%s'.\n\nAvailable packages:\n  server   — Go SSR Engine\n  comet    — Comet HTMX-like UI module\n", pkg)
+			fmt.Printf("Unknown package '%s'.\n\nAvailable packages:\n  server   — Go SSR Engine\n  comet    — Comet HTMX-like UI module\n  frel     — Reactive LINQ-to-Objects queries\n", pkg)
 			os.Exit(1)
 		}
 	},
@@ -103,6 +108,31 @@ func runAddComet() {
 			fmt.Printf("Comet Go helpers installed at %s\n", cometGoDest)
 		}
 	}
+}
+
+func runAddFrel() {
+	if _, err := os.Stat("framework"); os.IsNotExist(err) {
+		fmt.Println("Error: Run this command from the root of a Fusée project (where framework/ lives).")
+		os.Exit(1)
+	}
+
+	destDir := filepath.Join("framework", "frel")
+
+	if _, err := os.Stat(destDir); err == nil {
+		fmt.Printf("FREL is already installed at %s\n", destDir)
+		fmt.Println("   To reinstall, remove the directory first and run again.")
+		os.Exit(0)
+	}
+
+	fmt.Println("Installing FREL (Fusée Reactive Expression Language)...")
+
+	if err := assets.CopyFrelJS(destDir); err != nil {
+		fmt.Printf("Failed to install FREL: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("\nFREL installed at %s\n", destDir)
+	fmt.Println(`   import { from } from "./framework/frel/frel.js"`)
 }
 
 func init() {
