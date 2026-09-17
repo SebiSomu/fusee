@@ -114,6 +114,7 @@ export declare class Enumerable<T> implements Iterable<T> {
     aggregate(func: (acc: T, item: T) => T): T
     aggregate<A>(seed: A, func: (acc: A, item: T) => A): A
     aggregate<A, R>(seed: A, func: (acc: A, item: T) => A, resultSelector: (acc: A) => R): R
+    scan<A>(seed: A, func: (acc: A, item: T) => A): Enumerable<A>
 
     reduce(func: (acc: T, item: T) => T): T
     reduce<A>(seed: A, func: (acc: A, item: T) => A): A

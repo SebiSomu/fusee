@@ -535,6 +535,17 @@ export class Enumerable {
         return resultSelector ? resultSelector(acc) : acc
     }
 
+    scan(seed, func) {
+        const self = this
+        return new Enumerable(function* () {
+            let acc = seed
+            for (const item of self) {
+                acc = func(acc, item)
+                yield acc
+            }
+        })
+    }
+
     // reactivity bridge
 
     /** Wraps a terminal call to this query in computed(), so the result stays in sync with any signals it reads. */
