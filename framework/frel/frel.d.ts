@@ -70,13 +70,14 @@ export declare class Enumerable<T> implements Iterable<T> {
 
     toMap<K>(keySelector: (item: T, index: number) => K): Map<K, T>
     toMap<K, V>(keySelector: (item: T, index: number) => K, valueSelector: (item: T, index: number) => V): Map<K, V>
-    toObject<K extends PropertyKey, V = T>(keySelector: (item: T) => K, valueSelector?: (item: T) => V): Record<K, V>
 
     toSet(): Set<T>
     toSet<K>(keySelector: (item: T) => K): Set<K>
 
     toLookup<K>(keySelector: (item: T) => K): Map<K, T[]>
     toLookup<K, E>(keySelector: (item: T) => K, elementSelector: (item: T) => E): Map<K, E[]>
+
+    toObject<K extends PropertyKey, V = T>(keySelector: (item: T) => K, valueSelector?: (item: T) => V): Record<K, V>
 
     forEach(action: (item: T, index: number) => void): void
 

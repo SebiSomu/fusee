@@ -26,14 +26,7 @@ function createGrouping(key, items) {
 
 /**
  * A lazily-evaluated LINQ-to-Objects style sequence.
- *
- * Every intermediate operator (where, select, orderBy, ...) is deferred: nothing
- * runs until the sequence is iterated - directly with for...of / [...seq], through
- * a terminal method (toArray, count, sum, ...), or from inside a computed()/effect().
- *
- * The source is re-read on every iteration, so wrapping a terminal call in
- * computed() (or the toSignal() shortcut below) makes the whole query reactive
- * to any signal it, or its selectors/predicates, read along the way.
+ * Every intermediate operator (where, select, orderBy, ...) is deferred
  */
 export class Enumerable {
     constructor(iteratorFactory) {
@@ -51,7 +44,9 @@ export class Enumerable {
         const self = this
         return new Enumerable(function* () {
             let i = 0
-            for (const item of self) if (predicate(item, i++)) yield item
+            for (const item of self) 
+                if (predicate(item, i++)) 
+                    yield item
         })
     }
 
@@ -59,7 +54,8 @@ export class Enumerable {
         const self = this
         return new Enumerable(function* () {
             let i = 0
-            for (const item of self) yield selector(item, i++)
+            for (const item of self) 
+                yield selector(item, i++)
         })
     }
 
@@ -76,16 +72,16 @@ export class Enumerable {
     }
 
     take(count) {
-    const self = this
-    return new Enumerable(function* () {
-        if (count <= 0) return
-        let i = 0
-        for (const item of self) {
-            yield item
-            if (++i >= count) break
-        }
-    })
-}
+        const self = this
+        return new Enumerable(function* () {
+            if (count <= 0) return
+            let i = 0
+            for (const item of self) {
+                yield item
+                if (++i >= count) break
+            }
+        })
+    }
 
     takeWhile(predicate) {
         const self = this
@@ -104,7 +100,8 @@ export class Enumerable {
             const buffer = []
             for (const item of this) {
                 buffer.push(item)
-                if (buffer.length > count) buffer.shift()
+                if (buffer.length > count) 
+                    buffer.shift()
             }
             return buffer
         })
@@ -169,7 +166,8 @@ export class Enumerable {
         const self = this
         return new Enumerable(function* () {
             yield* self
-            for (const other of others) yield* from(other)
+            for (const other of others) 
+                yield* from(other)
         })
     }
 
@@ -181,7 +179,8 @@ export class Enumerable {
         const self = this
         return new Enumerable(function* () {
             const otherKeys = new Set()
-            for (const item of from(other)) otherKeys.add(keySelector ? keySelector(item) : item)
+            for (const item of from(other)) 
+                otherKeys.add(keySelector ? keySelector(item) : item)
             const seen = new Set()
             for (const item of self) {
                 const key = keySelector ? keySelector(item) : item
@@ -197,7 +196,8 @@ export class Enumerable {
         const self = this
         return new Enumerable(function* () {
             const otherKeys = new Set()
-            for (const item of from(other)) otherKeys.add(keySelector ? keySelector(item) : item)
+            for (const item of from(other)) 
+                otherKeys.add(keySelector ? keySelector(item) : item)
             const seen = new Set()
             for (const item of self) {
                 const key = keySelector ? keySelector(item) : item
@@ -267,7 +267,8 @@ export class Enumerable {
         const self = this
         return new Enumerable(function* () {
             const items = [...self]
-            for (let i = items.length - 1; i >= 0; i--) yield items[i]
+            for (let i = items.length - 1; i >= 0; i--) 
+                yield items[i]
         })
     }
 
@@ -286,7 +287,8 @@ export class Enumerable {
             for (const item of self) {
                 const key = keySelector(item)
                 const element = elementSelector ? elementSelector(item) : item
-                if (!groups.has(key)) groups.set(key, [])
+                if (!groups.has(key)) 
+                    groups.set(key, [])
                 groups.get(key).push(element)
             }
             for (const [key, items] of groups) {
@@ -301,13 +303,16 @@ export class Enumerable {
             const innerMap = new Map()
             for (const item of from(inner)) {
                 const key = innerKeySelector(item)
-                if (!innerMap.has(key)) innerMap.set(key, [])
+                if (!innerMap.has(key)) 
+                    innerMap.set(key, [])
                 innerMap.get(key).push(item)
             }
             for (const outerItem of self) {
                 const matches = innerMap.get(outerKeySelector(outerItem))
-                if (!matches) continue
-                for (const innerItem of matches) yield resultSelector(outerItem, innerItem)
+                if (!matches) 
+                    continue
+                for (const innerItem of matches) 
+                    yield resultSelector(outerItem, innerItem)
             }
         })
     }
@@ -318,7 +323,8 @@ export class Enumerable {
             const innerMap = new Map()
             for (const item of from(inner)) {
                 const key = innerKeySelector(item)
-                if (!innerMap.has(key)) innerMap.set(key, [])
+                if (!innerMap.has(key)) 
+                    innerMap.set(key, [])
                 innerMap.get(key).push(item)
             }
             for (const outerItem of self) {
@@ -339,60 +345,83 @@ export class Enumerable {
         let i = 0
         for (const item of this) {
             const key = keySelector(item, i)
-            if (map.has(key)) console.warn(`[framework] toMap(): duplicate key "${key}", overwriting previous value`)
+            if (map.has(key)) 
+                console.warn(`[framework] toMap(): duplicate key "${key}", overwriting previous value`)
             map.set(key, valueSelector ? valueSelector(item, i) : item)
             i++
         }
         return map
     }
 
-    toObject(keySelector, valueSelector = x => x) {
-        const obj = {}
-        for (const item of this) {
-            obj[keySelector(item)] = valueSelector(item)
-        }
-        return obj
-    }
-
     toSet(keySelector) {
         const set = new Set()
-        for (const item of this) set.add(keySelector ? keySelector(item) : item)
+        let i = 0
+        for (const item of this) {
+            set.add(keySelector ? keySelector(item, i++) : item)
+        }
         return set
     }
 
     toLookup(keySelector, elementSelector) {
         const map = new Map()
+        let i = 0
         for (const item of this) {
-            const key = keySelector(item)
+            const key = keySelector(item, i)
             if (!map.has(key)) map.set(key, [])
-            map.get(key).push(elementSelector ? elementSelector(item) : item)
+            map.get(key).push(elementSelector ? elementSelector(item, i) : item)
+            i++
         }
         return map
     }
 
+    toObject(keySelector, valueSelector = x => x) {
+        const obj = Object.create(null)
+        let i = 0
+        for (const item of this) {
+            obj[keySelector(item, i)] = valueSelector(item, i)
+            i++
+        }
+        return obj
+    }
+
+
     forEach(action) {
         let i = 0
-        for (const item of this) action(item, i++)
+        for (const item of this) 
+            action(item, i++)
     }
 
     count(predicate) {
-        let n = 0
-        for (const item of this) if (!predicate || predicate(item)) n++
+        let n = 0, i = 0
+        for (const item of this) {
+            if (!predicate || predicate(item, i)) n++
+            i++
+        }
         return n
     }
 
     any(predicate) {
-        for (const item of this) if (!predicate || predicate(item)) return true
+        let i = 0
+        for (const item of this) {
+            if (!predicate || predicate(item, i)) return true
+            i++
+        }
         return false
     }
 
     all(predicate) {
-        for (const item of this) if (!predicate(item)) return false
+        let i = 0
+        for (const item of this) {
+            if (!predicate(item, i)) return false
+            i++
+        }
         return true
     }
 
     contains(value, comparer = Object.is) {
-        for (const item of this) if (comparer(item, value)) return true
+        for (const item of this) 
+            if (comparer(item, value)) 
+                return true
         return false
     }
 
@@ -402,83 +431,121 @@ export class Enumerable {
         while (true) {
             const a = it1.next()
             const b = it2.next()
-            if (a.done && b.done) return true
-            if (a.done !== b.done) return false
-            if (!comparer(a.value, b.value)) return false
+            if (a.done && b.done) 
+                return true
+            if (a.done !== b.done) 
+                return false
+            if (!comparer(a.value, b.value)) 
+                return false
         }
     }
 
     first(predicate) {
-        for (const item of this) if (!predicate || predicate(item)) return item
+        let i = 0
+        for (const item of this) {
+            if (!predicate || predicate(item, i)) return item
+            i++
+        }
         throw new Error('[framework] first(): sequence contains no matching element')
     }
 
     firstOrDefault(...args) {
         const { predicate, defaultValue } = resolveOrDefaultArgs(args)
-        for (const item of this) if (!predicate || predicate(item)) return item
+        let i = 0
+        for (const item of this) {
+            if (!predicate || predicate(item, i)) return item
+            i++
+        }
         return defaultValue
     }
 
     last(predicate) {
-        let found, has = false
-        for (const item of this) if (!predicate || predicate(item)) { found = item; has = true }
-        if (!has) throw new Error('[framework] last(): sequence contains no matching element')
+        let found, has = false, i = 0
+        for (const item of this) {
+            if (!predicate || predicate(item, i)) {
+                 found = item
+                 has = true 
+            }
+            i++
+        }
+        if (!has) 
+            throw new Error('[framework] last(): sequence contains no matching element')
         return found
     }
 
     lastOrDefault(...args) {
         const { predicate, defaultValue } = resolveOrDefaultArgs(args)
-        let found = defaultValue, has = false
-        for (const item of this) if (!predicate || predicate(item)) { found = item; has = true }
+        let found = defaultValue, has = false, i = 0
+        for (const item of this) {
+            if (!predicate || predicate(item, i)) {
+                found = item
+                has = true
+            }
+            i++
+        }
         return has ? found : defaultValue
     }
 
     single(predicate) {
-        let found, n = 0
+        let found, n = 0, i = 0
         for (const item of this) {
-            if (!predicate || predicate(item)) {
-                if (++n > 1) throw new Error('[framework] single(): sequence contains more than one matching element')
+            if (!predicate || predicate(item, i)) {
+                if (++n > 1) 
+                    throw new Error('[framework] single(): sequence contains more than one matching element')
                 found = item
             }
+            i++
         }
-        if (n === 0) throw new Error('[framework] single(): sequence contains no matching element')
+        if (n === 0) 
+            throw new Error('[framework] single(): sequence contains no matching element')
         return found
     }
 
     singleOrDefault(...args) {
         const { predicate, defaultValue } = resolveOrDefaultArgs(args)
-        let found = defaultValue, n = 0
+        let found = defaultValue, n = 0, i = 0
         for (const item of this) {
-            if (!predicate || predicate(item)) {
-                if (++n > 1) throw new Error('[framework] singleOrDefault(): sequence contains more than one matching element')
+            if (!predicate || predicate(item, i)) {
+                if (++n > 1) 
+                    throw new Error('[framework] singleOrDefault(): sequence contains more than one matching element')
                 found = item
             }
+            i++
         }
         return n === 0 ? defaultValue : found
     }
 
     elementAt(index) {
         let i = 0
-        for (const item of this) if (i++ === index) return item
+        for (const item of this) 
+            if (i++ === index) 
+                return item
         throw new Error(`[framework] elementAt(): index ${index} is out of range`)
     }
 
     elementAtOrDefault(index, defaultValue = null) {
         let i = 0
-        for (const item of this) if (i++ === index) return item
+        for (const item of this) 
+            if (i++ === index) 
+                return item
         return defaultValue
     }
 
     sum(selector) {
         let total = 0
-        for (const item of this) total += selector ? selector(item) : item
+        for (const item of this) 
+            total += selector ? selector(item) : item
         return total
     }
 
     average(selector) {
         let total = 0, n = 0
-        for (const item of this) { total += selector ? selector(item) : item; n++ }
-        if (n === 0) throw new Error('[framework] average(): sequence contains no elements')
+        for (const item of this) { 
+            total += selector ? selector(item) : item
+            n++
+        }
+        if (n === 0) 
+            throw new Error('[framework] average(): sequence contains no elements')
         return total / n
     }
 
@@ -486,9 +553,13 @@ export class Enumerable {
         let result, has = false
         for (const item of this) {
             const value = selector ? selector(item) : item
-            if (!has || value < result) { result = value; has = true }
+            if (!has || value < result) { 
+                result = value
+                has = true 
+            }
         }
-        if (!has) throw new Error('[framework] min(): sequence contains no elements')
+        if (!has) 
+            throw new Error('[framework] min(): sequence contains no elements')
         return result
     }
 
@@ -496,51 +567,79 @@ export class Enumerable {
         let result, has = false
         for (const item of this) {
             const value = selector ? selector(item) : item
-            if (!has || value > result) { result = value; has = true }
+            if (!has || value > result) {
+                result = value
+                has = true
+            }
         }
-        if (!has) throw new Error('[framework] max(): sequence contains no elements')
+        if (!has) 
+            throw new Error('[framework] max(): sequence contains no elements')
         return result
     }
 
-    minBy(keySelector, comparer = (a, b) => (a < b ? -1 : a > b ? 1 : 0)) {
+    minBy(keySelector, comparer = defaultComparer) {
         let minItem = null
-        let minKey = undefined
+        let minKey
+        let has = false
 
         for (const item of this) {
             const key = keySelector(item)
-            if (minKey === undefined || comparer(key, minKey) < 0) {
+            if (!has || comparer(key, minKey) < 0) {
                 minKey = key
                 minItem = item
+                has = true
             }
         }
 
         return minItem
     }
 
-    maxBy(keySelector, comparer = (a, b) => (a < b ? -1 : a > b ? 1 : 0)) {
+    maxBy(keySelector, comparer = defaultComparer) {
         return this.minBy(keySelector, (a, b) => comparer(b, a))
     }
 
     aggregate(...args) {
         if (args.length === 1) {
             const [func] = args
-            let acc, has = false
-            for (const item of this) { acc = has ? func(acc, item) : item; has = true }
-            if (!has) throw new Error('[framework] aggregate(): sequence contains no elements')
+            let acc, has = false, i = 0
+            for (const item of this) {
+                acc = has ? func(acc, item, i) : item
+                has = true
+                i++
+            }
+            if (!has) 
+                throw new Error('[framework] aggregate(): sequence contains no elements')
             return acc
         }
         const [seed, func, resultSelector] = args
-        let acc = seed
-        for (const item of this) acc = func(acc, item)
+        let acc = seed, i = 0
+        for (const item of this) {
+            acc = func(acc, item, i)
+            i++
+        }
         return resultSelector ? resultSelector(acc) : acc
     }
 
-    scan(seed, func) {
+    scan(...args) {
         const self = this
+        if (args.length === 1) {
+            const [func] = args
+            return new Enumerable(function* () {
+                let acc, has = false, i = 0
+                for (const item of self) {
+                    acc = has ? func(acc, item, i) : item
+                    has = true
+                    i++
+                    yield acc
+                }
+            })
+        }
+        const [seed, func] = args
         return new Enumerable(function* () {
-            let acc = seed
+            let acc = seed, i = 0
             for (const item of self) {
-                acc = func(acc, item)
+                acc = func(acc, item, i)
+                i++
                 yield acc
             }
         })
@@ -556,10 +655,18 @@ export class Enumerable {
 
     // JS-flavored aliases, for readability at call sites
 
-    filter(predicate) { return this.where(predicate) }
-    map(selector) { return this.select(selector) }
-    flatMap(collectionSelector, resultSelector) { return this.selectMany(collectionSelector, resultSelector) }
-    reduce(...args) { return this.aggregate(...args) }
+    filter(predicate) {
+        return this.where(predicate)
+    }
+    map(selector) {
+        return this.select(selector)
+    }
+    flatMap(collectionSelector, resultSelector) {
+        return this.selectMany(collectionSelector, resultSelector)
+    }
+    reduce(...args) {
+        return this.aggregate(...args)
+    }
 }
 
 /** An Enumerable produced by orderBy()/orderByDescending() that supports additional thenBy() tie-breakers. */
@@ -571,11 +678,13 @@ export class OrderedEnumerable extends Enumerable {
             indices.sort((a, b) => {
                 for (const { keySelector, comparer, descending } of comparers) {
                     const cmp = comparer(keySelector(items[a]), keySelector(items[b]))
-                    if (cmp !== 0) return descending ? -cmp : cmp
+                    if (cmp !== 0) 
+                        return descending ? -cmp : cmp
                 }
                 return a - b
             })
-            for (const i of indices) yield items[i]
+            for (const i of indices) 
+                yield items[i]
         })
         this._sourceFactory = sourceFactory
         this._comparers = comparers
@@ -596,12 +705,15 @@ export class OrderedEnumerable extends Enumerable {
  * function - including a Fusée signal/computed/resource accessor
  */
 export function from(source) {
-    if (source instanceof Enumerable) return source
-    if (source == null) return new Enumerable(function* () {})
+    if (source instanceof Enumerable) 
+        return source
+    if (source == null) 
+        return new Enumerable(function* () {})
     if (typeof source === 'function') {
         return new Enumerable(function* () {
             const resolved = source()
-            if (resolved != null) yield* resolved
+            if (resolved != null) 
+                yield* resolved
         })
     }
     return new Enumerable(function* () { yield* source })
@@ -610,14 +722,16 @@ export function from(source) {
 /** Produces a lazy sequence of `count` consecutive integers starting at `start`. */
 export function range(start, count) {
     return new Enumerable(function* () {
-        for (let i = 0; i < count; i++) yield start + i
+        for (let i = 0; i < count; i++) 
+            yield start + i
     })
 }
 
 /** Produces a lazy sequence that repeats `element` `count` times. */
 export function repeat(element, count) {
     return new Enumerable(function* () {
-        for (let i = 0; i < count; i++) yield element
+        for (let i = 0; i < count; i++) 
+            yield element
     })
 }
 
