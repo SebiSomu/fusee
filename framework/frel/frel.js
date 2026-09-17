@@ -76,16 +76,16 @@ export class Enumerable {
     }
 
     take(count) {
-        const self = this
-        return new Enumerable(function* () {
-            if (count <= 0) return
-            let i = 0
-            for (const item of self) {
-                if (i++ >= count) break
-                yield item
-            }
-        })
-    }
+    const self = this
+    return new Enumerable(function* () {
+        if (count <= 0) return
+        let i = 0
+        for (const item of self) {
+            yield item
+            if (++i >= count) break
+        }
+    })
+}
 
     takeWhile(predicate) {
         const self = this
