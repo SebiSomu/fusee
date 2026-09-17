@@ -21,7 +21,10 @@ export function setCurrentInstance(instance) {
 // Global accessor hook for di.js execution context guard
 globalThis.__FUSEE_GET_CURRENT_INSTANCE__ = getCurrentInstance
 
-/** Resolves received props against a declared schema, including defaults and checks. */
+/** 
+ * Resolves received props against a declared schema, validating types, 
+ * filling in default values, and checking for missing required props. 
+ */
 function resolveProps(schema, received) {
     const isArray = Array.isArray(schema)
     const resolved = {}
@@ -83,7 +86,7 @@ function resolveProps(schema, received) {
     return resolved
 }
 
-/** Creates a batched event emitter that dispatches to the component's listeners. */
+/** Creates a batched event emitter that safely dispatches payloads to component listeners. */
 function createEmit(listeners) {
     return function emit(eventName, ...args) {
         const handler = listeners[eventName]
@@ -154,7 +157,6 @@ export function defineComponent(options) {
             ...(options.components || {})
         }
 
-        // Case-insensitive proxy handling PascalCase to lowercase HTML tag matching
         const mergedComponents = new Proxy(rawMergedComponents, {
             get(target, prop, receiver) {
                 if (typeof prop !== 'string') return Reflect.get(target, prop, receiver)
@@ -274,6 +276,7 @@ export function defineComponent(options) {
     }
 }
 
+/** Provides a value or dependency injection configuration down to descendant components. */
 export function provide(key, value) {
     if (!currentInstance) return
 
@@ -295,6 +298,7 @@ export function provide(key, value) {
     }
 }
 
+/** Defines an asynchronous component wrapper that handles lazy loading, placeholders, and error states. */
 export function defineAsyncComponent(loaderOrOptions) {
     const options = typeof loaderOrOptions === 'function'
         ? { loader: loaderOrOptions }
@@ -382,6 +386,7 @@ export function defineAsyncComponent(loaderOrOptions) {
     }
 }
 
+/** Resolves and injects a provided value or dependency from the current component's provider tree or global injector. */
 export function inject(key, defaultValue, options) {
     const instance = getCurrentInstance()
 
@@ -400,9 +405,6 @@ export function inject(key, defaultValue, options) {
 
     if (instance && instance.provides && key in instance.provides) {
         const val = instance.provides[key]
-
-        // Token-only providers are registered in the injector and leave an
-        // undefined marker in the component provides prototype.
         const isTokenProvider = key && typeof key === 'object' && key.provide
         if (val !== undefined || !isTokenProvider) {
             if (val && typeof val === 'object' && ('useClass' in val || 'useFactory' in val || 'useExisting' in val)) {

@@ -1,3 +1,4 @@
+/** Represents a unique token used for dependency injection when standard classes or strings are insufficient. */
 export class InjectionToken {
     constructor(description) {
         this.description = description
@@ -11,12 +12,14 @@ export function isClass(fn) {
     return typeof fn === 'function' && /^class\s/.test(Function.prototype.toString.call(fn))
 }
 
+/** Abstract base class defining the standard interface for dependency injectors. */
 export class Injector {
     get(token, options = {}) {
         throw new Error('Abstract method get() must be implemented.')
     }
 }
 
+/** Terminal injector fallback that throws an error or returns null when a provider cannot be found. */
 export class NullInjector extends Injector {
     get(token, options = {}) {
         if (options && options.optional) {
@@ -27,7 +30,9 @@ export class NullInjector extends Injector {
     }
 }
 
+/** Hierarchical injector that manages provider records, cached instances, and dependency resolution. */
 export class EnvironmentInjector extends Injector {
+    /** Initializes the environment injector with a list of providers and an optional parent injector. */
     constructor(providers = [], parent = new NullInjector()) {
         super()
         this.parent = parent
@@ -40,6 +45,7 @@ export class EnvironmentInjector extends Injector {
         }
     }
 
+    /** Registers a class, value, factory, or existing provider definition into the injector records. */
     provide(provider) {
         let token
         let record
@@ -57,6 +63,7 @@ export class EnvironmentInjector extends Injector {
         this.records.set(token, record)
     }
 
+    /** Resolves and returns the instance or value associated with the specified token. */
     get(token, options = {}) {
         if (options.skipSelf) {
             return this.parent ? this.parent.get(token, { ...options, skipSelf: false }) : null
@@ -103,10 +110,12 @@ export class EnvironmentInjector extends Injector {
         return this.parent.get(token, options)
     }
 
+    /** Creates and returns a child environment injector that inherits from this injector. */
     createChild(providers = []) {
         return new EnvironmentInjector(providers, this)
     }
 
+    /** Destroys cached instances by invoking cleanup hooks and clears all records and instances. */
     destroy() {
         for (const instance of this.instances.values()) {
             if (instance && typeof instance.destroy === 'function') {
@@ -120,14 +129,17 @@ export class EnvironmentInjector extends Injector {
     }
 }
 
+/** Global root instance of EnvironmentInjector used for application-wide dependencies. */
 export const rootInjector = new EnvironmentInjector()
 
+/** Registers a provider globally in the root application injector. */
 export function provideGlobal(provider) {
     rootInjector.provide(provider)
 }
 
 let activeInjector = null
 
+/** Executes a callback function within the context of a specified active injector. */
 export function runInContext(injector, fn) {
     const prev = activeInjector
     activeInjector = injector
@@ -138,12 +150,14 @@ export function runInContext(injector, fn) {
     }
 }
 
+/** Replaces the currently active injector with a new one and returns the previous active injector. */
 export function replaceActiveInjector(injector) {
     const prev = activeInjector
     activeInjector = injector
     return prev
 }
 
+/** Safely retrieves the active component instance from the global scope if available. */
 function getActiveComponentInstance() {
     if (typeof globalThis.__FUSEE_GET_CURRENT_INSTANCE__ === 'function') {
         return globalThis.__FUSEE_GET_CURRENT_INSTANCE__()
@@ -151,6 +165,7 @@ function getActiveComponentInstance() {
     return null
 }
 
+/** Resolves a dependency token using the current component context or active injector. */
 export function inject(token, defaultValueOrOptions, treatDefaultAsFactory = false) {
     const currentInstance = getActiveComponentInstance()
 
