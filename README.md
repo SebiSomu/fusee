@@ -5,7 +5,7 @@
 <h1 align="center">Fusée Framework</h1>
 
 <p align="center">
-  <strong>v2.3.0 — Signals-First JS Framework | Atomic Reactivity | Rust Compiler | Go Toolchain</strong>
+  <strong>v2.3.1 — Signals-First JS Framework | Atomic Reactivity | Rust Compiler | Go Toolchain</strong>
 </p>
 
 <br />
@@ -14,11 +14,10 @@ Fusée is a custom, high-performance fine-grained reactive JavaScript framework 
 
 ---
 
-## What's New in 2.3.0
+## What's New in 2.3.1
 
-- New package: FREL (Fusée Reactive Expression Language) - LINQ-to-Objects style queries over arrays, iterables, and signals.
-
----
+- New package: FREL (Fusée Reactive Expression Language) - LINQ-to-Objects style queries over arrays, iterables, and signals (2.3.0);
+- Excluded FREL package from the CLI package at first installation.
 
 ## Quick Start
 
@@ -125,7 +124,7 @@ FREL provides LINQ-style queries over arrays, iterables, and signals — all whi
 ```typescript
 import { from, toSignal } from "./framework/frel/frel.js";
 
-// Reactive LINQ
+// Reactive queries over arrays, iterables, and signals
 const users = [
   { id: 1, name: "A" },
   { id: 2, name: "B" },
