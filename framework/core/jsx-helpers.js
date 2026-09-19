@@ -49,6 +49,30 @@ export function normalizeEventProps(rawProps = {}) {
     return props
 }
 
+export function normalizeComponentListenerProps(rawProps = {}) {
+    const props = {}
+ 
+    for (const key in rawProps) {
+        const match = /^on([A-Z][a-zA-Z]*)$/.exec(key)
+        if (!match) {
+            props[key] = rawProps[key]
+            continue
+        }
+ 
+        const eventName = match[1].toLowerCase()
+        const value = rawProps[key]
+        const wrapped = value && typeof value === 'object' && value.__fuseeEvent
+ 
+        if (wrapped && wrapped.modifiers && wrapped.modifiers.length) {
+            console.warn(`[fusée] Event modifiers aren't supported on component listeners ("${key}"); ignoring.`)
+        }
+ 
+        props[`on:${eventName}`] = wrapped ? wrapped.handler : value
+    }
+ 
+    return props
+}
+
 export function splitSlotChildren(children) {
     const flat = flattenChildren(children)
     const named = {}
