@@ -88,6 +88,8 @@ Aliases: `fusee add go-server`, `fusee add engine-go`
 ## Example Component
 
 ```javascript
+// default template
+
 export const Counter = defineComponent({
   setup() {
     const count = signal(0);
@@ -110,6 +112,8 @@ export const Counter = defineComponent({
 ```
 
 ```jsx
+// jsx template
+
 export const Counter = defineComponent({
   setup() {
     const count = signal(0);
