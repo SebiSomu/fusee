@@ -28,20 +28,39 @@ Types available:
 		rawName := args[1]
 		name := strings.Title(rawName)
 
-		// Check if we are in a Fusée project
 		if _, err := os.Stat("framework"); os.IsNotExist(err) {
 			fmt.Println("Error: This command must be run from the root of a Fusée project.")
 			os.Exit(1)
 		}
 
+		isTS := false
+		isJSX := false
+		if meta, err := assets.ReadProjectMeta("."); err == nil {
+			isTS = meta.IsTS
+			isJSX = meta.IsJSX
+		} else if _, err := os.Stat("tsconfig.json"); err == nil {
+			isTS = true
+		}
+
 		ext := "js"
-		if _, err := os.Stat("tsconfig.json"); err == nil {
+		switch {
+		case isJSX && isTS:
+			ext = "tsx"
+		case isJSX:
+			ext = "jsx"
+		case isTS:
 			ext = "ts"
+		}
+
+		logicExt := "js"
+		if isTS {
+			logicExt = "ts"
 		}
 
 		config := assets.Config{
 			ProjectName: name,
-			IsTS:        ext == "ts",
+			IsTS:        isTS,
+			IsJSX:       isJSX,
 			Ext:         ext,
 		}
 
@@ -51,22 +70,22 @@ Types available:
 		switch genType {
 		case "page", "p":
 			dest = filepath.Join("app/pages", rawName+"."+ext)
-			tmpl = "templates/page.tmpl"
+			tmpl = variantTemplate("templates/page.tmpl", isJSX)
 		case "component", "c":
 			dest = filepath.Join("app/components", name+"."+ext)
-			tmpl = "templates/component.tmpl"
+			tmpl = variantTemplate("templates/component.tmpl", isJSX)
 		case "store", "s":
-			dest = filepath.Join("app/stores", rawName+"."+ext)
+			dest = filepath.Join("app/stores", rawName+"."+logicExt)
 			tmpl = "templates/store.tmpl"
 		case "composable", "use":
 			compName := rawName
 			if !strings.HasPrefix(strings.ToLower(compName), "use") {
 				compName = "use" + name
 			}
-			dest = filepath.Join("app/composables", compName+"."+ext)
+			dest = filepath.Join("app/composables", compName+"."+logicExt)
 			tmpl = "templates/composable.tmpl"
 		case "action", "a":
-			dest = filepath.Join("app/actions", rawName+"."+ext)
+			dest = filepath.Join("app/actions", rawName+"."+logicExt)
 			tmpl = "templates/action.tmpl"
 		default:
 			fmt.Printf("Error: Unknown type '%s'. Use page (p), component (c), store (s), composable (use), or action (a).\n", genType)

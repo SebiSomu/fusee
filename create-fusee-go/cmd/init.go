@@ -1,11 +1,6 @@
 package cmd
 
 import (
-	"bufio"
-	"fmt"
-	"os"
-	"strings"
-
 	"github.com/spf13/cobra"
 )
 
@@ -19,19 +14,14 @@ var initCmd = &cobra.Command{
 			projectName = args[0]
 		}
 
-		isTS := IsTSFlag
-		if !cmd.Flags().Changed("ts") {
-			reader := bufio.NewReader(os.Stdin)
-			fmt.Printf("Select language template [JavaScript (js) / TypeScript (ts)] (default: js): ")
-			langInput, _ := reader.ReadString('\n')
-			isTS = strings.TrimSpace(strings.ToLower(langInput)) == "ts"
-		}
+		isTS, isJSX := resolveTemplateFlags(cmd)
 
-		runInitWithParams(projectName, isTS)
+		runInitWithParams(projectName, isTS, isJSX)
 	},
 }
 
 func init() {
 	initCmd.Flags().BoolVarP(&IsTSFlag, "ts", "t", false, "Use TypeScript template")
+	initCmd.Flags().BoolVarP(&UseJSXFlag, "jsx", "j", false, "Use the JSX/TSX template style")
 	rootCmd.AddCommand(initCmd)
 }

@@ -2,6 +2,7 @@ package assets
 
 import (
 	"embed"
+	"encoding/json"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -18,11 +19,49 @@ var EmbeddedEngineGo embed.FS
 type Config struct {
 	ProjectName string
 	IsTS        bool
+	IsJSX       bool
 	Ext         string
 	BtnStyle    string
 }
 
-func CopyEmbeddedDir(srcDir, destDir string, keepTypes bool) error {
+// ProjectMeta is written to .fusee/project.json at init time so later
+// commands (generate, add) can tell what flavor of project this is
+// without re-prompting or guessing from file extensions.
+type ProjectMeta struct {
+	IsTS  bool `json:"isTS"`
+	IsJSX bool `json:"isJSX"`
+}
+
+func WriteProjectMeta(projectPath string, meta ProjectMeta) error {
+	data, err := json.MarshalIndent(meta, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(projectPath, ".fusee", "project.json"), data, 0644)
+}
+
+// ReadProjectMeta reads .fusee/project.json from projectRoot. Returns an
+// error if it doesn't exist — callers should fall back to older heuristics
+// (e.g. checking for tsconfig.json) for projects scaffolded before this
+// file existed.
+func ReadProjectMeta(projectRoot string) (ProjectMeta, error) {
+	data, err := os.ReadFile(filepath.Join(projectRoot, ".fusee", "project.json"))
+	if err != nil {
+		return ProjectMeta{}, err
+	}
+	var meta ProjectMeta
+	if err := json.Unmarshal(data, &meta); err != nil {
+		return ProjectMeta{}, err
+	}
+	return meta, nil
+}
+
+// CopyEmbeddedDir copies srcDir into destDir. If keepTypes is false, .d.ts
+// files and anything under a top-level "types" dir are skipped (JS
+// projects don't need them). If includeJSX is false, anything under a
+// "jsx" directory is skipped too (non-JSX projects don't need the JSX
+// runtime/build files).
+func CopyEmbeddedDir(srcDir, destDir string, keepTypes bool, includeJSX bool) error {
 	return fs.WalkDir(EmbeddedFiles, srcDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -42,6 +81,9 @@ func CopyEmbeddedDir(srcDir, destDir string, keepTypes bool) error {
 		parts := strings.Split(relPath, "/")
 		for _, part := range parts {
 			if part == "bin" || part == "node_modules" || part == ".git" || part == "dist" || part == "__tests__" || part == "target" || part == ".idea" || part == ".cargo" || part == "comet-js" || part == "comet" || part == "frel" {
+				return nil
+			}
+			if !includeJSX && part == "jsx" {
 				return nil
 			}
 		}
@@ -210,5 +252,5 @@ func CopyFrelJS(dest string) error {
 	if err := os.MkdirAll(dest, 0755); err != nil {
 		return err
 	}
-	return CopyEmbeddedDir("embed/framework/frel", dest, true)
+	return CopyEmbeddedDir("embed/framework/frel", dest, true, true)
 }
