@@ -2,7 +2,8 @@ import { defineConfig } from 'vite';
 import path from 'path';
 import AutoImport from 'unplugin-auto-import/vite';
 import { FuseePreset } from './framework/auto-import-preset.js';
-
+{{if .IsJSX}}import babel from 'vite-plugin-babel';
+{{end}}
 export default defineConfig({
   resolve: {
     alias: {
@@ -12,7 +13,15 @@ export default defineConfig({
   plugins: [
     AutoImport({
       imports: [FuseePreset],
-      dts: true // Generates auto-imports.d.ts
-    })
+      dts: true
+    }),{{if .IsJSX}}
+    babel({
+      babelConfig: {
+        plugins: [
+          ['./framework/core/jsx/babel-plugin-fusee.js']
+        ]
+      },
+      filter: /\.[jt]sx$/
+    }),{{end}}
   ]
 });

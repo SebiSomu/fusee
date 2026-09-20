@@ -5,7 +5,7 @@
 <h1 align="center">Fusée Framework</h1>
 
 <p align="center">
-  <strong>v2.3.1 — Signals-First JS Framework | Atomic Reactivity | Rust Compiler | Go Toolchain</strong>
+  <strong>v2.4.0 — Signals-First JS Framework | Atomic Reactivity | Rust Compiler | Go Toolchain</strong>
 </p>
 
 <br />
@@ -14,10 +14,9 @@ Fusée is a custom, high-performance fine-grained reactive JavaScript framework 
 
 ---
 
-## What's New in 2.3.1
+## What's New in 2.4.0
 
-- New package: FREL (Fusée Reactive Expression Language) - LINQ-to-Objects style queries over arrays, iterables, and signals (2.3.0);
-- Excluded FREL package from the CLI package at first installation.
+- Added JSX/TSX build support.
 
 ## Quick Start
 
@@ -83,6 +82,60 @@ npm run dev             # → generate manifest + start Go server on port 3000
 ```
 
 Aliases: `fusee add go-server`, `fusee add engine-go`
+
+---
+
+## Example Component
+
+```javascript
+export const Counter = defineComponent({
+  setup() {
+    const count = signal(0);
+    const double = computed(() => count() * 2);
+
+    return {
+      count,
+      double,
+      inc: () => count(count() + 1),
+      template: `
+        <div class="card">
+          <h2>Count: {{ count }}</h2>
+          <button @click.debounce.300ms="inc">Increment</button>
+          <p f-if="count() > 0">Double: <strong>{{ double }}</strong></p>
+        </div>
+      `,
+    };
+  },
+});
+```
+
+```jsx
+export const Counter = defineComponent({
+  setup() {
+    const count = signal(0);
+    const double = computed(() => count() * 2);
+
+    return {
+      count,
+      double,
+      inc: () => count(count() + 1),
+      render() {
+        return (
+          <div className="card">
+            <h2>Count: {count()}</h2>
+            <button onClick={this.inc}>Increment</button>
+            {count() > 0 && (
+              <p>
+                Double: <strong>{double()}</strong>
+              </p>
+            )}
+          </div>
+        );
+      },
+    };
+  },
+});
+```
 
 ---
 
@@ -271,32 +324,6 @@ export const Welcome = defineComponent({
 
 ---
 
-## Example Component
-
-```javascript
-export const Counter = defineComponent({
-  setup() {
-    const count = signal(0);
-    const double = computed(() => count() * 2);
-
-    return {
-      count,
-      double,
-      inc: () => count(count() + 1),
-      template: `
-        <div class="card">
-          <h2>Count: {{ count }}</h2>
-          <button @click.debounce.300ms="inc">Increment</button>
-          <p f-if="count() > 0">Double: <strong>{{ double }}</strong></p>
-        </div>
-      `,
-    };
-  },
-});
-```
-
----
-
 ## Project Structure
 
 A scaffolded Fusée project:
@@ -400,9 +427,9 @@ npx vitest # watch mode
 - [x] Rust WASM compiler backend
 - [x] Comprehensive TypeScript definitions
 - [x] Generators for pages, components, stores, composables, actions
+- [x] JSX/TSX Support
 - [ ] Production SSR build pipeline
 - [ ] Plugin system for third-party extensions
-- [ ] JSX/TSX Support
 
 ---
 

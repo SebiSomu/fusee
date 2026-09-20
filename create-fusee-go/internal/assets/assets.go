@@ -56,11 +56,21 @@ func ReadProjectMeta(projectRoot string) (ProjectMeta, error) {
 	return meta, nil
 }
 
+// jsxRuntimeFiles are the JSX runtime files that live directly in core/ (not
+// under a jsx/ subdirectory) because jsxImportSource resolution requires them
+// at that path. They must be skipped for non-JSX projects just like anything
+// inside a jsx/ dir.
+var jsxRuntimeFiles = map[string]bool{
+	"jsx-runtime.js":     true,
+	"jsx-dev-runtime.js": true,
+	"jsx-helpers.js":     true,
+}
+
 // CopyEmbeddedDir copies srcDir into destDir. If keepTypes is false, .d.ts
 // files and anything under a top-level "types" dir are skipped (JS
 // projects don't need them). If includeJSX is false, anything under a
-// "jsx" directory is skipped too (non-JSX projects don't need the JSX
-// runtime/build files).
+// "jsx" directory is skipped too, as are the JSX runtime files that live
+// directly in core/ (jsx-runtime.js, jsx-dev-runtime.js, jsx-helpers.js).
 func CopyEmbeddedDir(srcDir, destDir string, keepTypes bool, includeJSX bool) error {
 	return fs.WalkDir(EmbeddedFiles, srcDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -86,6 +96,12 @@ func CopyEmbeddedDir(srcDir, destDir string, keepTypes bool, includeJSX bool) er
 			if !includeJSX && part == "jsx" {
 				return nil
 			}
+		}
+
+		// Skip the JSX runtime files (live at core/ level, not in a jsx/ dir)
+		// when this is not a JSX project.
+		if !includeJSX && !d.IsDir() && jsxRuntimeFiles[parts[len(parts)-1]] {
+			return nil
 		}
 
 		destPath := filepath.Join(destDir, filepath.FromSlash(relPath))

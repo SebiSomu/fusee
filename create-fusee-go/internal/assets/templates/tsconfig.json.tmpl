@@ -5,7 +5,9 @@
     "moduleResolution": "bundler",
     "strict": true,
     "esModuleInterop": true,
-    "skipLibCheck": true,
+    "skipLibCheck": true,{{if .IsJSX}}
+    "jsx": "react-jsx",
+    "jsxImportSource": "./framework/core",{{end}}
     "paths": {
       "fusee-framework": ["./framework/types/index.d.ts"]
     }

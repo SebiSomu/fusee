@@ -1,0 +1,29 @@
+{{if .IsTS}}import { defineComponent, signal } from 'fusee-framework';
+import type { Signal } from 'fusee-framework';
+
+interface CounterResult {
+    count: Signal<number>;
+    inc: () => void;
+    dec: () => void;
+}
+
+export const Counter = defineComponent({
+    setup(): CounterResult {
+        const count = signal<number>(0);
+{{else}}import { defineComponent, signal } from 'fusee-framework';
+
+export const Counter = defineComponent({
+    setup() {
+        const count = signal(0);
+{{end}}        const inc = () => count(count() + 1);
+        const dec = () => count(count() - 1);
+
+        return () => (
+            <div style="display:flex; align-items:center; gap:2rem; background:#111; padding:2rem; border-radius:20px; border:1px solid #222;">
+                <button onClick={dec} style="{{.BtnStyle}}">-</button>
+                <span style="font-size:3rem; font-weight:bold; min-width:60px; text-align:center;">{count()}</span>
+                <button onClick={inc} style="{{.BtnStyle}}">+</button>
+            </div>
+        );
+    }
+});
