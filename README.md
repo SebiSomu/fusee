@@ -5,7 +5,7 @@
 <h1 align="center">Fusée Framework</h1>
 
 <p align="center">
-  <strong>v2.4.0 — Signals-First JS Framework | Atomic Reactivity | Rust Compiler | Go Toolchain</strong>
+  <strong>v2.5.0 — Signals-First JS Framework | Atomic Reactivity | Rust Compiler | Go Toolchain</strong>
 </p>
 
 <br />
@@ -14,9 +14,9 @@ Fusée is a custom, high-performance fine-grained reactive JavaScript framework 
 
 ---
 
-## What's New in 2.4.0
+## What's New in 2.5.0
 
-- Added JSX/TSX build support.
+- Added Tailwind CSS support in the cli project initialization command.
 
 ## Quick Start
 

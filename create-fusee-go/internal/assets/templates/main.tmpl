@@ -1,4 +1,5 @@
-import { createRouter, mountOutlet, generateRoutes } from 'fusee-framework';
+{{if .UseTailwind}}import './styles.css';
+{{end}}import { createRouter, mountOutlet, generateRoutes } from 'fusee-framework';
 import { Loading } from './components/Loading';
 
 const pages = import.meta.glob('./pages/**/*.{js,ts}');

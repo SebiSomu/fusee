@@ -12,7 +12,9 @@
   "devDependencies": {
     "fast-glob": "^3.3.3",
     "unplugin-auto-import": "^0.17.0",
-    "vite": "^5.0.0"{{if .IsTS}},
+    "vite": "^5.0.0"{{if .UseTailwind}},
+    "@tailwindcss/vite": "^4.0.0",
+    "tailwindcss": "^4.0.0"{{end}}{{if .IsTS}},
     "typescript": "^5.0.0"{{end}}{{if .IsJSX}},
     "vite-plugin-babel": "^0.2.0",
     "@babel/core": "^7.24.0",

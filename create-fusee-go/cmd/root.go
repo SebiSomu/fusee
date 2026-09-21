@@ -78,7 +78,7 @@ func resolveTemplateFlags(cmd *cobra.Command) (isTS bool, isJSX bool, useTailwin
 		fmt.Printf("Styling [default (d) / tailwind (t)] (default: default): ")
 		input, _ := reader.ReadString('\n')
 		cleaned := strings.TrimSpace(strings.ToLower(input))
-		useTailwind = cleaned == "t" || cleaned == "tailwind"
+		useTailwind = cleaned == "t" || cleaned == "tailwind" || cleaned == "y" || cleaned == "yes"
 	}
 
 	return isTS, isJSX, useTailwind

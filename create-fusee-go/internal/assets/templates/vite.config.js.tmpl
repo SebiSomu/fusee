@@ -2,7 +2,8 @@ import { defineConfig } from 'vite';
 import path from 'path';
 import AutoImport from 'unplugin-auto-import/vite';
 import { FuseePreset } from './framework/auto-import-preset.js';
-{{if .IsJSX}}import babel from 'vite-plugin-babel';
+{{if .UseTailwind}}import tailwindcss from '@tailwindcss/vite';
+{{end}}{{if .IsJSX}}import babel from 'vite-plugin-babel';
 {{end}}
 export default defineConfig({
   resolve: {
@@ -11,7 +12,8 @@ export default defineConfig({
     }
   },
   plugins: [
-    AutoImport({
+    {{if .UseTailwind}}tailwindcss(),
+    {{end}}AutoImport({
       imports: [FuseePreset],
       dts: true
     }),{{if .IsJSX}}
