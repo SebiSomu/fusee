@@ -18,9 +18,9 @@ var initCmd = &cobra.Command{
 			projectName = args[0]
 		}
 
-		isTS, isJSX, useTailwind, initGit := resolveTemplateFlags(cmd)
+		isTS, isJSX, useTailwind, initGit, pm, installDeps := resolveTemplateFlags(cmd)
 
-		runInitWithParams(projectName, isTS, isJSX, useTailwind, initGit)
+		runInitWithParams(projectName, isTS, isJSX, useTailwind, initGit, pm, installDeps)
 	},
 }
 
@@ -29,5 +29,8 @@ func init() {
 	initCmd.Flags().BoolVarP(&UseJSXFlag, "jsx", "j", false, "Use the JSX/TSX template style")
 	initCmd.Flags().BoolVarP(&UseTailwindFlag, "tailwind", "w", false, "Set up Tailwind CSS")
 	initCmd.Flags().BoolVarP(&InitGitFlag, "git", "g", false, "Initialize a git repository")
+	initCmd.Flags().BoolVarP(&InstallFlag, "install", "i", false, "Install dependencies automatically")
+	initCmd.Flags().BoolVar(&SkipInstallFlag, "skip-install", false, "Skip installing dependencies")
+	initCmd.Flags().StringVar(&PMFlag, "pm", "", "Package manager to use (npm, pnpm, yarn, bun, deno)")
 	rootCmd.AddCommand(initCmd)
 }

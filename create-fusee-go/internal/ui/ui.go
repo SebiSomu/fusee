@@ -242,21 +242,23 @@ func Error(msg string) {
 }
 
 // NextSteps prints the formatted getting started instructions
-func NextSteps(projectName string, isSSR bool) {
+func NextSteps(projectName string, pm PackageManager, installed bool) {
 	fmt.Println()
 	fmt.Printf("%sNext steps:%s\n", BoldWhite, Reset)
+	step := 1
 	if projectName != "." {
-		fmt.Printf("  1. %scd %s%s\n", BoldCyan, projectName, Reset)
-		fmt.Printf("  2. %snpm install%s\n", BoldCyan, Reset)
-		fmt.Printf("  3. %snpm run dev:spa%s %s(Vite SPA dev server on :5173)%s\n", BoldCyan, Reset, FgGray, Reset)
-	} else {
-		fmt.Printf("  1. %snpm install%s\n", BoldCyan, Reset)
-		fmt.Printf("  2. %snpm run dev:spa%s %s(Vite SPA dev server on :5173)%s\n", BoldCyan, Reset, FgGray, Reset)
+		fmt.Printf("  %d. %scd %s%s\n", step, BoldCyan, projectName, Reset)
+		step++
 	}
+	if !installed {
+		fmt.Printf("  %d. %s%s %s%s\n", step, BoldCyan, pm.InstallCmd, strings.Join(pm.InstallArgs, " "), Reset)
+		step++
+	}
+	fmt.Printf("  %d. %s%s%s %s(Vite SPA dev server on :5173)%s\n", step, BoldCyan, pm.RunDevCmd, Reset, FgGray, Reset)
 
 	fmt.Println()
 	fmt.Printf("%sOptional SSR Mode:%s\n", BoldWhite, Reset)
 	fmt.Printf("  %sfusee add server%s    %s→ install Go SSR Engine%s\n", BoldHiMagenta, Reset, FgGray, Reset)
-	fmt.Printf("  %snpm run dev%s         %s→ start Go server on :3000%s\n", BoldHiMagenta, Reset, FgGray, Reset)
+	fmt.Printf("  %s%s%s         %s→ start Go server on :3000%s\n", BoldHiMagenta, pm.RunSSRCmd, Reset, FgGray, Reset)
 	fmt.Println()
 }

@@ -1,11 +1,11 @@
 <p align="center">
-  <img src="./fusee-logo.svg" alt="Fusée Framework Logo" width="140" />
+  <img src="./fusee-logo.svg" alt="Fusée Framework Logo" width="300" />
 </p>
 
 <h1 align="center">Fusée Framework</h1>
 
 <p align="center">
-  <strong>v2.5.0 — Signals-First JS Framework | Atomic Reactivity | Rust Compiler | Go Toolchain</strong>
+  <strong>v2.6.0 — Signals-First JS Framework | Atomic Reactivity | Rust Compiler | Go Toolchain</strong>
 </p>
 
 <br />
@@ -14,9 +14,12 @@ Fusée is a custom, high-performance fine-grained reactive JavaScript framework 
 
 ---
 
-## What's New in 2.5.0
+## What's New in 2.6.0
 
-- Added Tailwind CSS support in the cli project initialization command.
+- Added package manager choice in the `fusee init` command and automatic installation
+  of dependencies;
+- Added `--install` and `--skip-install` flags to the `fusee init` command;
+- Added `pm` flag to the `fusee init` command.
 
 ## Quick Start
 
@@ -82,6 +85,17 @@ npm run dev             # → generate manifest + start Go server on port 3000
 ```
 
 Aliases: `fusee add go-server`, `fusee add engine-go`
+
+### `fusee add frel`
+
+Install the optional **FREL (Fusée Reactive Expression Language)** module into an existing project:
+
+```bash
+cd my-app
+fusee add frel        # → installs framework/frel
+```
+
+FREL adds support for LINQ-style reactive queries over arrays, iterables, and signals, as well as client-side server function execution.
 
 ---
 

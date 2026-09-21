@@ -18,6 +18,9 @@ var IsTSFlag bool
 var UseJSXFlag bool
 var UseTailwindFlag bool
 var InitGitFlag bool
+var InstallFlag bool
+var SkipInstallFlag bool
+var PMFlag string
 
 var rootCmd = &cobra.Command{
 	Use:   "fusee",
@@ -28,8 +31,8 @@ and manage your Fusée application development workflow.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) > 0 {
 			ui.Banner()
-			isTS, isJSX, useTailwind, initGit := resolveTemplateFlags(cmd)
-			runInitWithParams(args[0], isTS, isJSX, useTailwind, initGit)
+			isTS, isJSX, useTailwind, initGit, pm, installDeps := resolveTemplateFlags(cmd)
+			runInitWithParams(args[0], isTS, isJSX, useTailwind, initGit, pm, installDeps)
 		} else {
 			cmd.Help()
 		}
@@ -48,9 +51,12 @@ func init() {
 	rootCmd.Flags().BoolVarP(&UseJSXFlag, "jsx", "j", false, "Use the JSX/TSX template style")
 	rootCmd.Flags().BoolVarP(&UseTailwindFlag, "tailwind", "w", false, "Set up Tailwind CSS")
 	rootCmd.Flags().BoolVarP(&InitGitFlag, "git", "g", false, "Initialize a git repository")
+	rootCmd.Flags().BoolVarP(&InstallFlag, "install", "i", false, "Install dependencies automatically")
+	rootCmd.Flags().BoolVar(&SkipInstallFlag, "skip-install", false, "Skip installing dependencies")
+	rootCmd.Flags().StringVar(&PMFlag, "pm", "", "Package manager to use (npm, pnpm, yarn, bun, deno)")
 }
 
-func resolveTemplateFlags(cmd *cobra.Command) (isTS bool, isJSX bool, useTailwind bool, initGit bool) {
+func resolveTemplateFlags(cmd *cobra.Command) (isTS bool, isJSX bool, useTailwind bool, initGit bool, pm ui.PackageManager, installDeps bool) {
 	isJSX = UseJSXFlag
 	if !cmd.Flags().Changed("jsx") {
 		styleChoice := ui.Select("Select template style", []ui.SelectOption{
@@ -95,7 +101,19 @@ func resolveTemplateFlags(cmd *cobra.Command) (isTS bool, isJSX bool, useTailwin
 		initGit = gitChoice == "yes"
 	}
 
-	return isTS, isJSX, useTailwind, initGit
+	pm = ui.DetectPackageManager(PMFlag)
+	installDeps = InstallFlag
+	if !cmd.Flags().Changed("install") && !cmd.Flags().Changed("skip-install") {
+		installChoice := ui.Select("Install dependencies?", []ui.SelectOption{
+			{Label: fmt.Sprintf("Yes (via %s)", pm.Name), Desc: fmt.Sprintf("Run %s %s automatically", pm.InstallCmd, strings.Join(pm.InstallArgs, " ")), Value: "yes", Color: pm.Color},
+			{Label: "No", Desc: "Skip dependency installation", Value: "no", Color: ui.BoldWhite},
+		}, 0)
+		installDeps = installChoice == "yes"
+	} else if SkipInstallFlag {
+		installDeps = false
+	}
+
+	return isTS, isJSX, useTailwind, initGit, pm, installDeps
 }
 
 func variantTemplate(p string, isJSX bool) string {
@@ -107,7 +125,7 @@ func variantTemplate(p string, isJSX bool) string {
 	return epath.Join(dir, "jsx", file)
 }
 
-func runInitWithParams(projectName string, isTS bool, isJSX bool, useTailwind bool, initGit bool) {
+func runInitWithParams(projectName string, isTS bool, isJSX bool, useTailwind bool, initGit bool, pm ui.PackageManager, installDeps bool) {
 	if strings.ContainsAny(projectName, " !@#$%^&*()") {
 		ui.Error(fmt.Sprintf("Project name '%s' contains invalid characters.", projectName))
 		os.Exit(1)
@@ -222,6 +240,22 @@ func runInitWithParams(projectName string, isTS bool, isJSX bool, useTailwind bo
 		}
 	}
 
+	installed := false
+	if installDeps {
+		ui.Info(fmt.Sprintf("Installing dependencies with %s%s%s...", pm.Color, pm.Name, ui.Reset))
+		installCmd := exec.Command(pm.InstallCmd, pm.InstallArgs...)
+		installCmd.Dir = projectPath
+		installCmd.Stdout = os.Stdout
+		installCmd.Stderr = os.Stderr
+		installCmd.Stdin = os.Stdin
+		if err := installCmd.Run(); err == nil {
+			installed = true
+			ui.Success("Dependencies installed successfully!")
+		} else {
+			ui.Error(fmt.Sprintf("Failed to install dependencies: %v", err))
+		}
+	}
+
 	ui.Success(fmt.Sprintf("Project %s ready!", filepath.Base(projectName)))
-	ui.NextSteps(projectName, false)
+	ui.NextSteps(projectName, pm, installed)
 }
