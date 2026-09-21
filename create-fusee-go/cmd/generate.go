@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"create-fusee/internal/assets"
+	"create-fusee/internal/ui"
 
 	"github.com/spf13/cobra"
 )
@@ -29,7 +30,7 @@ Types available:
 		name := strings.Title(rawName)
 
 		if _, err := os.Stat("framework"); os.IsNotExist(err) {
-			fmt.Println("Error: This command must be run from the root of a Fusée project.")
+			ui.Error("This command must be run from the root of a Fusée project.")
 			os.Exit(1)
 		}
 
@@ -88,26 +89,26 @@ Types available:
 			dest = filepath.Join("app/actions", rawName+"."+logicExt)
 			tmpl = "templates/action.tmpl"
 		default:
-			fmt.Printf("Error: Unknown type '%s'. Use page (p), component (c), store (s), composable (use), or action (a).\n", genType)
+			ui.Error(fmt.Sprintf("Unknown type '%s'. Use page (p), component (c), store (s), composable (use), or action (a).", genType))
 			os.Exit(1)
 		}
 
 		if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
-			fmt.Printf("Error: Could not create directory %s: %v\n", filepath.Dir(dest), err)
+			ui.Error(fmt.Sprintf("Could not create directory %s: %v", filepath.Dir(dest), err))
 			os.Exit(1)
 		}
 
 		if _, err := os.Stat(dest); err == nil {
-			fmt.Printf("Error: File '%s' already exists.\n", dest)
+			ui.Error(fmt.Sprintf("File '%s' already exists.", dest))
 			os.Exit(1)
 		}
 
 		if err := assets.WriteTemplate(tmpl, dest, config); err != nil {
-			fmt.Printf("Error: Could not generate %s: %v\n", genType, err)
+			ui.Error(fmt.Sprintf("Could not generate %s: %v", genType, err))
 			os.Exit(1)
 		}
 
-		fmt.Printf("%s created: %s\n", strings.Title(genType), dest)
+		ui.Success(fmt.Sprintf("%s created: %s", strings.Title(genType), dest))
 	},
 }
 

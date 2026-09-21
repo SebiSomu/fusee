@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"bufio"
 	"fmt"
 	"os"
 	epath "path"
@@ -9,6 +8,7 @@ import (
 	"strings"
 
 	"create-fusee/internal/assets"
+	"create-fusee/internal/ui"
 
 	"github.com/spf13/cobra"
 )
@@ -25,6 +25,7 @@ and manage your Fusée application development workflow.`,
 	Args: cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) > 0 {
+			ui.Banner()
 			isTS, isJSX, useTailwind := resolveTemplateFlags(cmd)
 			runInitWithParams(args[0], isTS, isJSX, useTailwind)
 		} else {
@@ -35,7 +36,7 @@ and manage your Fusée application development workflow.`,
 
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
+		ui.Error(err.Error())
 		os.Exit(1)
 	}
 }
@@ -47,38 +48,39 @@ func init() {
 }
 
 func resolveTemplateFlags(cmd *cobra.Command) (isTS bool, isJSX bool, useTailwind bool) {
-	reader := bufio.NewReader(os.Stdin)
-
 	isJSX = UseJSXFlag
 	if !cmd.Flags().Changed("jsx") {
-		fmt.Printf("Template style [normal (n) / jsx (j)] (default: normal): ")
-		input, _ := reader.ReadString('\n')
-		cleaned := strings.TrimSpace(strings.ToLower(input))
-		isJSX = cleaned == "j" || cleaned == "jsx"
+		styleChoice := ui.Select("Select template style", []ui.SelectOption{
+			{Label: "Normal", Desc: "HTML-like template strings (Fast & lightweight)", Value: "normal"},
+			{Label: "JSX / TSX", Desc: "Modern JSX syntax with compiler transforms", Value: "jsx"},
+		}, 0)
+		isJSX = styleChoice == "jsx"
 	}
 
 	isTS = IsTSFlag
 	if !cmd.Flags().Changed("ts") {
+		var langChoice string
 		if isJSX {
-			fmt.Printf("Use TypeScript (tsx)? [y/N] (default: no): ")
+			langChoice = ui.Select("Select language template", []ui.SelectOption{
+				{Label: "JavaScript (jsx)", Desc: "Standard JavaScript with JSX syntax", Value: "js"},
+				{Label: "TypeScript (tsx)", Desc: "Full TypeScript support with strict types", Value: "ts"},
+			}, 0)
 		} else {
-			fmt.Printf("Select language template [JavaScript (js) / TypeScript (ts)] (default: js): ")
+			langChoice = ui.Select("Select language template", []ui.SelectOption{
+				{Label: "JavaScript", Desc: "Standard modern JavaScript", Value: "js"},
+				{Label: "TypeScript", Desc: "Full TypeScript support with strict types", Value: "ts"},
+			}, 0)
 		}
-		input, _ := reader.ReadString('\n')
-		cleaned := strings.TrimSpace(strings.ToLower(input))
-		if isJSX {
-			isTS = cleaned == "y" || cleaned == "yes"
-		} else {
-			isTS = cleaned == "ts"
-		}
+		isTS = langChoice == "ts"
 	}
 
 	useTailwind = UseTailwindFlag
 	if !cmd.Flags().Changed("tailwind") {
-		fmt.Printf("Styling [default (d) / tailwind (t)] (default: default): ")
-		input, _ := reader.ReadString('\n')
-		cleaned := strings.TrimSpace(strings.ToLower(input))
-		useTailwind = cleaned == "t" || cleaned == "tailwind" || cleaned == "y" || cleaned == "yes"
+		twChoice := ui.Select("Choose styling solution", []ui.SelectOption{
+			{Label: "Default", Desc: "Clean vanilla CSS styling", Value: "default"},
+			{Label: "Tailwind CSS", Desc: "Tailwind CSS v4 with Vite integration", Value: "tailwind"},
+		}, 0)
+		useTailwind = twChoice == "tailwind"
 	}
 
 	return isTS, isJSX, useTailwind
@@ -95,18 +97,18 @@ func variantTemplate(p string, isJSX bool) string {
 
 func runInitWithParams(projectName string, isTS bool, isJSX bool, useTailwind bool) {
 	if strings.ContainsAny(projectName, " !@#$%^&*()") {
-		fmt.Printf("Error: Project name '%s' contains invalid characters.\n", projectName)
+		ui.Error(fmt.Sprintf("Project name '%s' contains invalid characters.", projectName))
 		os.Exit(1)
 	}
 
 	projectPath, err := filepath.Abs(projectName)
 	if err != nil {
-		fmt.Printf("Error: Could not determine absolute path: %v\n", err)
+		ui.Error(fmt.Sprintf("Could not determine absolute path: %v", err))
 		os.Exit(1)
 	}
 
 	if _, err := os.Stat(projectPath); !os.IsNotExist(err) && projectName != "." {
-		fmt.Printf("Error: Directory '%s' already exists.\n", projectName)
+		ui.Error(fmt.Sprintf("Directory '%s' already exists.", projectName))
 		os.Exit(1)
 	}
 
@@ -120,7 +122,8 @@ func runInitWithParams(projectName string, isTS bool, isJSX bool, useTailwind bo
 		ext = "ts"
 	}
 
-	fmt.Printf("\nScaffolding a new project in: %s...\n", projectPath)
+	fmt.Println()
+	ui.Info(fmt.Sprintf("Scaffolding project in %s%s%s...", ui.BoldCyan, projectPath, ui.Reset))
 
 	config := assets.Config{
 		ProjectName: filepath.Base(projectName),
@@ -146,19 +149,19 @@ func runInitWithParams(projectName string, isTS bool, isJSX bool, useTailwind bo
 	}
 	for _, d := range dirs {
 		if err := os.MkdirAll(filepath.Join(projectPath, d), 0755); err != nil {
-			fmt.Printf("Error: Could not create directory %s: %v\n", d, err)
+			ui.Error(fmt.Sprintf("Could not create directory %s: %v", d, err))
 			os.Exit(1)
 		}
 	}
 
 	if err := assets.WriteProjectMeta(projectPath, assets.ProjectMeta{IsTS: isTS, IsJSX: isJSX, UseTailwind: useTailwind}); err != nil {
-		fmt.Printf("Error: Could not write project metadata: %v\n", err)
+		ui.Error(fmt.Sprintf("Could not write project metadata: %v", err))
 		os.Exit(1)
 	}
 
-	fmt.Println("Injecting Fusée Core Engine...")
+	ui.Info("Injecting Fusée Core Engine...")
 	if err := assets.CopyEmbeddedDir("embed/framework", filepath.Join(projectPath, "framework"), isTS, isJSX); err != nil {
-		fmt.Printf("Error: Could not inject framework: %v\n", err)
+		ui.Error(fmt.Sprintf("Could not inject framework: %v", err))
 		os.Exit(1)
 	}
 
@@ -182,19 +185,11 @@ func runInitWithParams(projectName string, isTS bool, isJSX bool, useTailwind bo
 
 	for src, dest := range files {
 		if err := assets.WriteTemplate(src, filepath.Join(projectPath, dest), config); err != nil {
-			fmt.Printf("Error: Could not write file %s: %v\n", dest, err)
+			ui.Error(fmt.Sprintf("Could not write file %s: %v", dest, err))
 			os.Exit(1)
 		}
 	}
 
-	fmt.Println("\nFusée Project Ready!")
-	fmt.Printf("   cd %s && npm install\n", projectName)
-	fmt.Println()
-	fmt.Println("   SPA mode (no server needed):")
-	fmt.Println("        npm run dev:spa     → Vite dev server on port 5173")
-	fmt.Println()
-	fmt.Println("   SSR mode (optional Go server):")
-	fmt.Println("        fusee add server    → install the Go SSR engine")
-	fmt.Println("        npm run dev         → start Go server on port 3000")
-	fmt.Println()
+	ui.Success(fmt.Sprintf("Project %s ready!", filepath.Base(projectName)))
+	ui.NextSteps(projectName, false)
 }
