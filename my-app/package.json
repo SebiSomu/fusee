@@ -1,0 +1,17 @@
+{
+  "name": "my-app",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node -e \"const fs=require('fs');if(!fs.existsSync('framework/engine-go')){console.error('\\nGo SSR Engine not installed.\\nRun: fusee add server\\n');process.exit(1);}\" && node ./framework/server/generate-manifest.js && cd framework/engine-go && go run ./cmd/server",
+    "dev:spa": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "manifest": "node ./framework/server/generate-manifest.js"
+  },
+  "devDependencies": {
+    "fast-glob": "^3.3.3",
+    "unplugin-auto-import": "^0.17.0",
+    "vite": "^5.0.0"
+  }
+}

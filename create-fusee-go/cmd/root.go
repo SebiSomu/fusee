@@ -15,6 +15,7 @@ import (
 
 var IsTSFlag bool
 var UseJSXFlag bool
+var UseTailwindFlag bool
 
 var rootCmd = &cobra.Command{
 	Use:   "fusee",
@@ -24,8 +25,8 @@ and manage your Fusée application development workflow.`,
 	Args: cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) > 0 {
-			isTS, isJSX := resolveTemplateFlags(cmd)
-			runInitWithParams(args[0], isTS, isJSX)
+			isTS, isJSX, useTailwind := resolveTemplateFlags(cmd)
+			runInitWithParams(args[0], isTS, isJSX, useTailwind)
 		} else {
 			cmd.Help()
 		}
@@ -42,9 +43,10 @@ func Execute() {
 func init() {
 	rootCmd.Flags().BoolVarP(&IsTSFlag, "ts", "t", false, "Use TypeScript template")
 	rootCmd.Flags().BoolVarP(&UseJSXFlag, "jsx", "j", false, "Use the JSX/TSX template style")
+	rootCmd.Flags().BoolVarP(&UseTailwindFlag, "tailwind", "w", false, "Set up Tailwind CSS")
 }
 
-func resolveTemplateFlags(cmd *cobra.Command) (isTS bool, isJSX bool) {
+func resolveTemplateFlags(cmd *cobra.Command) (isTS bool, isJSX bool, useTailwind bool) {
 	reader := bufio.NewReader(os.Stdin)
 
 	isJSX = UseJSXFlag
@@ -71,7 +73,15 @@ func resolveTemplateFlags(cmd *cobra.Command) (isTS bool, isJSX bool) {
 		}
 	}
 
-	return isTS, isJSX
+	useTailwind = UseTailwindFlag
+	if !cmd.Flags().Changed("tailwind") {
+		fmt.Printf("Styling [default (d) / tailwind (t)] (default: default): ")
+		input, _ := reader.ReadString('\n')
+		cleaned := strings.TrimSpace(strings.ToLower(input))
+		useTailwind = cleaned == "t" || cleaned == "tailwind"
+	}
+
+	return isTS, isJSX, useTailwind
 }
 
 func variantTemplate(p string, isJSX bool) string {
@@ -83,7 +93,7 @@ func variantTemplate(p string, isJSX bool) string {
 	return epath.Join(dir, "jsx", file)
 }
 
-func runInitWithParams(projectName string, isTS bool, isJSX bool) {
+func runInitWithParams(projectName string, isTS bool, isJSX bool, useTailwind bool) {
 	if strings.ContainsAny(projectName, " !@#$%^&*()") {
 		fmt.Printf("Error: Project name '%s' contains invalid characters.\n", projectName)
 		os.Exit(1)
@@ -116,6 +126,7 @@ func runInitWithParams(projectName string, isTS bool, isJSX bool) {
 		ProjectName: filepath.Base(projectName),
 		IsTS:        isTS,
 		IsJSX:       isJSX,
+		UseTailwind: useTailwind,
 		Ext:         ext,
 		BtnStyle:    "background:#ff3333; color:white; border:none; width:50px; height:50px; border-radius:15px; cursor:pointer; font-size:1.5rem; transition: 0.2s;",
 	}
@@ -140,7 +151,7 @@ func runInitWithParams(projectName string, isTS bool, isJSX bool) {
 		}
 	}
 
-	if err := assets.WriteProjectMeta(projectPath, assets.ProjectMeta{IsTS: isTS, IsJSX: isJSX}); err != nil {
+	if err := assets.WriteProjectMeta(projectPath, assets.ProjectMeta{IsTS: isTS, IsJSX: isJSX, UseTailwind: useTailwind}); err != nil {
 		fmt.Printf("Error: Could not write project metadata: %v\n", err)
 		os.Exit(1)
 	}
@@ -164,6 +175,9 @@ func runInitWithParams(projectName string, isTS bool, isJSX bool) {
 	files[variantTemplate("templates/Counter.tmpl", isJSX)] = "app/components/Counter." + ext
 	if isTS {
 		files["templates/tsconfig.json.tmpl"] = "tsconfig.json"
+	}
+	if useTailwind {
+		files["templates/styles.css.tmpl"] = "app/styles.css"
 	}
 
 	for src, dest := range files {

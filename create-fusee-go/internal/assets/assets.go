@@ -20,16 +20,15 @@ type Config struct {
 	ProjectName string
 	IsTS        bool
 	IsJSX       bool
+	UseTailwind bool
 	Ext         string
 	BtnStyle    string
 }
 
-// ProjectMeta is written to .fusee/project.json at init time so later
-// commands (generate, add) can tell what flavor of project this is
-// without re-prompting or guessing from file extensions.
 type ProjectMeta struct {
-	IsTS  bool `json:"isTS"`
-	IsJSX bool `json:"isJSX"`
+	IsTS        bool `json:"isTS"`
+	IsJSX       bool `json:"isJSX"`
+	UseTailwind bool `json:"useTailwind"`
 }
 
 func WriteProjectMeta(projectPath string, meta ProjectMeta) error {
@@ -40,10 +39,6 @@ func WriteProjectMeta(projectPath string, meta ProjectMeta) error {
 	return os.WriteFile(filepath.Join(projectPath, ".fusee", "project.json"), data, 0644)
 }
 
-// ReadProjectMeta reads .fusee/project.json from projectRoot. Returns an
-// error if it doesn't exist — callers should fall back to older heuristics
-// (e.g. checking for tsconfig.json) for projects scaffolded before this
-// file existed.
 func ReadProjectMeta(projectRoot string) (ProjectMeta, error) {
 	data, err := os.ReadFile(filepath.Join(projectRoot, ".fusee", "project.json"))
 	if err != nil {
@@ -56,21 +51,16 @@ func ReadProjectMeta(projectRoot string) (ProjectMeta, error) {
 	return meta, nil
 }
 
-// jsxRuntimeFiles are the JSX runtime files that live directly in core/ (not
-// under a jsx/ subdirectory) because jsxImportSource resolution requires them
-// at that path. They must be skipped for non-JSX projects just like anything
-// inside a jsx/ dir.
 var jsxRuntimeFiles = map[string]bool{
-	"jsx-runtime.js":     true,
-	"jsx-dev-runtime.js": true,
-	"jsx-helpers.js":     true,
+	"jsx-runtime.js":             true,
+	"jsx-dev-runtime.js":         true,
+	"jsx-helpers.js":             true,
+	"jsx-runtime.d.ts":           true,
+	"jsx-dev-runtime.d.ts":       true,
+	"jsx-types.d.ts":             true,
+	"babel-plugin-fusee-jsx.cjs": true,
 }
 
-// CopyEmbeddedDir copies srcDir into destDir. If keepTypes is false, .d.ts
-// files and anything under a top-level "types" dir are skipped (JS
-// projects don't need them). If includeJSX is false, anything under a
-// "jsx" directory is skipped too, as are the JSX runtime files that live
-// directly in core/ (jsx-runtime.js, jsx-dev-runtime.js, jsx-helpers.js).
 func CopyEmbeddedDir(srcDir, destDir string, keepTypes bool, includeJSX bool) error {
 	return fs.WalkDir(EmbeddedFiles, srcDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -98,8 +88,6 @@ func CopyEmbeddedDir(srcDir, destDir string, keepTypes bool, includeJSX bool) er
 			}
 		}
 
-		// Skip the JSX runtime files (live at core/ level, not in a jsx/ dir)
-		// when this is not a JSX project.
 		if !includeJSX && !d.IsDir() && jsxRuntimeFiles[parts[len(parts)-1]] {
 			return nil
 		}
@@ -142,8 +130,6 @@ func WriteTemplate(tmplPath, destPath string, config Config) error {
 	return tmpl.Execute(f, config)
 }
 
-// CopyEngineGo installs the embedded Go SSR engine into destDir (typically framework/engine-go).
-// If includeComet is false, the optional comet Go package is skipped.
 func CopyEngineGo(destDir string, includeComet bool) error {
 	const srcDir = "embed/engine-go"
 
@@ -163,7 +149,6 @@ func CopyEngineGo(destDir string, includeComet bool) error {
 			return nil
 		}
 
-		// Skip comet Go package if not requested
 		if !includeComet && (strings.HasPrefix(relPath, "comet") || strings.Contains(relPath, "/comet")) {
 			return nil
 		}
@@ -196,7 +181,6 @@ func CopyEngineGo(destDir string, includeComet bool) error {
 	return nil
 }
 
-// CopyCometJS copies the standalone Comet JavaScript runtime into destDir.
 func CopyCometJS(destDir string) error {
 	const srcDir = "embed/framework/core/comet-js"
 
@@ -230,7 +214,6 @@ func CopyCometJS(destDir string) error {
 	})
 }
 
-// CopyCometGo copies the Comet Go package helpers into destDir.
 func CopyCometGo(destDir string) error {
 	const srcDir = "embed/engine-go/comet"
 
