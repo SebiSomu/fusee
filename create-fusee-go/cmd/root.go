@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	epath "path"
 	"path/filepath"
 	"strings"
@@ -16,6 +17,7 @@ import (
 var IsTSFlag bool
 var UseJSXFlag bool
 var UseTailwindFlag bool
+var InitGitFlag bool
 
 var rootCmd = &cobra.Command{
 	Use:   "fusee",
@@ -26,8 +28,8 @@ and manage your Fusée application development workflow.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) > 0 {
 			ui.Banner()
-			isTS, isJSX, useTailwind := resolveTemplateFlags(cmd)
-			runInitWithParams(args[0], isTS, isJSX, useTailwind)
+			isTS, isJSX, useTailwind, initGit := resolveTemplateFlags(cmd)
+			runInitWithParams(args[0], isTS, isJSX, useTailwind, initGit)
 		} else {
 			cmd.Help()
 		}
@@ -45,9 +47,10 @@ func init() {
 	rootCmd.Flags().BoolVarP(&IsTSFlag, "ts", "t", false, "Use TypeScript template")
 	rootCmd.Flags().BoolVarP(&UseJSXFlag, "jsx", "j", false, "Use the JSX/TSX template style")
 	rootCmd.Flags().BoolVarP(&UseTailwindFlag, "tailwind", "w", false, "Set up Tailwind CSS")
+	rootCmd.Flags().BoolVarP(&InitGitFlag, "git", "g", false, "Initialize a git repository")
 }
 
-func resolveTemplateFlags(cmd *cobra.Command) (isTS bool, isJSX bool, useTailwind bool) {
+func resolveTemplateFlags(cmd *cobra.Command) (isTS bool, isJSX bool, useTailwind bool, initGit bool) {
 	isJSX = UseJSXFlag
 	if !cmd.Flags().Changed("jsx") {
 		styleChoice := ui.Select("Select template style", []ui.SelectOption{
@@ -83,7 +86,16 @@ func resolveTemplateFlags(cmd *cobra.Command) (isTS bool, isJSX bool, useTailwin
 		useTailwind = twChoice == "tailwind"
 	}
 
-	return isTS, isJSX, useTailwind
+	initGit = InitGitFlag
+	if !cmd.Flags().Changed("git") {
+		gitChoice := ui.Select("Initialize a new git repository?", []ui.SelectOption{
+			{Label: "Yes", Desc: "Run git init and create initial commit", Value: "yes", Color: ui.BoldGreen},
+			{Label: "No", Desc: "Skip git repository setup", Value: "no", Color: ui.BoldWhite},
+		}, 0)
+		initGit = gitChoice == "yes"
+	}
+
+	return isTS, isJSX, useTailwind, initGit
 }
 
 func variantTemplate(p string, isJSX bool) string {
@@ -95,7 +107,7 @@ func variantTemplate(p string, isJSX bool) string {
 	return epath.Join(dir, "jsx", file)
 }
 
-func runInitWithParams(projectName string, isTS bool, isJSX bool, useTailwind bool) {
+func runInitWithParams(projectName string, isTS bool, isJSX bool, useTailwind bool, initGit bool) {
 	if strings.ContainsAny(projectName, " !@#$%^&*()") {
 		ui.Error(fmt.Sprintf("Project name '%s' contains invalid characters.", projectName))
 		os.Exit(1)
@@ -169,6 +181,7 @@ func runInitWithParams(projectName string, isTS bool, isJSX bool, useTailwind bo
 		"templates/package.json.tmpl":   "package.json",
 		"templates/vite.config.js.tmpl": "vite.config.js",
 		"templates/index.html.tmpl":     "index.html",
+		"templates/gitignore.tmpl":      ".gitignore",
 	}
 	files[variantTemplate("templates/main.tmpl", isJSX)] = "app/main." + ext
 	files[variantTemplate("templates/components/Loading.tmpl", isJSX)] = "app/components/Loading." + ext
@@ -187,6 +200,25 @@ func runInitWithParams(projectName string, isTS bool, isJSX bool, useTailwind bo
 		if err := assets.WriteTemplate(src, filepath.Join(projectPath, dest), config); err != nil {
 			ui.Error(fmt.Sprintf("Could not write file %s: %v", dest, err))
 			os.Exit(1)
+		}
+	}
+
+	if initGit {
+		ui.Info("Initializing Git repository...")
+		gitInit := exec.Command("git", "init")
+		gitInit.Dir = projectPath
+		if err := gitInit.Run(); err == nil {
+			gitAdd := exec.Command("git", "add", ".")
+			gitAdd.Dir = projectPath
+			_ = gitAdd.Run()
+
+			gitCommit := exec.Command("git", "commit", "-m", "Initial commit from Fusée CLI")
+			gitCommit.Dir = projectPath
+			_ = gitCommit.Run()
+
+			ui.Success("Git repository initialized with initial commit")
+		} else {
+			ui.Info("Skipped git init (git binary not found)")
 		}
 	}
 
