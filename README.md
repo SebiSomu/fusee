@@ -5,7 +5,7 @@
 <h1 align="center">Fusée Framework</h1>
 
 <p align="center">
-  <strong>v2.6.0 — Signals-First JS Framework | Atomic Reactivity | Rust Compiler | Go Toolchain</strong>
+  <strong>v2.6.1 — Signals-First JS Framework | Atomic Reactivity | Rust Compiler | Go Toolchain</strong>
 </p>
 
 <br />
@@ -14,12 +14,13 @@ Fusée is a custom, high-performance fine-grained reactive JavaScript framework 
 
 ---
 
-## What's New in 2.6.0
+## What's New in 2.6.1
 
 - Added package manager choice in the `fusee init` command and automatic installation
-  of dependencies;
-- Added `--install` and `--skip-install` flags to the `fusee init` command;
-- Added `pm` flag to the `fusee init` command.
+  of dependencies; (2.6.0)
+- Added `--install` and `--skip-install` flags to the `fusee init` command; (2.6.0)
+- Added `pm` flag to the `fusee init` command; (2.6.0)
+- Updated dev dependency for vite babel plugin. (2.6.1)
 
 ## Quick Start
 

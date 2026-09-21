@@ -60,7 +60,7 @@ func init() {
 // Banner displays the stylish Fusée header
 func Banner() {
 	fmt.Println()
-	fmt.Printf("  %s%s Fusée Framework %s  %sv2.4.0%s\n", BgCyan, Bold, Reset, FgGray, Reset)
+	fmt.Printf("  %s Fusée Framework %s  %sv2.6.1%s\n", BgRed, Reset, FgGray, Reset)
 	fmt.Printf("  %sHigh-performance signals-first reactive web framework%s\n\n", FgGray, Reset)
 }
 
