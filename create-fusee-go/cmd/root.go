@@ -51,8 +51,8 @@ func resolveTemplateFlags(cmd *cobra.Command) (isTS bool, isJSX bool, useTailwin
 	isJSX = UseJSXFlag
 	if !cmd.Flags().Changed("jsx") {
 		styleChoice := ui.Select("Select template style", []ui.SelectOption{
-			{Label: "Normal", Desc: "HTML-like template strings (Fast & lightweight)", Value: "normal"},
-			{Label: "JSX / TSX", Desc: "Modern JSX syntax with compiler transforms", Value: "jsx"},
+			{Label: "Normal", Desc: "HTML-like template strings (Fast & lightweight)", Value: "normal", Color: ui.BoldGreen},
+			{Label: "JSX / TSX", Desc: "Modern JSX syntax with compiler transforms", Value: "jsx", Color: ui.BoldHiMagenta},
 		}, 0)
 		isJSX = styleChoice == "jsx"
 	}
@@ -62,13 +62,13 @@ func resolveTemplateFlags(cmd *cobra.Command) (isTS bool, isJSX bool, useTailwin
 		var langChoice string
 		if isJSX {
 			langChoice = ui.Select("Select language template", []ui.SelectOption{
-				{Label: "JavaScript (jsx)", Desc: "Standard JavaScript with JSX syntax", Value: "js"},
-				{Label: "TypeScript (tsx)", Desc: "Full TypeScript support with strict types", Value: "ts"},
+				{Label: "JavaScript (jsx)", Desc: "Standard JavaScript with JSX syntax", Value: "js", Color: ui.BoldHiYellow},
+				{Label: "TypeScript (tsx)", Desc: "Full TypeScript support with strict types", Value: "ts", Color: ui.BoldHiBlue},
 			}, 0)
 		} else {
 			langChoice = ui.Select("Select language template", []ui.SelectOption{
-				{Label: "JavaScript", Desc: "Standard modern JavaScript", Value: "js"},
-				{Label: "TypeScript", Desc: "Full TypeScript support with strict types", Value: "ts"},
+				{Label: "JavaScript", Desc: "Standard modern JavaScript", Value: "js", Color: ui.BoldHiYellow},
+				{Label: "TypeScript", Desc: "Full TypeScript support with strict types", Value: "ts", Color: ui.BoldHiBlue},
 			}, 0)
 		}
 		isTS = langChoice == "ts"
@@ -77,8 +77,8 @@ func resolveTemplateFlags(cmd *cobra.Command) (isTS bool, isJSX bool, useTailwin
 	useTailwind = UseTailwindFlag
 	if !cmd.Flags().Changed("tailwind") {
 		twChoice := ui.Select("Choose styling solution", []ui.SelectOption{
-			{Label: "Default", Desc: "Clean vanilla CSS styling", Value: "default"},
-			{Label: "Tailwind CSS", Desc: "Tailwind CSS v4 with Vite integration", Value: "tailwind"},
+			{Label: "Default", Desc: "Clean vanilla CSS styling", Value: "default", Color: ui.BoldWhite},
+			{Label: "Tailwind CSS", Desc: "Tailwind CSS v4 with Vite integration", Value: "tailwind", Color: ui.BoldHiCyan},
 		}, 0)
 		useTailwind = twChoice == "tailwind"
 	}

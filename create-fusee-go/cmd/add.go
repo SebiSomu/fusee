@@ -62,8 +62,8 @@ func runAddServer(cmd *cobra.Command) {
 	includeComet := includeCometFlag
 	if !cmd.Flags().Changed("comet") {
 		cometChoice := ui.Select("Include Comet module? (HTMX-like server-driven UI)", []ui.SelectOption{
-			{Label: "No", Desc: "Standard Go SSR Engine", Value: "no"},
-			{Label: "Yes", Desc: "Enable Comet Go helpers & JS client runtime", Value: "yes"},
+			{Label: "No", Desc: "Standard Go SSR Engine", Value: "no", Color: ui.BoldWhite},
+			{Label: "Yes", Desc: "Enable Comet Go helpers & JS client runtime", Value: "yes", Color: ui.BoldHiMagenta},
 		}, 0)
 		includeComet = cometChoice == "yes"
 	}
