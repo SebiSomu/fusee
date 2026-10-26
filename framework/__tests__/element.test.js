@@ -458,6 +458,66 @@ describe('integration with fusée templates', () => {
     })
 })
 
+describe('server-rendered shadow roots', () => {
+    /** Defines an element whose shadow content shows its label prop. */
+    function defineLabelled(options = {}) {
+        const tag = nextTag()
+        defineElement(tag, {
+            props: { label: { type: String, default: 'none' } },
+            styles: css`b { color: red }`,
+            setup: (props) => ({ props, template: '<b>{{ props.label }}</b><slot></slot>' }),
+            ...options
+        })
+        return tag
+    }
+
+    it('re-renders into a declarative shadow root instead of attaching a new one', () => {
+        const tag = nextTag()
+        const el = document.createElement(tag)
+        el.setAttribute('label', 'ssr')
+        const declarativeRoot = el.attachShadow({ mode: 'open' })
+        declarativeRoot.innerHTML = '<style>b { color: red }</style><b>ssr</b><slot></slot>'
+        document.body.appendChild(el)
+
+        defineElement(tag, {
+            props: { label: { type: String } },
+            styles: css`b { color: red }`,
+            setup: (props) => ({ props, template: '<b>{{ props.label }}</b><slot></slot>' })
+        })
+
+        expect(el.shadowRoot).toBe(declarativeRoot)
+        expect(declarativeRoot.querySelectorAll('b')).toHaveLength(1)
+        expect(declarativeRoot.querySelectorAll('style')).toHaveLength(1)
+        el.label = 'live'
+        expect(declarativeRoot.querySelector('b').textContent).toBe('live')
+    })
+
+    it('replaces unparsed <template shadowrootmode> children from innerHTML', async () => {
+        const tag = defineLabelled()
+        const { renderElementsSSR } = await import('../core/element-ssr.js')
+        const ssrHtml = await renderElementsSSR(`<${tag} label="hello"><i>light</i></${tag}>`)
+        const container = document.createElement('div')
+        document.body.appendChild(container)
+
+        container.innerHTML = ssrHtml
+        const el = container.querySelector(tag)
+
+        expect(el.querySelector('template')).toBeNull()
+        expect(el.shadowRoot.querySelector('b').textContent).toBe('hello')
+        expect(el.shadowRoot.querySelector('slot').assignedElements().map(n => n.tagName)).toEqual(['I'])
+    })
+
+    it('keeps ordinary <template> children', () => {
+        const tag = defineLabelled()
+        const container = document.createElement('div')
+        document.body.appendChild(container)
+
+        container.innerHTML = `<${tag}><template id="row"><li></li></template></${tag}>`
+
+        expect(container.querySelector(`${tag} > template#row`)).not.toBeNull()
+    })
+})
+
 describe('toCustomElement', () => {
     it('registers an existing component as a custom element', () => {
         const Badge = defineComponent({

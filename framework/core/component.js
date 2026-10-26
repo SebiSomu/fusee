@@ -1,6 +1,7 @@
 import { effect, setEffectHook, batch } from './signal.js'
 import { mountTemplate } from './compiler.js'
 import { NATIVE_SLOTS } from './h.js'
+import { attachContextResponder, resolveProvided, requestContext, findInstanceHost } from './context.js'
 
 // Slots context handed to compiled templates so hSlot() emits real <slot> outlets.
 const NATIVE_SLOT_OUTLETS = Object.freeze({ [NATIVE_SLOTS]: true })
@@ -195,7 +196,9 @@ export function defineComponent(options) {
             _components: mergedComponents,
             provides: parentProvides ? Object.create(parentProvides) : Object.create(null),
             _injector: parentInjector,
-            _ownsInjector: false
+            _ownsInjector: false,
+            _host: options._host || null,
+            _detachContext: null
         }
 
         const emit = createEmit(listeners)
@@ -222,6 +225,8 @@ export function defineComponent(options) {
             currentInstance = instance
             try {
                 instance._element = container
+                // Before mounting the template, so custom elements connecting during it can find this scope.
+                if (!instance._detachContext) instance._detachContext = attachContextResponder(container, instance)
 
                 if (options.render) {
                     const nodes = options.render(result, mergedComponents)
@@ -274,6 +279,10 @@ export function defineComponent(options) {
                 if (typeof cleanup === 'function') cleanup()
             }
             instance._effects = []
+            if (instance._detachContext) {
+                instance._detachContext()
+                instance._detachContext = null
+            }
             if (instance._element) {
                 instance._element.innerHTML = ''
             }
@@ -410,18 +419,14 @@ export function inject(key, defaultValue, options) {
         }
     }
 
-    if (instance && instance.provides && key in instance.provides) {
-        const val = instance.provides[key]
-        const isTokenProvider = key && typeof key === 'object' && key.provide
-        if (val !== undefined || !isTokenProvider) {
-            if (val && typeof val === 'object' && ('useClass' in val || 'useFactory' in val || 'useExisting' in val)) {
-                return instance._injector.get(key, actualOptions)
-            }
-            if (val && typeof val === 'object' && 'useValue' in val) {
-                return val.useValue
-            }
-            return val
-        }
+    const provided = resolveProvided(instance, key, actualOptions)
+    if (provided.found) return provided.value
+
+    // Inside a custom element, providers outside fusée (e.g. @lit/context) answer next.
+    const host = actualOptions?.self ? null : findInstanceHost(instance)
+    if (host) {
+        const requested = requestContext(host, key)
+        if (requested.found) return requested.value
     }
 
     try {

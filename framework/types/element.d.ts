@@ -82,6 +82,8 @@ export interface ElementOptions<P extends ElementPropSchema = any, TProps = Infe
     components?: Record<string, ComponentFactory<any>>
     setup?: (props: Readonly<TProps>, ctx: ElementSetupContext) => ComponentResult | Record<string, any>
     render?: (state: any, components: Record<string, ComponentFactory<any>>) => any[]
+    /** Compiled SSR render function, used by renderElementsSSR() instead of compiling the string template. */
+    renderSSR?: (state: any, components: Record<string, any>) => string | Promise<string>
 }
 
 export type FuseeElementConstructor<TProps = Record<string, any>> = {

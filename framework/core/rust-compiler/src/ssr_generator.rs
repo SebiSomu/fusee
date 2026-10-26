@@ -204,7 +204,8 @@ impl<'a> SSRGenerator<'a> {
         let anchor_id = if needs_anchor { Some(self.next_anchor()) } else { None };
 
         out.push(format!("{} += '<{}'", var_name, tag));
-        self.emit_attrs(&node.props, out, var_name)?;
+        let is_custom_element = tag.contains('-');
+        self.emit_attrs(&node.props, out, var_name, is_custom_element)?;
         if let Some(aid) = anchor_id {
             out.push(format!("{} += ' data-f-id=\"{}\"'", var_name, aid));
         }
@@ -227,11 +228,11 @@ impl<'a> SSRGenerator<'a> {
         Ok(())
     }
 
-    fn emit_attrs(&mut self, props: &[Prop], out: &mut Vec<String>, var_name: &str) -> Result<(), CompileError> {
+    fn emit_attrs(&mut self, props: &[Prop], out: &mut Vec<String>, var_name: &str, is_custom_element: bool) -> Result<(), CompileError> {
         for prop in props {
             match prop {
                 Prop::Attribute(a) => self.emit_static_attr(a, out, var_name),
-                Prop::Binding(b) => self.emit_binding_attr(b, out, var_name)?,
+                Prop::Binding(b) => self.emit_binding_attr(b, out, var_name, is_custom_element)?,
                 Prop::Directive(d) => self.emit_directive_attr(d, out, var_name)?,
                 Prop::Event(_) => {}
             }
@@ -255,7 +256,7 @@ impl<'a> SSRGenerator<'a> {
         }
     }
 
-    fn emit_binding_attr(&mut self, prop: &BindingNode, out: &mut Vec<String>, var_name: &str) -> Result<(), CompileError> {
+    fn emit_binding_attr(&mut self, prop: &BindingNode, out: &mut Vec<String>, var_name: &str, is_custom_element: bool) -> Result<(), CompileError> {
         let expr = self.wrap_expr(&prop.expression.content);
         if prop.is_prop {
             return Ok(());
@@ -271,9 +272,14 @@ impl<'a> SSRGenerator<'a> {
                 var_name, expr
             ));
         } else {
+            let serialize = if is_custom_element {
+                "(typeof v === 'object' ? JSON.stringify(v) : String(v))"
+            } else {
+                "String(v)"
+            };
             out.push(format!(
-                "{} += (function(v){{ if (v === false || v == null) return ''; if (v === true) return ' {}'; return ' {}=\"' + escapeAttr(String(v)) + '\"' }})({})",
-                var_name, prop.name, prop.name, expr
+                "{} += (function(v){{ if (v === false || v == null) return ''; if (v === true) return ' {}'; return ' {}=\"' + escapeAttr({}) + '\"' }})({})",
+                var_name, prop.name, prop.name, serialize, expr
             ));
         }
         Ok(())

@@ -1,6 +1,7 @@
 import { signal, effect, runDetached } from './signal.js'
 import { defineComponent, getCurrentInstance, setCurrentInstance, parseSlots } from './component.js'
 import { installDelegationRoot } from './event-delegation.js'
+import { requestContext, FUSEE_PARENT_CONTEXT } from './context.js'
 
 const CSS_RESULT = Symbol.for('fusee.cssResult')
 
@@ -161,24 +162,75 @@ function normalizeShadow(shadow) {
     return { mode: 'open', ...shadow }
 }
 
+/** Element definitions by tag, kept also where customElements is unavailable (SSR). */
+const elementDefinitions = new Map()
+
+/** Returns the normalized definition registered for a tag, if any. */
+export function getElementDefinition(tagName) {
+    return elementDefinitions.get(tagName.toLowerCase()) ?? null
+}
+
+/** Builds the per-instance component factory whose setup receives the element context. */
+export function createElementFactory(definition, host, shadowRoot) {
+    const { setup, componentOptions, shadowInit } = definition
+    return defineComponent({
+        ...componentOptions,
+        _nativeSlots: !!shadowInit,
+        _host: host,
+        setup: (setupProps, ctx) => setup
+            ? setup(setupProps, { ...ctx, host, shadowRoot })
+            : {}
+    })
+}
+
+/**
+ * Drops `<template shadowrootmode>` children the HTML parser did not turn into a shadow
+ * root: HTML inserted through innerHTML (e.g. Comet swaps) or browsers without
+ * declarative shadow DOM. The element renders its own shadow content instead.
+ */
+function removeUnparsedShadowTemplates(host) {
+    for (const child of [...host.children]) {
+        if (child.localName === 'template' && child.hasAttribute('shadowrootmode')) child.remove()
+    }
+}
+
+/** Converts an attribute value to a prop value, falling back to the prop's default. */
+export function propFromAttribute(def, value) {
+    const converted = def.converter.fromAttribute(value, def.type)
+    return converted === undefined ? resolveDefault(def) : converted
+}
+
+/** Converts a prop value to its attribute form, or null when the attribute should be absent. */
+export function propToAttribute(def, value) {
+    return def.converter.toAttribute(value, def.type)
+}
+
 /**
  * Defines a native custom element backed by a fusée component. Props become reactive
  * properties on the element (synced with attributes), the template renders into a
  * shadow root, and emit() dispatches DOM CustomEvents from the host.
  */
 export function defineElement(tagName, options = {}) {
-    if (typeof customElements === 'undefined') return null
-
-    const existing = customElements.get(tagName)
-    if (existing) {
+    const hasRegistry = typeof customElements !== 'undefined'
+    if (elementDefinitions.has(tagName) || (hasRegistry && customElements.get(tagName))) {
         console.warn(`[fusée] Custom element "${tagName}" is already defined`)
-        return existing
+        return hasRegistry ? customElements.get(tagName) ?? null : null
     }
 
     const { props, styles, shadow, setup, ...componentOptions } = options
-    const propDefs = normalizeProps(props)
-    const shadowInit = normalizeShadow(shadow)
-    const styleList = normalizeStyles(styles)
+    const definition = {
+        tagName,
+        propDefs: normalizeProps(props),
+        shadowInit: normalizeShadow(shadow),
+        styleList: normalizeStyles(styles),
+        setup,
+        componentOptions
+    }
+    elementDefinitions.set(tagName, definition)
+
+    if (!hasRegistry) return null
+
+    const { propDefs, shadowInit, styleList } = definition
     const attributeToProp = new Map()
     for (const def of propDefs.values()) {
         if (def.attribute) attributeToProp.set(def.attribute, def)
@@ -223,8 +275,7 @@ export function defineElement(tagName, options = {}) {
             if (oldValue === newValue || this.__fuReflecting === attrName) return
             const def = attributeToProp.get(attrName)
             if (!def) return
-            const converted = def.converter.fromAttribute(newValue, def.type)
-            this.__fuSignals.get(def.name)(converted === undefined ? resolveDefault(def) : converted)
+            this.__fuSignals.get(def.name)(propFromAttribute(def, newValue))
         }
 
         connectedCallback() {
@@ -282,17 +333,13 @@ export function defineElement(tagName, options = {}) {
                 }
             })
 
-            if (!shadowInit && this.__fuSlots === null) {
+            if (shadowInit) {
+                removeUnparsedShadowTemplates(this)
+            } else if (this.__fuSlots === null) {
                 this.__fuSlots = parseSlots(this.innerHTML)
             }
 
-            const factory = defineComponent({
-                ...componentOptions,
-                _nativeSlots: !!shadowInit,
-                setup: (setupProps, ctx) => setup
-                    ? setup(setupProps, { ...ctx, host, shadowRoot: shadowInit ? root : null })
-                    : {}
-            })
+            const factory = createElementFactory(definition, host, shadowInit ? root : null)
 
             if (shadowInit?.mode === 'closed') {
                 this.__fuCleanups.push(installDelegationRoot(root))
@@ -302,7 +349,7 @@ export function defineElement(tagName, options = {}) {
                 if (!def.reflect) continue
                 const sig = this.__fuSignals.get(def.name)
                 this.__fuCleanups.push(effect(() => {
-                    const attrValue = def.converter.toAttribute(sig(), def.type)
+                    const attrValue = propToAttribute(def, sig())
                     this.__fuReflecting = def.attribute
                     try {
                         if (attrValue === null) this.removeAttribute(def.attribute)
@@ -313,7 +360,8 @@ export function defineElement(tagName, options = {}) {
                 }))
             }
 
-            this.__fuApi = factory(propsView, { listeners, slots: this.__fuSlots || {} })
+            const parent = requestContext(this, FUSEE_PARENT_CONTEXT).value || null
+            this.__fuApi = factory(propsView, { listeners, slots: this.__fuSlots || {}, parent })
             this.__fuApi.render(root)
 
             if (shadowInit) applyShadowStyles(root, styleList)
