@@ -148,7 +148,7 @@ export function onUnmount(fn) {
 
 /** Creates a component factory with setup, rendering, props, slots, and lifecycle state. */
 export function defineComponent(options) {
-    return function ComponentFactory(props = {}, { listeners = {}, slots = {}, parent = null } = {}) {
+    return Object.assign(function ComponentFactory(props = {}, { listeners = {}, slots = {}, parent = null } = {}) {
         const effectiveParent = parent || currentInstance
 
         const parentInjector = (effectiveParent && effectiveParent._injector) || rootInjector
@@ -280,7 +280,7 @@ export function defineComponent(options) {
         }
 
         return { render, unmount, instance }
-    }
+    }, { _options: options })
 }
 
 /** Provides a value or dependency injection configuration down to descendant components. */
