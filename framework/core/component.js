@@ -1,5 +1,9 @@
 import { effect, setEffectHook, batch } from './signal.js'
 import { mountTemplate } from './compiler.js'
+import { NATIVE_SLOTS } from './h.js'
+
+// Slots context handed to compiled templates so hSlot() emits real <slot> outlets.
+const NATIVE_SLOT_OUTLETS = Object.freeze({ [NATIVE_SLOTS]: true })
 import { inject as diInject, rootInjector, runInContext, replaceActiveInjector, EnvironmentInjector } from './di.js'
 
 let currentInstance = null
@@ -206,6 +210,8 @@ export function defineComponent(options) {
             instance.state = result
             if (result && typeof result === 'object') {
                 result._instance = instance
+                // _nativeSlots: rendered into a shadow root, where the browser distributes slots.
+                if (options._nativeSlots) result._slots = NATIVE_SLOT_OUTLETS
             }
         } finally {
             currentInstance = previousInstance
@@ -240,7 +246,8 @@ export function defineComponent(options) {
                         mountNode(node)
                     }
                 } else {
-                    const resolvedTemplate = resolveSlots(result?.template || '', slots)
+                    const template = result?.template || ''
+                    const resolvedTemplate = options._nativeSlots ? template : resolveSlots(template, slots)
                     const { effects } = mountTemplate(
                         resolvedTemplate,
                         container,

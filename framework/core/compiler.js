@@ -1,6 +1,7 @@
 import { effect, batch } from './signal.js'
 import { processDirectives } from './directives.js'
 import { parseSlots } from './component.js'
+import { resolveElementProperty } from './element-props.js'
 import {
     evaluateExpression,
     parseInterpolation,
@@ -10,10 +11,9 @@ import {
 
 export function mountTemplate(template, container, context, components) {
     const effects = []
-    let processed = template.replace(/(<[a-zA-Z0-9-]+\s[^>]*?)\s:([a-zA-Z][a-zA-Z0-9-]*)=/g, '$1 data-bind-$2=')
 
     // Lower component tags before the browser parses the template as HTML.
-    processed = transformComponentTags(processed, components)
+    let processed = transformComponentTags(template, components)
 
     for (const name of Object.keys(components)) {
         const escapedName = escapeRegExp(name)
@@ -35,10 +35,25 @@ export function mountTemplate(template, container, context, components) {
         })
     }
 
-    container.innerHTML = processed
+    container.innerHTML = rewriteBindingAttrs(processed)
     compileNode(container, context, components, effects)
 
     return { effects }
+}
+
+const TAG_RE = /<[a-zA-Z][a-zA-Z0-9-]*(?:"[^"]*"|'[^']*'|[^'">])*>/g
+const BINDING_IN_TAG_RE = /("[^"]*"|'[^']*')|(\s):([a-zA-Z][a-zA-Z0-9-]*)=/g
+
+/**
+ * Rewrites every `:attr=` inside an element tag to `data-bind-attr=`, since `:` is not a
+ * valid attribute name for the HTML parser. Quoted values are skipped, so expressions
+ * containing ` :x=` or `>` are left intact. Runs after component tags are lowered, so
+ * component props keep their own `data-bind-prop-` encoding.
+ */
+function rewriteBindingAttrs(template) {
+    return template.replace(TAG_RE, tag => tag.replace(BINDING_IN_TAG_RE, (match, quoted, space, name) =>
+        quoted ? quoted : `${space}data-bind-${name}=`
+    ))
 }
 
 function transformComponentTags(template, components) {
@@ -185,7 +200,12 @@ function processBindingAttrs(el, context, effects) {
 
             const e = effect(() => {
                 let resolved = evaluateExpression(expr, context)
-                if (realAttr === 'class') {
+                const elementProp = realAttr !== 'class' && realAttr !== 'style'
+                    ? resolveElementProperty(el, realAttr, resolved)
+                    : null
+                if (elementProp) {
+                    el[elementProp] = resolved
+                } else if (realAttr === 'class') {
                     if (!el._staticClass) el._staticClass = el.getAttribute('class') || ''
                     let dynamicClass = ''
                     if (Array.isArray(resolved)) dynamicClass = resolved.filter(Boolean).join(' ')

@@ -15,6 +15,12 @@ export function registerDelegatedEvent(
     options?: DelegatedEventOptions
 ): () => void
 
+/**
+ * Makes delegated events work inside a shadow root. Required for closed roots;
+ * harmless for open ones. Returns a function that unregisters the root.
+ */
+export function installDelegationRoot(root: ShadowRoot): () => void
+
 export function createEventHandler(
     handler: Function | string,
     modifiers: string[],

@@ -29,9 +29,129 @@ export const DELEGATED_EVENTS = new Set([
 const delegatedListeners = new Map()
 const documentListeners = new Map()
 
+// Shadow roots registered through installDelegationRoot(), each with its attached handlers.
+const delegationRoots = new Set()
+// Hosts of closed shadow roots: the document cannot see past them in composedPath().
+const closedHosts = new WeakSet()
+// Events already dispatched, so a root and the document never both run the same event.
+const handledEvents = new WeakSet()
+
 /** Reports whether an event type is handled through document delegation. */
 export function isDelegatedEvent(eventName) {
     return DELEGATED_EVENTS.has(eventName.toLowerCase())
+}
+
+/** Walks the event path from the target outwards and runs every matching delegated handler. */
+function dispatchDelegated(e, eventType) {
+    const listeners = delegatedListeners.get(eventType)
+    if (!listeners || listeners.size === 0) return
+
+    handledEvents.add(e)
+
+    const path = typeof e.composedPath === 'function' ? e.composedPath() : []
+    if (path.length > 0) {
+        for (const node of path) {
+            if (node === document.body || node === document.documentElement || node === document) break
+            runEntriesFor(listeners, node, e)
+        }
+        return
+    }
+
+    let target = e.target
+    while (target && target !== document.body && target !== document.documentElement) {
+        runEntriesFor(listeners, target, e)
+        target = target.parentNode
+    }
+}
+
+/** Runs the delegated handlers registered on one element. */
+function runEntriesFor(listeners, element, e) {
+    for (const entry of listeners) {
+        if (entry.element === element) {
+            entry.handler(e)
+        }
+    }
+}
+
+/**
+ * Capture-phase handler shared by the document and shadow roots. Skips events whose
+ * visible target is a closed-root host: a listener deeper in the tree sees the real
+ * target and handles the event in correct bubbling order.
+ */
+function createCaptureHandler(eventType) {
+    return (e) => {
+        if (delegationRoots.size > 0 && handledEvents.has(e)) return
+        const path = typeof e.composedPath === 'function' ? e.composedPath() : []
+        const visibleTarget = path.length > 0 ? path[0] : e.target
+        if (closedHosts.has(visibleTarget)) return
+        dispatchDelegated(e, eventType)
+    }
+}
+
+/** Fallback on a closed-root host for events targeting the host itself, which never enter its root. */
+function createHostHandler(eventType) {
+    return (e) => {
+        if (handledEvents.has(e)) return
+        dispatchDelegated(e, eventType)
+    }
+}
+
+/** Attaches the listeners for one event type to a registered shadow root. */
+function attachRootListener(rootEntry, eventType) {
+    if (rootEntry.handlers.has(eventType)) return
+
+    const rootHandler = createCaptureHandler(eventType)
+    rootEntry.root.addEventListener(eventType, rootHandler, true)
+
+    let hostHandler = null
+    if (rootEntry.closed) {
+        hostHandler = createHostHandler(eventType)
+        rootEntry.host.addEventListener(eventType, hostHandler)
+    }
+
+    rootEntry.handlers.set(eventType, { rootHandler, hostHandler })
+}
+
+/** Removes the listeners for one event type from a registered shadow root. */
+function detachRootListener(rootEntry, eventType) {
+    const attached = rootEntry.handlers.get(eventType)
+    if (!attached) return
+
+    rootEntry.root.removeEventListener(eventType, attached.rootHandler, true)
+    if (attached.hostHandler) {
+        rootEntry.host.removeEventListener(eventType, attached.hostHandler)
+    }
+    rootEntry.handlers.delete(eventType)
+}
+
+/**
+ * Makes delegated events work inside a shadow root. Open roots already work through
+ * composedPath(); closed roots need this, because the document only sees their host.
+ * Returns a function that unregisters the root.
+ */
+export function installDelegationRoot(root) {
+    const host = root.host
+    const rootEntry = {
+        root,
+        host,
+        closed: root.mode === 'closed',
+        handlers: new Map()
+    }
+
+    if (rootEntry.closed) closedHosts.add(host)
+    delegationRoots.add(rootEntry)
+
+    for (const eventType of documentListeners.keys()) {
+        attachRootListener(rootEntry, eventType)
+    }
+
+    return function uninstall() {
+        for (const eventType of [...rootEntry.handlers.keys()]) {
+            detachRootListener(rootEntry, eventType)
+        }
+        delegationRoots.delete(rootEntry)
+        if (rootEntry.closed) closedHosts.delete(host)
+    }
 }
 
 /** Installs one capturing document listener for a delegated event type. */
@@ -40,23 +160,14 @@ function ensureDocumentListener(eventType) {
         return
     }
 
-    const handler = (e) => {
-        const listeners = delegatedListeners.get(eventType)
-        if (!listeners || listeners.size === 0) return
-
-        let target = e.target
-        while (target && target !== document.body && target !== document.documentElement) {
-            for (const entry of listeners) {
-                if (entry.element === target) {
-                    entry.handler(e)
-                }
-            }
-            target = target.parentNode
-        }
-    }
+    const handler = createCaptureHandler(eventType)
 
     document.addEventListener(eventType, handler, true)
     documentListeners.set(eventType, handler)
+
+    for (const rootEntry of delegationRoots) {
+        attachRootListener(rootEntry, eventType)
+    }
 }
 
 /** Registers an element handler in the delegated event registry. */
@@ -100,6 +211,9 @@ export function registerDelegatedEvent(element, eventType, handler, options = {}
                 if (docHandler) {
                     document.removeEventListener(normalizedEvent, docHandler, true)
                     documentListeners.delete(normalizedEvent)
+                }
+                for (const rootEntry of delegationRoots) {
+                    detachRootListener(rootEntry, normalizedEvent)
                 }
                 delegatedListeners.delete(normalizedEvent)
             }
