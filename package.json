@@ -8,10 +8,10 @@
   "files": [
     "framework/",
     "!framework/__tests__/",
+    "!framework/**/node_modules/",
     "!framework/core/compiler-legacy/",
     "!framework/server-legacy/",
-    "!framework/engine-go/testdata/",
-    "!framework/**/*_test.go",
+    "!framework/engine-go/",
     "framework/core/rust-compiler/pkg/fusee_compiler_bg.wasm",
     "bin/index.js",
     "bin/create-fusee-win.exe",

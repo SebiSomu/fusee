@@ -7,3 +7,6 @@ wasm-pack.log
 .idea/
 .cargo/
 tests/
+src/
+Cargo.toml
+README.md
