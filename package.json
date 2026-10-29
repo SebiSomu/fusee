@@ -1,10 +1,25 @@
 {
   "name": "fusee-framework",
-  "version": "2.6.1",
+  "version": "2.7.0",
   "description": "Fusée - Signals-first JS Framework | Peak Performance",
   "main": "./framework/index.js",
   "types": "./framework/types/index.d.ts",
   "module": "./framework/index.js",
+  "files": [
+    "framework/",
+    "!framework/__tests__/",
+    "!framework/core/compiler-legacy/",
+    "!framework/server-legacy/",
+    "!framework/engine-go/testdata/",
+    "!framework/**/*_test.go",
+    "framework/core/rust-compiler/pkg/fusee_compiler_bg.wasm",
+    "bin/index.js",
+    "bin/create-fusee-win.exe",
+    "bin/create-fusee-linux",
+    "bin/create-fusee-mac-arm64",
+    "bin/create-fusee-mac-intel",
+    "fusee-logo.svg"
+  ],
   "bin": {
     "fusee": "./bin/index.js",
     "create-fusee": "./bin/index.js",
@@ -19,7 +34,8 @@
     "test": "vitest run",
     "test:go": "cd framework/engine-go && go test -v ./...",
     "manifest": "node ./framework/server/generate-manifest.js",
-    "ssr:go": "node ./framework/server/generate-manifest.js && cd framework/engine-go && go run ./cmd/server"
+    "ssr:go": "node ./framework/server/generate-manifest.js && cd framework/engine-go && go run ./cmd/server",
+    "prepack": "node ./scripts/prepack.mjs"
   },
   "keywords": [],
   "author": "",

@@ -5,7 +5,7 @@
 <h1 align="center">Fusée Framework</h1>
 
 <p align="center">
-  <strong>v2.6.1 — Signals-First JS Framework | Atomic Reactivity | Rust Compiler | Go Toolchain</strong>
+  <strong>v2.7.0 — Signals-First JS Framework | Atomic Reactivity | Rust Compiler | Go Toolchain</strong>
 </p>
 
 <br />
@@ -14,7 +14,7 @@ Fusée is a custom, high-performance fine-grained reactive JavaScript framework 
 
 ---
 
-## Unreleased (2.7.0)
+## What's New in 2.7.0
 
 - Added **Web Components**: `defineElement()` turns a fusée component into a native custom
   element with reactive props synced to attributes, shadow DOM, scoped `css` styles, native
@@ -434,7 +434,8 @@ export const Welcome = defineComponent({
 - **File-Based Routing** — Nuxt-style automatic route discovery with layout support
 - **Rust WASM Build-Time Compiler** — Recursive hybrid compiler + optional Rust WASM backend for peak throughput
 - **Directives support** — `f-if`, `f-for`, `f-model`, `f-text`, `f-cloak`, `f-once`, `@event` modifiers
-- **Dependency Injection** — Nested `provide`/`inject` with shadowing
+- **Web Components** — `defineElement()` builds native custom elements with reactive props, shadow DOM, scoped styles and SSR (declarative shadow DOM) in Node and Go
+- **Dependency Injection** — Nested `provide`/`inject` with shadowing, across custom elements and with `@lit/context` interop
 - **Composables & Stores** — Reactive state management patterns baked in
 - **Server Actions** — Type-safe RPC-style functions for client→server communication
 - **Full TypeScript Support** — Comprehensive `.d.ts` types for all framework primitives
@@ -549,6 +550,7 @@ npx vitest # watch mode
 - [x] Comprehensive TypeScript definitions
 - [x] Generators for pages, components, stores, composables, actions
 - [x] JSX/TSX Support
+- [x] Web Components (`defineElement`) with SSR and `fusee generate element`
 - [ ] Production SSR build pipeline
 - [ ] Plugin system for third-party extensions
 

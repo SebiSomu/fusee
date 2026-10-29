@@ -1,0 +1,9 @@
+# npm uses this file instead of .gitignore here, so the built pkg/ (gitignored) is published.
+/target
+**/*.rs.bk
+Cargo.lock
+bin/
+wasm-pack.log
+.idea/
+.cargo/
+tests/

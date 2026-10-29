@@ -46,7 +46,7 @@ import {
     defineAction as _serverDefineAction,
     handleActionRequest,
     getRegisteredActions
-} from '../server-legacy/actions.server.js'
+} from './actions.server.js'
 
 /** Selects the server or client action implementation for the current input. */
 export function defineAction(fnOrName, opts = {}) {
