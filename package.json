@@ -71,6 +71,9 @@
     "./runtime/ssr": {
       "import": "./framework/core/ssr.js"
     },
+    "./globals": {
+      "import": "./framework/globals.js"
+    },
     "./core/*": "./framework/core/*",
     "./*": "./framework/*"
   },

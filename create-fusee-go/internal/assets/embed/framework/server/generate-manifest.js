@@ -123,8 +123,8 @@ let elementRuntimeReady = false
  * Prepares plain Node to import app element modules the way Vite does:
  * - `fusee-framework` (and subpaths) resolves to this framework copy when normal
  *   resolution fails, as scaffolded apps only map it through a Vite alias;
- * - the framework entry is loaded first, which installs fusée's globals, so modules
- *   written for auto-imports (bare `signal()`, `defineElement()`) work as well.
+ * - fusée's opt-in globals are installed first, standing in for Vite's auto-imports, so
+ *   modules that call the API without importing it (bare `signal()`) work as well.
  */
 async function prepareElementRuntime() {
     if (elementRuntimeReady) return
@@ -146,7 +146,7 @@ async function prepareElementRuntime() {
         register('data:text/javascript,' + encodeURIComponent(hooks))
     }
 
-    await import(pathToFileURL(path.join(frameworkDir, 'index.js')).href)
+    await import(pathToFileURL(path.join(frameworkDir, 'globals.js')).href)
 }
 
 /**

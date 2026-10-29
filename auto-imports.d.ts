@@ -7,22 +7,40 @@
 export {}
 declare global {
   const InjectionToken: typeof import('fusee-framework').InjectionToken
+  const MutationType: typeof import('fusee-framework').MutationType
   const assertSetupContext: typeof import('fusee-framework').assertSetupContext
   const batch: typeof import('fusee-framework').batch
+  const clearStores: typeof import('fusee-framework').clearStores
   const computed: typeof import('fusee-framework').computed
   const createActionProxy: typeof import('fusee-framework').createActionProxy
+  const createApp: typeof import('fusee-framework').createApp
+  const createRouter: typeof import('fusee-framework').createRouter
   const createSuspense: typeof import('fusee-framework').createSuspense
+  const css: typeof import('fusee-framework').css
+  const currentRoute: typeof import('fusee-framework').currentRoute
+  const defineAction: typeof import('fusee-framework').defineAction
   const defineAsyncComponent: typeof import('fusee-framework').defineAsyncComponent
+  const defineCompilerPlugin: typeof import('fusee-framework').defineCompilerPlugin
   const defineComponent: typeof import('fusee-framework').defineComponent
   const defineComposable: typeof import('fusee-framework').defineComposable
+  const defineDevToolsPlugin: typeof import('fusee-framework').defineDevToolsPlugin
+  const defineElement: typeof import('fusee-framework').defineElement
+  const defineFuseePlugin: typeof import('fusee-framework').defineFuseePlugin
   const defineResource: typeof import('fusee-framework').defineResource
+  const defineRuntimeAdapter: typeof import('fusee-framework').defineRuntimeAdapter
+  const defineServerPlugin: typeof import('fusee-framework').defineServerPlugin
+  const defineStore: typeof import('fusee-framework').defineStore
   const directive: typeof import('fusee-framework').directive
   const effect: typeof import('fusee-framework').effect
   const emit: typeof import('fusee-framework').emit
+  const generateRoutes: typeof import('fusee-framework').generateRoutes
+  const getCurrentInstance: typeof import('fusee-framework').getCurrentInstance
   const inject: typeof import('fusee-framework').inject
   const inspect: typeof import('fusee-framework').inspect
+  const matchedRoutes: typeof import('fusee-framework').matchedRoutes
   const mountOutlet: typeof import('fusee-framework').mountOutlet
   const mountTemplate: typeof import('fusee-framework').mountTemplate
+  const navigate: typeof import('fusee-framework').navigate
   const onCleanup: typeof import('fusee-framework').onCleanup
   const onMount: typeof import('fusee-framework').onMount
   const onUnmount: typeof import('fusee-framework').onUnmount
@@ -30,10 +48,20 @@ declare global {
   const provide: typeof import('fusee-framework').provide
   const provideGlobal: typeof import('fusee-framework').provideGlobal
   const reconcile: typeof import('fusee-framework').reconcile
+  const registerStorePlugin: typeof import('fusee-framework').registerStorePlugin
   const resetStore: typeof import('fusee-framework').resetStore
   const resource: typeof import('fusee-framework').resource
+  const routeParams: typeof import('fusee-framework').routeParams
+  const routeQuery: typeof import('fusee-framework').routeQuery
   const scheduleAsyncJob: typeof import('fusee-framework').scheduleAsyncJob
   const signal: typeof import('fusee-framework').signal
+  const storeToGetters: typeof import('fusee-framework').storeToGetters
+  const storeToRefs: typeof import('fusee-framework').storeToRefs
+  const storeToState: typeof import('fusee-framework').storeToState
+  const toCustomElement: typeof import('fusee-framework').toCustomElement
+  const unsafeCSS: typeof import('fusee-framework').unsafeCSS
   const untrack: typeof import('fusee-framework').untrack
+  const useAction: typeof import('fusee-framework').useAction
+  const useNestedStore: typeof import('fusee-framework').useNestedStore
   const watch: typeof import('fusee-framework').watch
 }

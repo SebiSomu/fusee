@@ -1,19 +1,6 @@
 // ─── Framework Public API ─────────────────────────────────────────────────────
-import * as signalModule from './core/signal.js'
-import * as resourceModule from './core/resource.js'
-import * as componentModule from './core/component.js'
-import * as elementModule from './core/element.js'
-import * as diModule from './core/di.js'
-import * as routerModule from './router/router.js'
-import * as fileRouterModule from './router/file-router.js'
-import * as compilerModule from './core/compiler.js'
-import * as composableModule from './core/composable.js'
-import * as storeModule from './core/store.js'
-import * as directivesModule from './core/directives.js'
-import * as reconcileModule from './core/reconcile.js'
-import * as actionsModule from './server/actions.js'
-import * as appRegistryModule from './core/app-registry.js'
-import * as pluginsModule from './core/plugins.js'
+// Exports only, with no side effects, so bundlers keep just what an app uses.
+// To expose the API on globalThis instead, import 'fusee-framework/globals'.
 
 export const emit = () => console.warn('[framework] emit() can only be used inside component setup()')
 
@@ -32,24 +19,3 @@ export { reconcile } from './core/reconcile.js'
 export { defineAction, createActionProxy, useAction } from './server/actions.js'
 export { createApp } from './core/app-registry.js'
 export { defineCompilerPlugin, defineServerPlugin, defineDevToolsPlugin, defineRuntimeAdapter, defineFuseePlugin } from './core/plugins.js'
-
-if (typeof globalThis !== 'undefined') {
-    Object.assign(globalThis, {
-        ...signalModule,
-        ...resourceModule,
-        ...componentModule,
-        ...elementModule,
-        ...diModule,
-        ...routerModule,
-        ...fileRouterModule,
-        ...compilerModule,
-        ...composableModule,
-        ...storeModule,
-        ...directivesModule,
-        ...reconcileModule,
-        ...actionsModule,
-        ...appRegistryModule,
-        ...pluginsModule,
-        emit
-    })
-}

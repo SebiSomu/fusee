@@ -25,6 +25,11 @@ Fusée is a custom, high-performance fine-grained reactive JavaScript framework 
   (`renderElementsSSR()`) and in the Go SSR engine (elements are read from `app/elements`
   by `npm run manifest`).
 - Added `fusee generate element <tag-name>`.
+- **Smaller bundles:** importing `fusee-framework` no longer copies the API onto `globalThis`,
+  so bundlers drop the modules an app doesn't use (a counter app went from 23.6 KB to
+  11.0 KB gzip). The auto-import preset now covers every export.
+  **Breaking:** code that calls the API with neither imports nor auto-imports (e.g. a plain
+  `<script>`) must add `import 'fusee-framework/globals'`.
 - Fixed: delegated events (`@click`) inside shadow roots; the first `:binding` on a tag being
   ignored in string templates; content right after an `f-if` element being dropped by the
   compiler; manifest pages in the Go dev server not receiving their `Load` data;
@@ -486,7 +491,9 @@ import type {
 } from "./framework/types";
 ```
 
-Core auto-imports are declared in `framework/auto-imports.d.ts`. Application-owned services, components, stores, actions, router APIs, utilities, and types should be imported explicitly.
+Every fusée export is auto-imported in Vite builds (`framework/auto-import-preset.js`, typed in `framework/auto-imports.d.ts`). Your own services, components, stores, actions, utilities, and types should be imported explicitly.
+
+Outside Vite (a plain `<script type="module">`, a quick demo), either import what you use or load `import 'fusee-framework/globals'`, which puts the whole API on `globalThis`. Avoid it in bundled apps: it keeps the entire framework in the bundle.
 
 ---
 
@@ -513,6 +520,29 @@ Compared to other popular JS Frameworks:
 | **8**  | **React**              |   126.12 ms    |
 | **9**  | **Mithril**            |   128.35 ms    |
 | **10** | **Lit**                |   131.08 ms    |
+
+### Bundle size
+
+Production JavaScript of the same benchmark app (a keyed 1,000-row table), built with Vite
+and compressed with gzip level 9 and brotli quality 11:
+
+|  Rank  | Framework              |     gzip     |    brotli    |
+| :----: | :--------------------- | :----------: | :----------: |
+| **1**  | **Solid**              |    3.9 KB    |    3.5 KB    |
+| **2**  | **Preact**             |    5.9 KB    |    5.4 KB    |
+| **3**  | <mark>**Fusée**</mark> | **6.2 KB**   | **5.6 KB**   |
+| **4**  | **Lit**                |    6.3 KB    |    5.7 KB    |
+| **5**  | **Svelte**             |   12.8 KB    |   11.7 KB    |
+| **6**  | **Mithril**            |   13.8 KB    |   12.1 KB    |
+| **7**  | **Vue**                |   24.5 KB    |   22.1 KB    |
+| **8**  | **Qwik**               |   27.3 KB    |   24.4 KB    |
+| **9**  | **Angular**            |   34.6 KB    |   31.0 KB    |
+| **10** | **React**              |   44.9 KB    |   39.3 KB    |
+
+Fusée is tree-shakable: an app only ships the parts it uses. The benchmark app mounts a
+compiled template directly with the runtime. Apps built from `defineComponent()` also include
+the runtime template compiler, so for reference a minimal counter component is 11.0 KB gzip,
+and a minimal `defineElement()` custom element is 13.1 KB gzip.
 
 ---
 
