@@ -18,6 +18,14 @@ type Module struct {
 	Load LoadFunc
 }
 
+// AsModule returns the module itself. Route handlers that embed Module (for example a
+// page handler that also carries its AST) inherit it, so the dispatcher still finds Load.
+func (m *Module) AsModule() *Module { return m }
+
+type moduleHandler interface {
+	AsModule() *Module
+}
+
 type Config struct {
 	DistDir         string
 	Routes          []*Route
@@ -73,7 +81,8 @@ func (d *Dispatcher) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log.Printf("[HTTP SSR] %s %s -> route: %s params: %+v", r.Method, r.URL.Path, match.Route.Pattern, match.Params)
 
 	var data any
-	if module, ok := match.Route.Handler.(*Module); ok && module.Load != nil {
+	if h, ok := match.Route.Handler.(moduleHandler); ok && h.AsModule() != nil && h.AsModule().Load != nil {
+		module := h.AsModule()
 		var err error
 		data, err = module.Load(match.Params, r.URL.Query(), r)
 		if err != nil {

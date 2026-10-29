@@ -63,12 +63,15 @@ type InferElementProps<P> = P extends string[]
 
 export type ShadowOption = boolean | ShadowRootMode | Partial<ShadowRootInit>
 
-export interface ElementSetupContext {
+export interface ElementSetupContext<TProps = Record<string, any>> {
     /** Dispatches a bubbling, composed CustomEvent from the host; one argument becomes `detail`. */
     emit: EmitFn
     slots: Record<string, string>
-    /** The custom element instance; assign to its props to update them. */
-    host: HTMLElement
+    /**
+     * The custom element instance; assign to its props to update them. It is null while
+     * the element renders on the server, so only use it in handlers and lifecycle hooks there.
+     */
+    host: HTMLElement & TProps
     /** The element's shadow root (also for closed mode), or null in light-DOM mode. */
     shadowRoot: ShadowRoot | null
 }
@@ -80,7 +83,7 @@ export interface ElementOptions<P extends ElementPropSchema = any, TProps = Infe
     /** Shadow root mode (default 'open'), attachShadow() options, or false to render into the host. */
     shadow?: ShadowOption
     components?: Record<string, ComponentFactory<any>>
-    setup?: (props: Readonly<TProps>, ctx: ElementSetupContext) => ComponentResult | Record<string, any>
+    setup?: (props: Readonly<TProps>, ctx: ElementSetupContext<TProps>) => ComponentResult | Record<string, any>
     render?: (state: any, components: Record<string, ComponentFactory<any>>) => any[]
     /** Compiled SSR render function, used by renderElementsSSR() instead of compiling the string template. */
     renderSSR?: (state: any, components: Record<string, any>) => string | Promise<string>

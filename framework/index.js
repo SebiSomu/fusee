@@ -30,7 +30,7 @@ export { defineStore, resetStore, clearStores, registerStorePlugin, storeToRefs,
 export { directive } from './core/directives.js'
 export { reconcile } from './core/reconcile.js'
 export { defineAction, createActionProxy, useAction } from './server/actions.js'
-export { createApp, App } from './core/app-registry.js'
+export { createApp } from './core/app-registry.js'
 export { defineCompilerPlugin, defineServerPlugin, defineDevToolsPlugin, defineRuntimeAdapter, defineFuseePlugin } from './core/plugins.js'
 
 if (typeof globalThis !== 'undefined') {

@@ -1,0 +1,27 @@
+import { defineElement, css } from 'fusee-framework';
+
+defineElement('{{.TagName}}', {
+    props: {
+        label: { type: String, default: '{{.TagName}}' },
+        count: { type: Number, default: 0, reflect: true }
+    },
+    styles: css`
+        :host { display: inline-block; font-family: system-ui, sans-serif; }
+        button { padding: 0.45rem 1.1rem; border-radius: 6px; border: 1px solid #2a2a3a; background: #0f0f1a; color: #e8e8f0; cursor: pointer; }
+    `,
+    setup(props, { host, emit }) {
+        const increment = () => {
+            host.count = props.count + 1;
+            emit('change', host.count);
+        };
+
+        return {
+            props,
+            increment,
+            template: `
+                <button @click="increment">{{`{{`}} props.label {{`}}`}}: {{`{{`}} props.count {{`}}`}}</button>
+                <slot></slot>
+            `
+        };
+    }
+});

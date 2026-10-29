@@ -48,7 +48,16 @@ export * from './actions'
 
 export interface GenerateManifestOptions {
     pagesDir?: string
+    /** Modules whose defineElement() calls are serialized for Go SSR (default: app/elements). */
+    elementsDir?: string
     outputDir?: string
 }
 
 export declare function generateManifest(options?: GenerateManifestOptions): Promise<void>
+
+/**
+ * Server-renders every element registered with defineElement() in an HTML string as
+ * declarative shadow DOM (`<template shadowrootmode>`), including nested elements.
+ * Light-DOM elements and elements that already have a declarative shadow root are unchanged.
+ */
+export declare function renderElementsSSR(html: string): Promise<string>

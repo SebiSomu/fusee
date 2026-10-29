@@ -5,6 +5,9 @@ import { handleActionRequest } from './actions.server.js'
  
 const DEFAULT_ACTIONS_BASE = '/__fusee/actions'
 
+/** Default URL prefix for server action requests. */
+export const defaultActionsBasePath = DEFAULT_ACTIONS_BASE
+
 export function compilePath(path) {
     const paramNames = []
     let src = path

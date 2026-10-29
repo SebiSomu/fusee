@@ -102,7 +102,7 @@ class SSRGenerator {
         const anchorId = needsAnchor ? this._anchorIdx++ : null
 
         out.push(`${varName} += '<${tag}'`)
-        this._emitAttrs(node.props, out, varName)
+        this._emitAttrs(node.props, out, varName, tag.includes('-'))
         if (anchorId !== null) out.push(`${varName} += ' data-f-id="${anchorId}"'`)
         out.push(`${varName} += '${isVoid ? '/>' : '>'}'`)
         if (isVoid) return
@@ -116,10 +116,10 @@ class SSRGenerator {
         out.push(`${varName} += '</${tag}>'`)
     }
 
-    _emitAttrs(props, out, varName) {
+    _emitAttrs(props, out, varName, isCustomElement = false) {
         for (const prop of props) {
             if (prop.type === NodeType.ATTRIBUTE) this._emitStaticAttr(prop, out, varName)
-            else if (prop.type === NodeType.BINDING) this._emitBindingAttr(prop, out, varName)
+            else if (prop.type === NodeType.BINDING) this._emitBindingAttr(prop, out, varName, isCustomElement)
             else if (prop.type === NodeType.DIRECTIVE) this._emitDirectiveAttr(prop, out, varName)
         }
     }
@@ -132,7 +132,7 @@ class SSRGenerator {
         }
     }
 
-    _emitBindingAttr(prop, out, varName) {
+    _emitBindingAttr(prop, out, varName, isCustomElement = false) {
         const expr = this.scope.wrap(prop.expression.content)
         if (prop.isProp) return // DOM-only property, no HTML attribute equivalent
         if (prop.name === 'class') {
@@ -140,7 +140,9 @@ class SSRGenerator {
         } else if (prop.name === 'style') {
             out.push(`${varName} += ' style="' + escapeAttr(renderStyle(${expr})) + '"'`)
         } else {
-            out.push(`${varName} += (function(v){ if (v === false || v == null) return ''; if (v === true) return ' ${prop.name}'; return ' ${prop.name}="' + escapeAttr(String(v)) + '"' })(${expr})`)
+            // Custom elements parse Array/Object props from JSON attributes, so serialize rich values as JSON.
+            const serialize = isCustomElement ? "(typeof v === 'object' ? JSON.stringify(v) : String(v))" : 'String(v)'
+            out.push(`${varName} += (function(v){ if (v === false || v == null) return ''; if (v === true) return ' ${prop.name}'; return ' ${prop.name}="' + escapeAttr(${serialize}) + '"' })(${expr})`)
         }
     }
 

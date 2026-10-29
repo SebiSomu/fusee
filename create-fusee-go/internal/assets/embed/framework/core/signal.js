@@ -293,6 +293,23 @@ export function untrack(fn) {
     }
 }
 
+/**
+ * Runs a callback outside any tracking effect and owner, so signal reads are not tracked
+ * and effects it creates are not disposed when the surrounding effect re-runs.
+ */
+export function runDetached(fn) {
+    const prevEffect = currentEffect
+    const prevOwner = currentOwner
+    currentEffect = null
+    currentOwner = null
+    try {
+        return fn()
+    } finally {
+        currentEffect = prevEffect
+        currentOwner = prevOwner
+    }
+}
+
 /** Watches one or more signal sources and invokes a callback when their values change. */
 export function watch(source, callback, options = {}) {
     if (typeof callback !== 'function') {

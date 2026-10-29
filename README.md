@@ -14,6 +14,22 @@ Fusée is a custom, high-performance fine-grained reactive JavaScript framework 
 
 ---
 
+## Unreleased (2.7.0)
+
+- Added **Web Components**: `defineElement()` turns a fusée component into a native custom
+  element with reactive props synced to attributes, shadow DOM, scoped `css` styles, native
+  slots and DOM events. `toCustomElement()` converts existing components.
+- `provide()`/`inject()` work across custom elements, and interoperate with `@lit/context`
+  through the Context Protocol.
+- Server-side rendering of elements as declarative shadow DOM, in Node
+  (`renderElementsSSR()`) and in the Go SSR engine (elements are read from `app/elements`
+  by `npm run manifest`).
+- Added `fusee generate element <tag-name>`.
+- Fixed: delegated events (`@click`) inside shadow roots; the first `:binding` on a tag being
+  ignored in string templates; content right after an `f-if` element being dropped by the
+  compiler; manifest pages in the Go dev server not receiving their `Load` data;
+  `fusee-framework` and `fusee-framework/server` failing to import in plain Node.
+
 ## What's New in 2.6.1
 
 - Added package manager choice in the `fusee init` command and automatic installation
@@ -71,9 +87,10 @@ fusee generate component Button    # → app/components/Button.js
 fusee generate store   auth        # → app/stores/auth.js
 fusee generate composable useFetch # → app/composables/useFetch.js
 fusee generate action  sendEmail   # → app/actions/sendEmail.js
+fusee generate element fu-counter  # → app/elements/fu-counter.js (custom element; needs a hyphen)
 ```
 
-Aliases: `fusee g page dashboard`
+Aliases: `fusee g page dashboard`, `fusee g el fu-counter`
 
 ### `fusee add server`
 
@@ -155,6 +172,90 @@ export const Counter = defineComponent({
   },
 });
 ```
+
+---
+
+## Web Components
+
+`defineElement()` registers a native custom element backed by a fusée component. It works in
+plain HTML, inside fusée templates and JSX, and in any other framework.
+
+```javascript
+import { defineElement, css } from 'fusee-framework'
+
+defineElement('fu-counter', {
+  props: {
+    count: { type: Number, default: 0, reflect: true },   // <fu-counter count="3">
+    items: { type: Array, default: () => [], attribute: false }, // property only
+  },
+  styles: css`:host { display: block } button { padding: ${8}px }`,
+  shadow: 'open', // 'open' (default) | 'closed' | false (light DOM)
+  setup(props, { host, emit }) {
+    return {
+      props,
+      inc: () => { host.count = props.count + 1; emit('change', host.count) },
+      template: `<button @click="inc">{{ props.count }}</button><slot></slot>`,
+    }
+  },
+})
+```
+
+- **Props** are signals exposed as element properties. Attributes are converted by type
+  (`String`, `Number`, `Boolean`, JSON for `Array`/`Object`), use kebab-case names
+  (`userName` ↔ `user-name`), and can be customized with `attribute` and `converter`.
+  `reflect: true` writes changes back to the attribute. Updates are fine-grained: setting
+  `el.count = 5` only touches the nodes that read it.
+- **Binding from fusée:** `:items="list"` in string templates and `items={list()}` in JSX
+  set rich values as properties, so arrays and objects arrive intact.
+- **Events:** `emit(name, detail)` dispatches a bubbling, composed `CustomEvent` from the
+  host. Listen with `@change="onChange"` or `addEventListener`.
+- **Styles:** `css` builds one stylesheet shared by every instance. Interpolations must be
+  `css` results or numbers; use `unsafeCSS()` for trusted strings.
+- **Lifecycle:** `setup` runs on first connect, `onMount`/`onUnmount` work as usual, and
+  moving an element in the DOM keeps its state.
+- **DI:** `provide()`/`inject()` reach across element boundaries. Fusée also speaks the
+  community Context Protocol, so it can consume `@lit/context` providers and serve Lit
+  consumers.
+- **Existing components:** `toCustomElement(Counter, 'fu-counter')` registers a
+  `defineComponent()` component as an element.
+
+Elements in `app/elements/` (created by `fusee generate element <tag-name>`) are registered by
+`app/main` in new projects. For projects created before 2.7, add this line once to `app/main`:
+
+```javascript
+import.meta.glob('./elements/**/*.{js,ts}', { eager: true })
+```
+
+### Server-side rendering
+
+Elements render on the server as declarative shadow DOM (`<template shadowrootmode>`), so
+their content and styles are visible before JavaScript loads. On upgrade, the element takes
+over that shadow root.
+
+- **Node:** pass any HTML (a compiled page, a static file) through `renderElementsSSR()`:
+
+  ```javascript
+  import { renderElementsSSR } from 'fusee-framework/server'
+
+  const html = await renderElementsSSR(pageHtml)
+  ```
+
+- **Go engine:** `npm run manifest` also imports the modules in `app/elements/` and adds each
+  element's props, styles and template to `.fusee/manifest.json`. The Go server renders them
+  automatically. Go cannot run JS `setup()`, so templates see props directly and as
+  `props.x`. For computed state, attach a Go `Setup` function:
+
+  ```go
+  elements := manifest.ElementRegistry()
+  elements["fu-greet"].Setup = func(props evalexpr.Scope) (evalexpr.Scope, error) {
+      return evalexpr.Scope{"greeting": "Hello, " + props["name"].(string)}, nil
+  }
+  html, err := engine.RenderWithElements(page.AST, scope, nil, elements)
+  ```
+
+Element modules must be importable in plain Node for SSR (no CSS or browser-only imports at
+module level). Light-DOM elements (`shadow: false`) render on the client only, and slot
+fallback content appears once the element upgrades.
 
 ---
 
@@ -354,7 +455,8 @@ my-app/
 │   ├── components/     # Reusable UI components
 │   ├── stores/         # Reactive state stores
 │   ├── composables/    # Reusable logic hooks
-│   └── actions/        # Server actions
+│   ├── actions/        # Server actions
+│   └── elements/       # Custom elements (defineElement)
 ├── framework/          # Fusée core engine (injected by CLI)
 │   ├── core/           # Reactivity, compiler, directives, DI
 │   ├── router/         # Client-side router

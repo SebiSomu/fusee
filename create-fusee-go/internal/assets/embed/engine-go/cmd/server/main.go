@@ -67,9 +67,14 @@ func main() {
 
 	// 3. Dynamically Load Routes from .fusee/manifest.json
 	var routes []*engine.Route
+	var elements engine.ElementRegistry
 	manifestPath := filepath.Join(absRoot, ".fusee", "manifest.json")
 
 	if manifest, err := engine.LoadManifest(manifestPath); err == nil && len(manifest.Routes) > 0 {
+		elements = manifest.ElementRegistry()
+		if len(elements) > 0 {
+			log.Printf("✨ [Fusee SSR] Loaded %d custom elements for declarative shadow DOM", len(elements))
+		}
 		log.Printf("✨ [Fusee SSR] Loaded %d dynamic routes from %s", len(manifest.Routes), manifestPath)
 		for _, mr := range manifest.Routes {
 			if mr.AST == nil {
@@ -124,7 +129,7 @@ func main() {
 		var err error
 
 		if pageH, ok := route.Handler.(*PageHandler); ok && pageH.AST != nil {
-			bodyHTML, err = engine.Render(pageH.AST, scope)
+			bodyHTML, err = engine.RenderWithElements(pageH.AST, scope, nil, elements)
 		} else {
 			bodyHTML = fmt.Sprintf(`<div class="page"><h1>%s</h1><p>%s</p></div>`, scope["title"], scope["status"])
 		}

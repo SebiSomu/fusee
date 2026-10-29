@@ -2,6 +2,7 @@
 import * as signalModule from './core/signal.js'
 import * as resourceModule from './core/resource.js'
 import * as componentModule from './core/component.js'
+import * as elementModule from './core/element.js'
 import * as diModule from './core/di.js'
 import * as routerModule from './router/router.js'
 import * as fileRouterModule from './router/file-router.js'
@@ -19,6 +20,7 @@ export const emit = () => console.warn('[framework] emit() can only be used insi
 export { signal, computed, effect, batch, untrack, inspect, watch, onCleanup, resource, createSuspense, scheduleAsyncJob } from './core/signal.js'
 export { defineResource } from './core/resource.js'
 export { defineComponent, defineAsyncComponent, onMount, onUnmount, parseSlots, provide, inject, getCurrentInstance } from './core/component.js'
+export { defineElement, toCustomElement, css, unsafeCSS } from './core/element.js'
 export { InjectionToken, provideGlobal } from './core/di.js'
 export { createRouter, navigate, mountOutlet, currentRoute, routeParams, routeQuery, matchedRoutes } from './router/router.js'
 export { generateRoutes } from './router/file-router.js'
@@ -28,7 +30,7 @@ export { defineStore, resetStore, clearStores, registerStorePlugin, storeToRefs,
 export { directive } from './core/directives.js'
 export { reconcile } from './core/reconcile.js'
 export { defineAction, createActionProxy, useAction } from './server/actions.js'
-export { createApp, App } from './core/app-registry.js'
+export { createApp } from './core/app-registry.js'
 export { defineCompilerPlugin, defineServerPlugin, defineDevToolsPlugin, defineRuntimeAdapter, defineFuseePlugin } from './core/plugins.js'
 
 if (typeof globalThis !== 'undefined') {
@@ -36,6 +38,7 @@ if (typeof globalThis !== 'undefined') {
         ...signalModule,
         ...resourceModule,
         ...componentModule,
+        ...elementModule,
         ...diModule,
         ...routerModule,
         ...fileRouterModule,

@@ -1,5 +1,6 @@
 import { effect, batch, signal, microEffect } from '../core/signal.js'
 import { createEventHandler, registerDelegatedEvent, isDelegatedEvent } from '../core/event-delegation.js'
+import { resolveElementProperty } from '../core/element-props.js'
 
 export { effect as _effect, batch as _batch }
 
@@ -283,7 +284,14 @@ function _getLIS(arr) {
     return seq
 }
 
+/** Marks a slots object whose outlets must stay native `<slot>` elements (shadow DOM). */
+export const NATIVE_SLOTS = Symbol.for('fusee.nativeSlots')
+
 export function hSlot(slots, name, fallback = []) {
+    if (slots?.[NATIVE_SLOTS]) {
+        return h('slot', name === 'default' ? {} : { name }, fallback)
+    }
+
     const anchor = document.createComment(`slot:${name}`)
     const effects = []
     const slotFn = slots?.[name]
@@ -424,6 +432,12 @@ function _applyAttr(el, name, value) {
         } else {
             el.style.cssText = String(value ?? '')
         }
+        return
+    }
+
+    const elementProp = resolveElementProperty(el, name, value)
+    if (elementProp) {
+        el[elementProp] = value
         return
     }
 

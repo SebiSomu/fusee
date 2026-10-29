@@ -75,3 +75,4 @@ export {
 }
 
 export { generateManifest } from './generate-manifest.js'
+export { renderElementsSSR } from '../core/element-ssr.js'

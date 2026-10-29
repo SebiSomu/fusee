@@ -18,6 +18,7 @@ var EmbeddedEngineGo embed.FS
 
 type Config struct {
 	ProjectName string
+	TagName     string
 	IsTS        bool
 	IsJSX       bool
 	UseTailwind bool

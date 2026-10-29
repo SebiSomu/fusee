@@ -33,6 +33,9 @@ export declare function h(tag: string, props?: PropsMap, children?: FNode[], isS
 export declare function hText(value: string | (() => string)): FNode
 export declare function hIf(branches: Array<[(() => boolean) | null, () => FNode[]]>): FNode
 export declare function hFor<T>(sourceGetter: () => T[], renderItem: (item: T, index?: number) => FNode, keyFn: (item: T, index?: number) => unknown): FNode
+/** Marks a slots object whose outlets render as native `<slot>` elements (shadow DOM). */
+export declare const NATIVE_SLOTS: unique symbol
+
 export declare function hSlot(slots: SlotMap | null | undefined, name: string, fallback?: FNode[]): FNode
 export declare function createComponent(name: string, ComponentFn: ((...args: unknown[]) => ComponentApi) | undefined | null, rawProps?: PropsMap, rawSlots?: SlotMap): FNode
 

@@ -100,6 +100,8 @@ export declare function effect(fn: () => void): () => void
 export declare function computed<T>(fn: () => T): Computed<T>
 export declare function batch<T>(fn: () => T): T
 export declare function untrack<T>(fn: () => T): T
+/** Runs fn outside any tracking effect and owner; effects it creates outlive the caller's effect. */
+export declare function runDetached<T>(fn: () => T): T
 export declare function watch<T>(source: WatchSource<T>, callback: WatchCallback<T>, options?: WatchOptions): () => void
 export declare function watch<T extends any[]>(
     sources: [...{ [K in keyof T]: WatchSource<T[K]> }],

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"create-fusee/internal/assets"
@@ -22,7 +23,8 @@ Types available:
   - component (c): app/components/<name>.<ext>
   - store (s): app/stores/<name>.<ext>
   - composable (use): app/composables/use<name>.<ext>
-  - action (a): app/actions/<name>.<ext>`,
+  - action (a): app/actions/<name>.<ext>
+  - element (el): app/elements/<tag-name>.<ext> (a custom element; the name needs a hyphen)`,
 	Args: cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		genType := strings.ToLower(args[0])
@@ -88,8 +90,17 @@ Types available:
 		case "action", "a":
 			dest = filepath.Join("app/actions", rawName+"."+logicExt)
 			tmpl = "templates/action.tmpl"
+		case "element", "el":
+			tag := strings.ToLower(rawName)
+			if err := validateElementName(tag); err != nil {
+				ui.Error(err.Error())
+				os.Exit(1)
+			}
+			config.TagName = tag
+			dest = filepath.Join("app/elements", tag+"."+logicExt)
+			tmpl = "templates/element.tmpl"
 		default:
-			ui.Error(fmt.Sprintf("Unknown type '%s'. Use page (p), component (c), store (s), composable (use), or action (a).", genType))
+			ui.Error(fmt.Sprintf("Unknown type '%s'. Use page (p), component (c), store (s), composable (use), action (a), or element (el).", genType))
 			os.Exit(1)
 		}
 
@@ -108,8 +119,57 @@ Types available:
 			os.Exit(1)
 		}
 
-		ui.Success(fmt.Sprintf("%s created: %s", strings.Title(genType), dest))
+		ui.Success(fmt.Sprintf("%s created: %s", strings.Title(canonicalTypes[genType]), dest))
+		if canonicalTypes[genType] == "element" {
+			ui.Info(fmt.Sprintf("Use it as <%s></%s> in any template or HTML page.", config.TagName, config.TagName))
+			if !entryRegistersElements() {
+				ui.Info("Register app/elements once by adding to app/main: import.meta.glob('./elements/**/*.{js,ts}', { eager: true });")
+			}
+		}
 	},
+}
+
+// canonicalTypes maps each generator type and alias to its full name, for messages.
+var canonicalTypes = map[string]string{
+	"page": "page", "p": "page",
+	"component": "component", "c": "component",
+	"store": "store", "s": "store",
+	"composable": "composable", "use": "composable",
+	"action": "action", "a": "action",
+	"element": "element", "el": "element",
+}
+
+var elementNamePattern = regexp.MustCompile(`^[a-z][a-z0-9._]*(-[a-z0-9._]*)+$`)
+
+// reservedElementNames are hyphenated names the HTML spec keeps for SVG and MathML.
+var reservedElementNames = map[string]bool{
+	"annotation-xml": true, "color-profile": true, "font-face": true, "font-face-src": true,
+	"font-face-uri": true, "font-face-format": true, "font-face-name": true, "missing-glyph": true,
+}
+
+// entryRegistersElements reports whether the app entry already imports app/elements.
+func entryRegistersElements() bool {
+	for _, ext := range []string{"js", "ts", "jsx", "tsx"} {
+		data, err := os.ReadFile(filepath.Join("app", "main."+ext))
+		if err == nil && strings.Contains(string(data), "./elements/") {
+			return true
+		}
+	}
+	return false
+}
+
+// validateElementName checks the rules browsers apply in customElements.define().
+func validateElementName(tag string) error {
+	if !strings.Contains(tag, "-") {
+		return fmt.Errorf("Custom element names must contain a hyphen, e.g. 'fu-%s'.", tag)
+	}
+	if !elementNamePattern.MatchString(tag) {
+		return fmt.Errorf("'%s' is not a valid custom element name: start with a letter and use only lowercase letters, digits, '-', '.' and '_'.", tag)
+	}
+	if reservedElementNames[tag] {
+		return fmt.Errorf("'%s' is reserved by the HTML spec; pick another name.", tag)
+	}
+	return nil
 }
 
 func init() {

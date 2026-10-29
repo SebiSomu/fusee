@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import fs from 'node:fs'
+import { execFileSync } from 'node:child_process'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -119,6 +120,30 @@ defineElement('fu-mf-twice', { setup: () => ({ template: '<i></i>' }) })`
 
         expect(second.manifest.elements).toEqual(first.manifest.elements)
         expect(second.manifest.elements.map(e => e.tag)).toEqual(['fu-mf-twice'])
+    })
+
+    it('imports scaffold-style element modules in plain Node', () => {
+        const dir = tempApp({
+            'counter.js': `import { defineElement, css } from 'fusee-framework'
+defineElement('fu-mf-counter', {
+    props: { start: { type: Number, default: 1 } },
+    styles: css\`:host { display: block }\`,
+    setup: (props) => ({ count: signal(props.start), template: '<b>{{ count }}</b>' })
+})`,
+            'typed.ts': `import { defineElement } from 'fusee-framework/core/element.js'
+const label: string = 'typed'
+defineElement('fu-mf-typed', { setup: () => ({ label, template: '<i>{{ label }}</i>' }) })`
+        })
+        const generator = pathToFileURL(path.resolve(here, '../server/generate-manifest.js')).href
+        const options = JSON.stringify({ pagesDir: path.join(dir, 'pages'), elementsDir: path.join(dir, 'elements'), outputDir: dir })
+
+        execFileSync(process.execPath, ['--input-type=module', '-e',
+            `const { generateManifest } = await import(${JSON.stringify(generator)}); await generateManifest(${options})`
+        ], { cwd: dir, stdio: 'pipe' })
+
+        const manifest = JSON.parse(fs.readFileSync(path.join(dir, 'manifest.json'), 'utf-8'))
+        expect(manifest.elements.map(e => e.tag).sort()).toEqual(['fu-mf-counter', 'fu-mf-typed'])
+        expect(manifest.elements.find(e => e.tag === 'fu-mf-counter').styles).toBe(':host { display: block }')
     })
 
     it('writes an empty elements list when there is no elements directory', async () => {

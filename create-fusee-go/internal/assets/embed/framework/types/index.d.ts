@@ -2,6 +2,7 @@ import { createApp as createAppFn } from './app-registry'
 
 export * from './signal'
 export * from './component'
+export * from './element'
 export * from './composable'
 export * from './router'
 export * from './compiler'
@@ -65,6 +66,11 @@ declare global {
     const provide: typeof import('./component').provide
     const inject: typeof import('./di').inject
     const getCurrentInstance: typeof import('./component').getCurrentInstance
+
+    const defineElement: typeof import('./element').defineElement
+    const toCustomElement: typeof import('./element').toCustomElement
+    const css: typeof import('./element').css
+    const unsafeCSS: typeof import('./element').unsafeCSS
 
     const createRouter: typeof import('./router').createRouter
     const navigate: typeof import('./router').navigate

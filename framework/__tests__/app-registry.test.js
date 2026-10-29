@@ -1,6 +1,6 @@
 // app-registry.test.js
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { createApp, App } from '../core/app-registry.js'
+import { createApp } from '../core/app-registry.js'
 import { defineComponent, provide, inject } from '../core/component.js'
 import { defineCompilerPlugin, defineServerPlugin, defineDevToolsPlugin, defineRuntimeAdapter, defineFuseePlugin } from '../core/plugins.js'
 

@@ -2,6 +2,9 @@
 {{end}}import { createRouter, mountOutlet, generateRoutes } from 'fusee-framework';
 import { Loading } from './components/Loading';
 
+// Registers every custom element in app/elements (fusee generate element <tag-name>).
+import.meta.glob('./elements/**/*.{js,ts}', { eager: true });
+
 const pages = import.meta.glob('./pages/**/*.{jsx,tsx,js,ts}');
 const routes = generateRoutes(pages, {
     loadingComponent: Loading

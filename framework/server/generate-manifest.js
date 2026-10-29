@@ -1,4 +1,5 @@
 import fs from 'node:fs'
+import { register } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { compile } from '../core/compiler/main-compiler.js'
@@ -115,6 +116,39 @@ function serializeElement(definition, filePath) {
     }
 }
 
+const frameworkDir = path.resolve(__dirname, '..')
+let elementRuntimeReady = false
+
+/**
+ * Prepares plain Node to import app element modules the way Vite does:
+ * - `fusee-framework` (and subpaths) resolves to this framework copy when normal
+ *   resolution fails, as scaffolded apps only map it through a Vite alias;
+ * - the framework entry is loaded first, which installs fusée's globals, so modules
+ *   written for auto-imports (bare `signal()`, `defineElement()`) work as well.
+ */
+async function prepareElementRuntime() {
+    if (elementRuntimeReady) return
+    elementRuntimeReady = true
+
+    if (typeof register === 'function') {
+        const frameworkUrl = pathToFileURL(frameworkDir + path.sep).href
+        const hooks = `
+            export async function resolve(specifier, context, next) {
+                try {
+                    return await next(specifier, context)
+                } catch (err) {
+                    if (specifier !== 'fusee-framework' && !specifier.startsWith('fusee-framework/')) throw err
+                    const subpath = specifier === 'fusee-framework' ? 'index.js' : specifier.slice('fusee-framework/'.length)
+                    const file = /\\.[cm]?[jt]s$/.test(subpath) ? subpath : subpath + '/index.js'
+                    return next(new URL(file, ${JSON.stringify(frameworkUrl)}).href, context)
+                }
+            }`
+        register('data:text/javascript,' + encodeURIComponent(hooks))
+    }
+
+    await import(pathToFileURL(path.join(frameworkDir, 'index.js')).href)
+}
+
 /**
  * Tags registered by each imported element module. ES modules run once per process, so a
  * repeated generateManifest() call must reuse what the first import registered.
@@ -140,6 +174,8 @@ async function collectElements(elementsDir) {
     const elements = []
     const files = getAllFiles(elementsDir)
         .filter(({ relPath }) => /\.(m?js|ts)$/.test(relPath) && !relPath.includes('.test.') && !relPath.includes('.spec.'))
+
+    if (files.length > 0) await prepareElementRuntime()
 
     for (const { fullPath, relPath } of files) {
         const filePath = path.relative(projectRoot, fullPath).replace(/\\/g, '/')
