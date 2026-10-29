@@ -1,15 +1,17 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { compile } from '../core/compiler/main-compiler.js'
+import { listElementDefinitions, resolveDefault } from '../core/element.js'
+import { runElementSetup } from '../core/element-ssr.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 const projectRoot = path.resolve(__dirname, '../../')
-const pagesDir = path.join(projectRoot, 'app/pages')
-const outputDir = path.join(projectRoot, '.fusee')
-const manifestFile = path.join(outputDir, 'manifest.json')
+const defaultPagesDir = path.join(projectRoot, 'app/pages')
+const defaultElementsDir = path.join(projectRoot, 'app/elements')
+const defaultOutputDir = path.join(projectRoot, '.fusee')
 
 /** Recursively collects source files that can contain application templates. */
 function getAllFiles(dir, base = '') {
@@ -60,8 +62,120 @@ function filePathToRoute(relPath) {
     return '/' + clean
 }
 
-/** Compiles application pages and writes the route manifest consumed by SSR. */
-export function generateManifest() {
+/** Returns a JSON-serializable copy of a value, or undefined when it cannot be serialized. */
+function toJSONValue(value) {
+    if (value === undefined || typeof value === 'function') return undefined
+    try {
+        return JSON.parse(JSON.stringify(value))
+    } catch {
+        return undefined
+    }
+}
+
+/** Serializes one element definition for the Go engine: props, styles, shadow options, template AST. */
+function serializeElement(definition, filePath) {
+    const { tagName, propDefs, shadowInit, styleList } = definition
+    if (!shadowInit) {
+        console.log(`ℹ️ [Fusee Manifest] Skipped <${tagName}> (light-DOM elements render on the client)`)
+        return null
+    }
+
+    const props = [...propDefs.values()].map(def => ({
+        name: def.name,
+        attribute: def.attribute ?? '',
+        type: def.type?.name ?? '',
+        default: toJSONValue(resolveDefault(def)),
+        reflect: def.reflect
+    }))
+
+    const propsView = {}
+    for (const def of propDefs.values()) {
+        Object.defineProperty(propsView, def.name, { value: resolveDefault(def), enumerable: true })
+    }
+
+    let template
+    const { state, dispose } = runElementSetup(definition, propsView)
+    try {
+        template = state?.template
+    } finally {
+        dispose()
+    }
+    if (typeof template !== 'string') {
+        console.log(`ℹ️ [Fusee Manifest] Skipped <${tagName}> (Go SSR needs a string template from setup())`)
+        return null
+    }
+
+    return {
+        tag: tagName,
+        filePath,
+        props,
+        styles: styleList.map(style => style.cssText).join('\n'),
+        shadow: { mode: shadowInit.mode, delegatesFocus: !!shadowInit.delegatesFocus },
+        ast: compile(template, { filename: filePath }).ast
+    }
+}
+
+/**
+ * Tags registered by each imported element module. ES modules run once per process, so a
+ * repeated generateManifest() call must reuse what the first import registered.
+ */
+const elementTagsByFile = new Map()
+
+/** Imports an element module once and returns the tags its defineElement() calls registered. */
+async function importElementModule(fullPath) {
+    if (elementTagsByFile.has(fullPath)) return elementTagsByFile.get(fullPath)
+
+    const before = new Set(listElementDefinitions().map(def => def.tagName))
+    await import(pathToFileURL(fullPath).href)
+    const tags = listElementDefinitions().map(def => def.tagName).filter(tag => !before.has(tag))
+    elementTagsByFile.set(fullPath, tags)
+    return tags
+}
+
+/**
+ * Imports every module in the elements directory so its defineElement() calls register,
+ * then serializes the definitions. Modules must be importable in Node.
+ */
+async function collectElements(elementsDir) {
+    const elements = []
+    const files = getAllFiles(elementsDir)
+        .filter(({ relPath }) => /\.(m?js|ts)$/.test(relPath) && !relPath.includes('.test.') && !relPath.includes('.spec.'))
+
+    for (const { fullPath, relPath } of files) {
+        const filePath = path.relative(projectRoot, fullPath).replace(/\\/g, '/')
+
+        let tags
+        try {
+            tags = await importElementModule(fullPath)
+        } catch (err) {
+            console.warn(`⚠️ [Fusee Manifest] Failed to import ${relPath}:`, err.message)
+            continue
+        }
+
+        for (const definition of listElementDefinitions()) {
+            if (!tags.includes(definition.tagName)) continue
+            try {
+                const entry = serializeElement(definition, filePath)
+                if (entry) {
+                    elements.push(entry)
+                    console.log(`✅ [Fusee Manifest] Element registered: <${entry.tag}> (${relPath})`)
+                }
+            } catch (err) {
+                console.warn(`⚠️ [Fusee Manifest] Failed to compile <${definition.tagName}> in ${relPath}:`, err.message)
+            }
+        }
+    }
+
+    return elements
+}
+
+/** Compiles application pages and custom elements and writes the manifest consumed by SSR. */
+export async function generateManifest(options = {}) {
+    const pagesDir = options.pagesDir ?? defaultPagesDir
+    const elementsDir = options.elementsDir ?? defaultElementsDir
+    const outputDir = options.outputDir ?? defaultOutputDir
+    const manifestFile = path.join(outputDir, 'manifest.json')
+
     console.log('🔍 [Fusee Manifest] Scanning pages in:', pagesDir)
     const files = getAllFiles(pagesDir)
     const routes = []
@@ -99,6 +213,8 @@ export function generateManifest() {
         }
     }
 
+    const elements = await collectElements(elementsDir)
+
     if (!fs.existsSync(outputDir)) {
         fs.mkdirSync(outputDir, { recursive: true })
     }
@@ -106,14 +222,18 @@ export function generateManifest() {
     const manifest = {
         version: '1.0.0',
         generatedAt: new Date().toISOString(),
-        routes
+        routes,
+        elements
     }
 
     fs.writeFileSync(manifestFile, JSON.stringify(manifest, null, 2), 'utf-8')
-    console.log(`✨ [Fusee Manifest] Successfully written ${routes.length} routes to ${manifestFile}`)
+    console.log(`✨ [Fusee Manifest] Successfully written ${routes.length} routes and ${elements.length} elements to ${manifestFile}`)
     return manifest
 }
 
 if (process.argv[1] === __filename) {
-    generateManifest()
+    generateManifest().catch(err => {
+        console.error('❌ [Fusee Manifest] Failed:', err)
+        process.exitCode = 1
+    })
 }

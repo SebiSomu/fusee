@@ -64,6 +64,16 @@ describe('renderElementsSSR', () => {
         expect(html).toMatch(new RegExp(`</template><p slot="foot">footer</p>text</${cardTag}>$`))
     })
 
+    it('uses prop defaults for absent attributes, including Boolean true', async () => {
+        const tag = nextTag()
+        defineElement(tag, {
+            props: { open: { type: Boolean, default: true }, size: { type: Number, default: 3 } },
+            setup: (props) => ({ props, template: '{{ props.open }}|{{ props.size }}' })
+        })
+
+        expect(stripAnchors(await renderElementsSSR(`<${tag}></${tag}>`))).toContain('true|3')
+    })
+
     it('does not add a reflected attribute that is already present', async () => {
         const html = await renderElementsSSR(`<${cardTag} count="9"></${cardTag}>`)
 

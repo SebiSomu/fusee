@@ -150,7 +150,7 @@ function normalizeProps(props) {
 }
 
 /** Resolves a prop's default value, calling factory defaults once per instance. */
-function resolveDefault(def) {
+export function resolveDefault(def) {
     return typeof def.default === 'function' && def.type !== Function ? def.default() : def.default
 }
 
@@ -162,12 +162,21 @@ function normalizeShadow(shadow) {
     return { mode: 'open', ...shadow }
 }
 
-/** Element definitions by tag, kept also where customElements is unavailable (SSR). */
-const elementDefinitions = new Map()
+/**
+ * Element definitions by tag, kept also where customElements is unavailable (SSR). Stored
+ * on globalThis so every copy of the framework (an app's own copy and node_modules) shares it.
+ */
+const REGISTRY_KEY = Symbol.for('fusee.elementDefinitions')
+const elementDefinitions = globalThis[REGISTRY_KEY] ??= new Map()
 
 /** Returns the normalized definition registered for a tag, if any. */
 export function getElementDefinition(tagName) {
     return elementDefinitions.get(tagName.toLowerCase()) ?? null
+}
+
+/** Returns every registered element definition, in registration order. */
+export function listElementDefinitions() {
+    return [...elementDefinitions.values()]
 }
 
 /** Builds the per-instance component factory whose setup receives the element context. */

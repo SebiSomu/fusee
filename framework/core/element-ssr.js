@@ -1,6 +1,6 @@
 import * as ssrRuntime from './ssr.js'
 import { compile } from './compiler/main-compiler.js'
-import { getElementDefinition, createElementFactory, propFromAttribute, propToAttribute } from './element.js'
+import { getElementDefinition, createElementFactory, propFromAttribute, propToAttribute, resolveDefault } from './element.js'
 
 const MAX_DEPTH = 50
 
@@ -95,6 +95,25 @@ function renderStyles(styleList) {
         .join('')
 }
 
+/**
+ * Runs an element's setup outside the DOM (no host, no shadow root) and returns its state.
+ * dispose() stops the effects setup created, without running unmount hooks.
+ */
+export function runElementSetup(definition, propsView) {
+    const factory = createElementFactory(definition, null, null)
+    const { instance } = factory(propsView, { listeners: SSR_LISTENERS, slots: {} })
+    return {
+        state: instance.state,
+        instance,
+        dispose() {
+            for (const cleanup of instance._effects.splice(0)) {
+                if (typeof cleanup === 'function') 
+                    cleanup()
+            }
+        }
+    }
+}
+
 /** Runs an element's setup with props from its attributes and renders its shadow content. */
 async function renderShadowContent(definition, attrs) {
     const propsView = {}
@@ -102,7 +121,7 @@ async function renderShadowContent(definition, attrs) {
 
     for (const def of definition.propDefs.values()) {
         const hasAttr = def.attribute !== null && attrs.has(def.attribute)
-        const value = hasAttr ? propFromAttribute(def, attrs.get(def.attribute)) : propFromAttribute(def, null)
+        const value = hasAttr ? propFromAttribute(def, attrs.get(def.attribute)) : resolveDefault(def)
         Object.defineProperty(propsView, def.name, { value, enumerable: true })
 
         if (def.reflect && !hasAttr) {
@@ -111,14 +130,12 @@ async function renderShadowContent(definition, attrs) {
         }
     }
 
-    const factory = createElementFactory(definition, null, null)
-    const api = factory(propsView, { listeners: SSR_LISTENERS, slots: {} })
-    const state = api.instance.state
+    const { state, instance, dispose } = runElementSetup(definition, propsView)
 
     try {
         if (state && typeof state === 'object') state._slots = SSR_SLOT_OUTLETS
 
-        const components = toSSRComponents(api.instance._components, definition.tagName)
+        const components = toSSRComponents(instance._components, definition.tagName)
         const { renderSSR } = definition.componentOptions
         let html = ''
         if (typeof renderSSR === 'function') {
@@ -128,9 +145,7 @@ async function renderShadowContent(definition, attrs) {
         }
         return { html, extraAttrs }
     } finally {
-        for (const cleanup of api.instance._effects.splice(0)) {
-            if (typeof cleanup === 'function') cleanup()
-        }
+        dispose()
     }
 }
 

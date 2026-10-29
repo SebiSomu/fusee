@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -16,7 +17,9 @@ type Component struct {
 
 type Renderer struct {
 	Components map[string]*Component
+	Elements   ElementRegistry
 
+	depth        int
 	anchorIdx    int
 	hoistedByID  map[int]*rustast.Node // id -> the actual ElementNode Node, built once per Render call
 	hoistedCache map[int]string        // id -> cached rendered HTML, built once per Render call
@@ -43,6 +46,17 @@ func RenderWithComponents(root *rustast.Node, scope evalexpr.Scope, components m
 		return "", fmt.Errorf("render: expected a Root node, got %s", root.Type)
 	}
 	r := NewRenderer(components)
+	return r.renderRoot(root, scope)
+}
+
+// RenderWithElements renders a page, server-rendering registered custom elements as
+// declarative shadow DOM.
+func RenderWithElements(root *rustast.Node, scope evalexpr.Scope, components map[string]*Component, elements ElementRegistry) (string, error) {
+	if root.Type != rustast.NodeRoot {
+		return "", fmt.Errorf("render: expected a Root node, got %s", root.Type)
+	}
+	r := NewRenderer(components)
+	r.Elements = elements
 	return r.renderRoot(root, scope)
 }
 
@@ -172,7 +186,9 @@ var voidElements = map[string]bool{
 }
 
 func (r *Renderer) renderElement(n *rustast.ElementNode, scope evalexpr.Scope, sb *strings.Builder, inHoist bool) error {
-	isVoid := n.SelfClosing || voidElements[strings.ToLower(n.Tag)]
+	element := r.Elements.lookup(n.Tag)
+	// A registered custom element always needs a closing tag to hold its shadow root.
+	isVoid := element == nil && (n.SelfClosing || voidElements[strings.ToLower(n.Tag)])
 
 	var htmlDir *rustast.DirectiveNode
 	needsAnchor := false
@@ -199,9 +215,27 @@ func (r *Renderer) renderElement(n *rustast.ElementNode, scope evalexpr.Scope, s
 
 	sb.WriteByte('<')
 	sb.WriteString(n.Tag)
-	if err := r.renderAttrs(n.Props, scope, sb); err != nil {
+	if err := r.renderAttrs(n.Props, scope, sb, strings.Contains(n.Tag, "-")); err != nil {
 		return err
 	}
+
+	var elementProps evalexpr.Scope
+	if element != nil {
+		var reflected [][2]string
+		var err error
+		elementProps, reflected, err = resolveElementProps(element, n.Props, scope)
+		if err != nil {
+			return err
+		}
+		for _, attr := range reflected {
+			if attr[1] == "" {
+				fmt.Fprintf(sb, " %s", attr[0])
+			} else {
+				fmt.Fprintf(sb, ` %s="%s"`, attr[0], escapeAttr(attr[1]))
+			}
+		}
+	}
+
 	if hasAnchor {
 		fmt.Fprintf(sb, ` data-f-id="%d"`, anchorID)
 	}
@@ -210,6 +244,12 @@ func (r *Renderer) renderElement(n *rustast.ElementNode, scope evalexpr.Scope, s
 		return nil
 	}
 	sb.WriteByte('>')
+
+	if element != nil {
+		if err := r.renderShadowRoot(element, elementProps, sb); err != nil {
+			return err
+		}
+	}
 
 	if htmlDir != nil {
 		v, err := evalexpr.Eval(htmlDir.Expression.Content, scope)
@@ -229,13 +269,13 @@ func (r *Renderer) renderElement(n *rustast.ElementNode, scope evalexpr.Scope, s
 	return nil
 }
 
-func (r *Renderer) renderAttrs(props []*rustast.Prop, scope evalexpr.Scope, sb *strings.Builder) error {
+func (r *Renderer) renderAttrs(props []*rustast.Prop, scope evalexpr.Scope, sb *strings.Builder, isCustomElement bool) error {
 	for _, p := range props {
 		switch p.Type {
 		case rustast.PropAttribute:
 			renderStaticAttr(p.Attribute, sb)
 		case rustast.PropBinding:
-			if err := r.renderBindingAttr(p.Binding, scope, sb); err != nil {
+			if err := r.renderBindingAttr(p.Binding, scope, sb, isCustomElement); err != nil {
 				return err
 			}
 		case rustast.PropDirective:
@@ -255,7 +295,7 @@ func renderStaticAttr(a *rustast.AttributeNode, sb *strings.Builder) {
 	fmt.Fprintf(sb, ` %s="%s"`, a.Name, escapeAttr(*a.Value))
 }
 
-func (r *Renderer) renderBindingAttr(b *rustast.BindingNode, scope evalexpr.Scope, sb *strings.Builder) error {
+func (r *Renderer) renderBindingAttr(b *rustast.BindingNode, scope evalexpr.Scope, sb *strings.Builder, isCustomElement bool) error {
 	if b.IsProp {
 		return nil
 	}
@@ -275,6 +315,16 @@ func (r *Renderer) renderBindingAttr(b *rustast.BindingNode, scope evalexpr.Scop
 		if v == true {
 			fmt.Fprintf(sb, " %s", b.Name)
 			return nil
+		}
+		// Custom elements parse Array/Object props from JSON attributes.
+		if isCustomElement {
+			switch v.(type) {
+			case []any, map[string]any:
+				if raw, err := json.Marshal(v); err == nil {
+					fmt.Fprintf(sb, ` %s="%s"`, b.Name, escapeAttr(string(raw)))
+					return nil
+				}
+			}
 		}
 		fmt.Fprintf(sb, ` %s="%s"`, b.Name, escapeAttr(displayString(v)))
 	}
@@ -448,6 +498,8 @@ func (r *Renderer) renderComponent(n *rustast.ComponentNode, scope evalexpr.Scop
 	}
 
 	childR := NewRenderer(r.Components)
+	childR.Elements = r.Elements
+	childR.depth = r.depth
 	html, err := childR.renderRoot(comp.AST, childScope)
 	if err != nil {
 		return err

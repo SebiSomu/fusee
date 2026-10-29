@@ -125,12 +125,18 @@ function chainConditionalsInChildren(children, ctx) {
 
         const branches = [{ condition: ifDir.expression, node }]
         let j = i + 1
+        // Exclusive end of the nodes folded into the chain. Only branches (and the
+        // whitespace between them) are consumed; anything else ends the chain and stays.
+        let end = i + 1
 
         while (j < children.length) {
             const next = children[j]
             if (!isElementOrComponent(next)) {
-                j++
-                continue
+                if (next.type === NodeType.TEXT && next.content.trim() === '') {
+                    j++
+                    continue
+                }
+                break
             }
 
             const elseIfDir = findDirective(next, 'else-if')
@@ -139,9 +145,11 @@ function chainConditionalsInChildren(children, ctx) {
             if (elseIfDir) {
                 branches.push({ condition: elseIfDir.expression, node: next })
                 j++
+                end = j
             } else if (elseDir) {
                 branches.push({ condition: null, node: next })
                 j++
+                end = j
                 break
             } else {
                 break
@@ -155,7 +163,7 @@ function chainConditionalsInChildren(children, ctx) {
             isStatic: false,
         }
 
-        children.splice(i, j - i, ifNode)
+        children.splice(i, end - i, ifNode)
     }
 }
 

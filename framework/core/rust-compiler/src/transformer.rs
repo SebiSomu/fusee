@@ -164,6 +164,10 @@ fn walk_and_chain(node: &mut Node, ctx: &mut TransformCtx) {
     }
 }
 
+fn is_whitespace_text(node: &Node) -> bool {
+    matches!(node, Node::Text(t) if t.content.trim().is_empty())
+}
+
 fn chain_conditionals_in_children(children: &mut Vec<Node>, ctx: &mut TransformCtx) {
     let mut i = 0;
     while i < children.len() {
@@ -196,11 +200,15 @@ fn chain_conditionals_in_children(children: &mut Vec<Node>, ctx: &mut TransformC
             node: Box::new(children[i].clone()),
         }];
         let mut j = i + 1;
+        let mut end = i + 1;
 
         while j < children.len() {
             if !children[j].is_element_or_component() {
-                j += 1;
-                continue;
+                if is_whitespace_text(&children[j]) {
+                    j += 1;
+                    continue;
+                }
+                break;
             }
 
             let else_if_dir = children[j].find_directive("else-if").cloned();
@@ -212,12 +220,14 @@ fn chain_conditionals_in_children(children: &mut Vec<Node>, ctx: &mut TransformC
                     node: Box::new(children[j].clone()),
                 });
                 j += 1;
+                end = j;
             } else if else_dir.is_some() {
                 branches.push(Branch {
                     condition: None,
                     node: Box::new(children[j].clone()),
                 });
                 j += 1;
+                end = j;
                 break;
             } else {
                 break;
@@ -227,7 +237,7 @@ fn chain_conditionals_in_children(children: &mut Vec<Node>, ctx: &mut TransformC
         let loc = children[i].loc().clone();
         let if_node = Node::If(IfNode { branches, loc });
 
-        children.splice(i..j, std::iter::once(if_node));
+        children.splice(i..end, std::iter::once(if_node));
         i += 1;
     }
 }

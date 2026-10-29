@@ -16,8 +16,14 @@ type ManifestRoute struct {
 }
 
 type Manifest struct {
-	Version string           `json:"version"`
-	Routes  []*ManifestRoute `json:"routes"`
+	Version  string           `json:"version"`
+	Routes   []*ManifestRoute `json:"routes"`
+	Elements []*Element       `json:"elements"`
+}
+
+// ElementRegistry returns the manifest's custom elements, ready for RenderWithElements.
+func (m *Manifest) ElementRegistry() ElementRegistry {
+	return NewElementRegistry(m.Elements)
 }
 
 func LoadManifest(manifestPath string) (*Manifest, error) {

@@ -48,6 +48,8 @@ export * from './actions'
 
 export interface GenerateManifestOptions {
     pagesDir?: string
+    /** Modules whose defineElement() calls are serialized for Go SSR (default: app/elements). */
+    elementsDir?: string
     outputDir?: string
 }
 

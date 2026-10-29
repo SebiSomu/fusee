@@ -78,3 +78,30 @@ describe('Rust+WASM compiler — DOM mode output', () => {
         expect(js.code).toContain(RUNTIME)
     })
 })
+
+describe('f-if chains keep the siblings that follow them', () => {
+    /** Summarizes an AST's top-level children as "Type:tag-or-text" strings. */
+    const summarize = (ast) => ast.children.map(c => `${c.type}:${c.tag ?? c.slot_name ?? (c.content ?? '').trim()}`)
+
+    it('keeps text and interpolations after an f-if element', () => {
+        const { ast } = rustCompile('<p f-if="x">a</p>hello {{ y }}<b>z</b>', { runtimePath: RUNTIME })
+        expect(summarize(ast)).toEqual(['If:', 'Text:hello', 'Interpolation:', 'Element:b'])
+    })
+
+    it('keeps a slot outlet after an f-if element', () => {
+        const { code } = rustCompile('<p f-if="x">a</p><slot name="foot"></slot>', { runtimePath: RUNTIME })
+        expect(code).toContain('hSlot(_ctx._slots, "foot"')
+    })
+
+    it('still chains f-else-if and f-else across whitespace', () => {
+        const { ast } = rustCompile('<p f-if="a">1</p>\n  <p f-else-if="b">2</p>\n  <p f-else>3</p>tail', { runtimePath: RUNTIME })
+        expect(ast.children[0].branches).toHaveLength(3)
+        expect(summarize(ast)).toEqual(['If:', 'Text:tail'])
+    })
+
+    it('does not chain an f-else separated by content', () => {
+        const { ast } = rustCompile('<p f-if="a">1</p>text<p f-else>2</p>', { runtimePath: RUNTIME })
+        expect(ast.children[0].branches).toHaveLength(1)
+        expect(summarize(ast).slice(0, 2)).toEqual(['If:', 'Text:text'])
+    })
+})
