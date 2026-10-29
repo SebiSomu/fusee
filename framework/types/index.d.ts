@@ -59,6 +59,7 @@ declare global {
     const scheduleAsyncJob: typeof import('./signal').scheduleAsyncJob
 
     const defineComponent: typeof import('./component').defineComponent
+    const defineCompiledComponent: typeof import('./component').defineCompiledComponent
     const defineAsyncComponent: typeof import('./component').defineAsyncComponent
     const onMount: typeof import('./component').onMount
     const onUnmount: typeof import('./component').onUnmount

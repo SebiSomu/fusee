@@ -2,8 +2,12 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import * as hRuntime from '../core/h.js'
 import * as ssrRuntime from '../core/ssr.js'
 import { compile } from '../core/compiler/main-compiler.js'
+import fs from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { signal, batch } from '../core/signal.js'
-import { defineComponent } from '../core/component.js'
+import { defineComponent, defineCompiledComponent, onMount } from '../core/component.js'
+import { defineComponent as jsxDefineComponent, jsx } from '../core/jsx-runtime.js'
 
 /** Evaluates compiled module code with its runtime import bound to the given module. */
 function loadModule(code, runtime, exportName) {
@@ -93,6 +97,92 @@ describe('initial render of conditionals and lists', () => {
         expect(container.children).toHaveLength(1)
         expect(container.querySelector('ul.list').children).toHaveLength(2)
         expect(items(container)).toEqual(['1', '2'])
+    })
+})
+
+describe('defineCompiledComponent', () => {
+    it('renders a compiled render function and runs lifecycle hooks', () => {
+        const mounted = vi.fn()
+        const container = document.createElement('div')
+        const count = signal(1)
+        defineCompiledComponent({
+            setup() {
+                onMount(mounted)
+                return { count }
+            },
+            render: clientRender('<p><b>{{ count }}</b></p>')
+        })().render(container)
+
+        expect(container.innerHTML).toContain('<p><b>')
+        expect(container.textContent).toBe('1')
+        expect(mounted).toHaveBeenCalledOnce()
+
+        count(2)
+        expect(container.textContent).toBe('2')
+    })
+
+    it('runs mount hooks for a component without markup', () => {
+        const mounted = vi.fn()
+        defineCompiledComponent({ setup() { onMount(mounted); return {} } })().render(document.createElement('div'))
+        expect(mounted).toHaveBeenCalledOnce()
+    })
+
+    it('rejects string templates with a pointer to defineComponent()', () => {
+        const api = defineCompiledComponent({ setup: () => ({ template: '<p>hi</p>' }) })()
+        expect(() => api.render(document.createElement('div'))).toThrow(/defineComponent\(\) for string templates/)
+    })
+
+    it('leaves defineComponent() string templates working', () => {
+        const container = document.createElement('div')
+        defineComponent({ setup: () => ({ name: 'x', template: '<p>{{ name }}</p>' }) })().render(container)
+        expect(container.textContent).toBe('x')
+    })
+
+    it('keeps the template compiler out of the compiled-only import graph', () => {
+        const coreDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../core')
+        const seen = new Set()
+        const visit = (file) => {
+            if (seen.has(file)) return
+            seen.add(file)
+            const source = fs.readFileSync(file, 'utf-8')
+            for (const [, spec] of source.matchAll(/^\s*(?:import|export)\s[^'"]*from\s+['"](\.[^'"]+)['"]/gm)) {
+                visit(path.resolve(path.dirname(file), spec))
+            }
+        }
+        visit(path.join(coreDir, 'component-core.js'))
+        visit(path.join(coreDir, 'jsx-runtime.js'))
+
+        const reached = [...seen].map(f => path.relative(coreDir, f).split(path.sep).join('/'))
+        expect(reached).not.toContain('compiler.js')
+        expect(reached).not.toContain('directives.js')
+    })
+})
+
+describe('JSX components', () => {
+    it('render nested markup through the JSX runtime', () => {
+        const container = document.createElement('div')
+        const Card = jsxDefineComponent({
+            setup: () => ({}),
+            render: () => [jsx('section', { class: 'card', children: [jsx('h2', { children: 'Title' }), jsx('p', { children: 'Body' })] })]
+        })
+        Card().render(container)
+
+        expect(container.children).toHaveLength(1)
+        expect(container.querySelector('section.card > h2').textContent).toBe('Title')
+        expect(container.querySelector('section.card > p').textContent).toBe('Body')
+    })
+
+    it('render static and reactive text children, as the Babel plugin emits them', () => {
+        const container = document.createElement('div')
+        const count = signal(1)
+        jsxDefineComponent({
+            setup: () => ({}),
+            render: () => [jsx('h2', { children: ['Count: ', () => count(), ' / ', 10] })]
+        })().render(container)
+
+        expect(container.querySelector('h2').textContent).toBe('Count: 1 / 10')
+        count(2)
+        expect(container.querySelector('h2').textContent).toBe('Count: 2 / 10')
     })
 })
 

@@ -1,5 +1,5 @@
 import { signal, batch } from '../core/signal.js'
-import { getCurrentInstance } from '../core/component.js'
+import { getCurrentInstance } from '../core/component-core.js'
 
 const ACTION_BASE_URL = '/__fusee/actions'
 const _actionHydrationRegistry = new Map()

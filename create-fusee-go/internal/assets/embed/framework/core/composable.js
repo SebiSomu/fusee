@@ -1,4 +1,4 @@
-import { getCurrentInstance } from './component.js'
+import { getCurrentInstance } from './component-core.js'
 
 /** Marks a function as a composable while preserving its name and call shape. */
 export function defineComposable(fn) {

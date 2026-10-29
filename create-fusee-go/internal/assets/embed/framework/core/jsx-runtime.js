@@ -15,7 +15,7 @@ import {
     normalizeComponentListenerProps,
     splitSlotChildren
 } from './jsx-helpers.js'
-import { defineComponent as coreDefineComponent } from '../component.js' // adjust to your project layout
+import { defineCompiledComponent as coreDefineComponent } from './component-core.js'
 
 export { Fragment, For, Show, Slot, on }
 

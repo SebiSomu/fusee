@@ -20,6 +20,7 @@ declare global {
   const currentRoute: typeof import('fusee-framework').currentRoute
   const defineAction: typeof import('fusee-framework').defineAction
   const defineAsyncComponent: typeof import('fusee-framework').defineAsyncComponent
+  const defineCompiledComponent: typeof import('fusee-framework').defineCompiledComponent
   const defineCompilerPlugin: typeof import('fusee-framework').defineCompilerPlugin
   const defineComponent: typeof import('fusee-framework').defineComponent
   const defineComposable: typeof import('fusee-framework').defineComposable

@@ -1,6 +1,6 @@
 import { effect, batch } from './signal.js'
 import { processDirectives } from './directives.js'
-import { parseSlots } from './component.js'
+import { parseSlots } from './component-core.js'
 import { resolveElementProperty } from './element-props.js'
 import {
     evaluateExpression,

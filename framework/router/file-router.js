@@ -1,4 +1,4 @@
-import { defineAsyncComponent } from '../core/component.js';
+import { defineAsyncComponent } from '../core/component-core.js';
 
 /** Builds a nested route tree from Vite-style page module glob results. */
 export function generateRoutes(globResults, options = {}) {

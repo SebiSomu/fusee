@@ -77,6 +77,17 @@ type InferProps<P> = P extends string[]
     : Record<string, any>;
 
 export declare function defineComponent<P extends PropSchema = any, TProps = InferProps<P>>(options: ComponentOptions<TProps, P>): ComponentFactory<TProps>
+
+export type CompiledComponentOptions<TProps = ComponentProps, P = PropSchema> = {
+    props?: P
+    components?: Record<string, ComponentFactory<any>>
+    setup?: (props: TProps, ctx: SetupContext) => Record<string, any>
+    /** Compiled render function (a .fusee file's `render`, or JSX). String templates are not supported. */
+    render?: (state: any, components: Record<string, ComponentFactory<any>>) => any[]
+}
+
+/** Like defineComponent(), for compiled `render` functions only: keeps the runtime template compiler out of the bundle. */
+export declare function defineCompiledComponent<P extends PropSchema = any, TProps = InferProps<P>>(options: CompiledComponentOptions<TProps, P>): ComponentFactory<TProps>
 export type AsyncComponentLoader<TProps = ComponentProps> = () => Promise<ComponentFactory<TProps> | { default: ComponentFactory<TProps> } | Record<string, any>>
 
 export type AsyncComponentOptions<TProps = ComponentProps> = {

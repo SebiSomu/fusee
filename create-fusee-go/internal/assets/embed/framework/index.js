@@ -6,7 +6,8 @@ export const emit = () => console.warn('[framework] emit() can only be used insi
 
 export { signal, computed, effect, batch, untrack, inspect, watch, onCleanup, resource, createSuspense, scheduleAsyncJob } from './core/signal.js'
 export { defineResource } from './core/resource.js'
-export { defineComponent, defineAsyncComponent, onMount, onUnmount, parseSlots, provide, inject, getCurrentInstance } from './core/component.js'
+export { defineComponent } from './core/component.js'
+export { defineCompiledComponent, defineAsyncComponent, onMount, onUnmount, parseSlots, provide, inject, getCurrentInstance } from './core/component-core.js'
 export { defineElement, toCustomElement, css, unsafeCSS } from './core/element.js'
 export { InjectionToken, provideGlobal } from './core/di.js'
 export { createRouter, navigate, mountOutlet, currentRoute, routeParams, routeQuery, matchedRoutes } from './router/router.js'

@@ -5,7 +5,7 @@
 <h1 align="center">Fusée Framework</h1>
 
 <p align="center">
-  <strong>v2.7.0 — Signals-First JS Framework | Atomic Reactivity | Rust Compiler | Go Toolchain</strong>
+  <strong>v2.7.1 — Signals-First JS Framework | Atomic Reactivity | Rust Compiler | Go Toolchain</strong>
 </p>
 
 <br />
@@ -40,6 +40,11 @@ Fusée is a custom, high-performance fine-grained reactive JavaScript framework 
   `:key` rendered only their last item.
 - `f-for` items now use the same syntax on the client, in SSR and in the Go engine:
   `{{ row.id }}`. Compiled client templates used to need `{{ row().id }}`, which still works.
+- Added `defineCompiledComponent()` for components with a compiled `render`: it leaves the
+  runtime template compiler out of the bundle (a counter component: 11.9 KB → 6.4 KB gzip).
+  JSX components use it automatically.
+- Fixed the JSX runtime: it failed to load (wrong import path), and text and `{expression}`
+  children were not rendered.
 
 ## What's New in 2.6.1
 
@@ -548,10 +553,20 @@ and compressed with gzip level 9 and brotli quality 11:
 Lit and Fusée are within a few bytes of each other: Lit is 12 bytes smaller with gzip, Fusée
 9 bytes smaller with brotli.
 
-Fusée is tree-shakable: an app only ships the parts it uses. The benchmark app mounts a
-compiled template directly with the runtime. Apps built from `defineComponent()` also include
-the runtime template compiler, so for reference a minimal counter component is 11.0 KB gzip,
-and a minimal `defineElement()` custom element is 13.1 KB gzip.
+Fusée is tree-shakable: an app only ships the parts it uses. The main cost to watch is the
+runtime template compiler, which string templates (`template: '...'`) need. Minimal counter
+component, gzip:
+
+| Component style                                         |  gzip   |
+| :------------------------------------------------------ | :-----: |
+| Compiled template + `defineCompiledComponent()`          | 6.4 KB  |
+| JSX (`render()`, via the fusée JSX runtime)              | 6.5 KB  |
+| String template + `defineComponent()`                    | 11.1 KB |
+| String template custom element, `defineElement()`        | 13.3 KB |
+
+`defineCompiledComponent()` works like `defineComponent()` for components with a compiled
+`render` (a `.fusee` file, or `.template.html` through the compiler plugin), and leaves the
+template compiler out. JSX components get the same saving automatically.
 
 ---
 

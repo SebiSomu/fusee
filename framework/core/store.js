@@ -1,4 +1,4 @@
-import { getCurrentInstance, setCurrentInstance } from './component.js'
+import { getCurrentInstance, setCurrentInstance } from './component-core.js'
 import { batch, effect } from './signal.js'
 
 

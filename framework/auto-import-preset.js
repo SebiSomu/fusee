@@ -3,7 +3,7 @@ export const FuseePreset = {
         'signal', 'computed', 'effect', 'watch',
         'batch', 'untrack', 'inspect', 'onCleanup', 'resource', 'defineResource',
         'createSuspense', 'scheduleAsyncJob',
-        'defineComponent', 'defineAsyncComponent', 'onMount', 'onUnmount', 'parseSlots',
+        'defineComponent', 'defineCompiledComponent', 'defineAsyncComponent', 'onMount', 'onUnmount', 'parseSlots',
         'defineElement', 'toCustomElement', 'css', 'unsafeCSS',
         'directive', 'reconcile', 'mountTemplate', 'emit',
         'provide', 'inject', 'provideGlobal', 'InjectionToken', 'getCurrentInstance',

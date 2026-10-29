@@ -1,4 +1,4 @@
-import { hFor, hIf } from './h.js'
+import { hFor, hIf, hText } from './h.js'
 
 /**
  * Flattens JSX children into a single array of fnodes, dropping
@@ -6,7 +6,8 @@ import { hFor, hIf } from './h.js'
  * behave the way JSX authors expect. Recursively flattens nested arrays,
  * which is all Fragment needs: it returns its children as-is, and whatever
  * consumes those children (h()'s children arg, or another flattenChildren
- * call) inlines them automatically.
+ * call) inlines them automatically. Text and numbers become text nodes, and
+ * getters (dynamic `{expr}` wrapped by the Babel plugin) become reactive ones.
  */
 export function flattenChildren(children) {
     const out = []
@@ -17,6 +18,14 @@ export function flattenChildren(children) {
         if (child == null || child === false || child === true) continue
         if (Array.isArray(child)) {
             stack.unshift(...child)
+            continue
+        }
+        if (typeof child === 'string' || typeof child === 'number' || typeof child === 'bigint') {
+            out.push(hText(String(child)))
+            continue
+        }
+        if (typeof child === 'function') {
+            out.push(hText(child))
             continue
         }
         out.push(child)
