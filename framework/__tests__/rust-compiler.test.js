@@ -43,8 +43,9 @@ describe('Rust+WASM compiler — DOM mode output', () => {
 
         expect(code).toContain('export function render(')
         expect(code).toContain('hFor(')
-        // key expression
-        expect(code).toContain('item.id')
+        // hFor passes each item as an accessor, so item references read through it
+        expect(code).toContain('(item) => item().id')
+        expect(code).toContain('String(item().name)')
     })
 
     it('returns warnings array (empty for valid templates)', () => {

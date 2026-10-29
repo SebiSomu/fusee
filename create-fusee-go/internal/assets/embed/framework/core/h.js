@@ -1,4 +1,4 @@
-import { effect, batch, signal, microEffect } from '../core/signal.js'
+import { effect, batch, signal, microEffect, untrack } from '../core/signal.js'
 import { createEventHandler, registerDelegatedEvent, isDelegatedEvent } from '../core/event-delegation.js'
 import { resolveElementProperty } from '../core/element-props.js'
 
@@ -70,13 +70,18 @@ export function hIf(branches) {
 
     let currentNodes  = []
     let currentBranch = -1
+    const mounted = _createMountTracker()
 
     const cleanup = effect(() => {
+        mounted.track()
         let matchIdx = -1
         for (let i = 0; i < branches.length; i++) {
             const [cond] = branches[i]
             if (cond === null || cond()) { matchIdx = i; break }
         }
+
+        const parent = anchor.parentNode
+        if (!parent) return mounted.defer()
 
         if (matchIdx === currentBranch) return
 
@@ -87,14 +92,12 @@ export function hIf(branches) {
         if (matchIdx === -1) return
 
         const [, getChildren] = branches[matchIdx]
-        const children = getChildren()
-        const parent   = anchor.parentNode
+        const children = untrack(getChildren)
 
-        if (parent) {
-            for (const fnode of children) {
-                parent.insertBefore(fnode.node, anchor)
-                currentNodes.push(fnode)
-            }
+        for (const fnode of children) {
+            if (!fnode?.node) continue
+            insertFNode(parent, fnode, anchor)
+            currentNodes.push(fnode)
         }
     })
 
@@ -105,6 +108,7 @@ export function hIf(branches) {
         effects,
         _ifBranchNodes: () => currentNodes,
         _isIf: true,
+        _afterInsert: mounted.resume,
     }
 }
 
@@ -118,19 +122,21 @@ export function hFor(sourceGetter, renderItem, keyFn) {
     let _keyEvalCurrent = null
     const keyEvaluatorGetter = () => _keyEvalCurrent
     keyEvaluatorGetter.isSignal = true
+    const mounted = _createMountTracker()
 
     const cleanup = effect(() => {
+        mounted.track()
         const list = sourceGetter() ?? []
         const parent = anchor.parentNode
 
-        if (!parent) {
-            return
-        }
+        if (!parent) return mounted.defer()
 
         const newKeys = new Array(list.length)
         for (let i = 0; i < list.length; i++) {
             _keyEvalCurrent = list[i]
-            newKeys[i] = keyFn(keyEvaluatorGetter, i)
+            const key = keyFn(keyEvaluatorGetter, i)
+            // Loops without :key compile to a key of undefined; key them by position, as SSR does.
+            newKeys[i] = key === undefined ? i : key
         }
 
         if (oldKeys.length === newKeys.length) {
@@ -140,10 +146,7 @@ export function hFor(sourceGetter, renderItem, keyFn) {
             }
             if (identical) {
                 for (let i = 0; i < list.length; i++) {
-                    const entry = keyedMap.get(newKeys[i])
-                    if (entry.itemSignal() !== list[i]) {
-                        entry.itemSignal(list[i])
-                    }
+                    _setItem(keyedMap.get(newKeys[i]), list[i])
                 }
                 return
             }
@@ -172,12 +175,9 @@ export function hFor(sourceGetter, renderItem, keyFn) {
                 const parentEl = nodeA.parentNode
                 parentEl.insertBefore(nodeA, nodeB.nextSibling)
                 parentEl.insertBefore(nodeB, refA)
-                if (entryA.itemSignal() !== list[diffA]) {
-                    entryA.itemSignal(list[diffA])
-                }
-                if (entryB.itemSignal() !== list[diffB]) {
-                    entryB.itemSignal(list[diffB])
-                }
+                // The two rows traded places: each keeps its key and receives the item now at its new index.
+                _setItem(entryA, list[diffB])
+                _setItem(entryB, list[diffA])
                 oldKeys = newKeys
                 return
             }
@@ -191,13 +191,11 @@ export function hFor(sourceGetter, renderItem, keyFn) {
 
             const exists = keyedMap.get(key)
             if (exists) {
-                if (exists.itemSignal() !== item) {
-                    exists.itemSignal(item)
-                }
+                _setItem(exists, item)
                 newMap.set(key, exists)
             } else {
                 const itemSignal = signal(item)
-                const fnode = renderItem(itemSignal, i)
+                const fnode = untrack(() => renderItem(itemSignal, i))
                 newMap.set(key, { fnode, key, itemSignal })
             }
         }
@@ -228,10 +226,10 @@ export function hFor(sourceGetter, renderItem, keyFn) {
             if (inLis) {
                 lisPtr--
                 if (!entry.fnode.node.parentNode) {
-                    parent.insertBefore(entry.fnode.node, ref)
+                    insertFNode(parent, entry.fnode, ref)
                 }
             } else if (entry.fnode.node.nextSibling !== ref || !entry.fnode.node.parentNode) {
-                parent.insertBefore(entry.fnode.node, ref)
+                insertFNode(parent, entry.fnode, ref)
             }
         }
 
@@ -246,7 +244,46 @@ export function hFor(sourceGetter, renderItem, keyFn) {
         effects,
         _isFor: true,
         _getNodes: () => [...keyedMap.values()].map(e => e.fnode),
+        _afterInsert: mounted.resume,
     }
+}
+
+/** Updates a keyed row's item signal without subscribing the list effect to it. */
+function _setItem(entry, item) {
+    if (untrack(entry.itemSignal) !== item) entry.itemSignal(item)
+}
+
+/**
+ * hIf/hFor are built before their anchor has a parent (children are created before the
+ * element that holds them), so their first render waits until insertFNode() places the
+ * anchor and calls _afterInsert.
+ */
+function _createMountTracker() {
+    const tick = signal(0)
+    let pending = false
+    return {
+        track: () => tick(),
+        defer: () => { pending = true },
+        resume: () => {
+            if (!pending) return
+            pending = false
+            tick(untrack(tick) + 1)
+        }
+    }
+}
+
+/**
+ * Inserts a framework node (and slot nodes it carries) before ref, then lets anchor-based
+ * nodes (hIf/hFor) render now that they have a parent.
+ */
+export function insertFNode(parent, fnode, ref = null) {
+    parent.insertBefore(fnode.node, ref)
+    if (fnode._isSlot && fnode._slotNodes) {
+        for (const sn of fnode._slotNodes) {
+            if (sn?.node) insertFNode(parent, sn, ref)
+        }
+    }
+    if (typeof fnode._afterInsert === 'function') fnode._afterInsert()
 }
 
 function _getLIS(arr) {
@@ -479,13 +516,7 @@ function _mountChildren(parent, children, parentEffects) {
     for (const fnode of children) {
         if (!fnode || !fnode.node) continue
 
-        parent.appendChild(fnode.node)
-
-        if (fnode._isSlot && fnode._slotNodes) {
-            for (const sn of fnode._slotNodes) {
-                if (sn?.node) parent.insertBefore(sn.node, null)
-            }
-        }
+        insertFNode(parent, fnode)
 
         if (fnode.effects) parentEffects.push(...fnode.effects)
         mounted.push(fnode)
@@ -545,7 +576,7 @@ export function mount(renderFn, ctx, components, container) {
 
     for (const fnode of fnodes) {
         if (!fnode?.node) continue
-        container.appendChild(fnode.node)
+        insertFNode(container, fnode)
         if (fnode.effects) effects.push(...fnode.effects)
     }
 

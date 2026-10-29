@@ -1,6 +1,6 @@
 import { effect, setEffectHook, batch } from './signal.js'
 import { mountTemplate } from './compiler.js'
-import { NATIVE_SLOTS } from './h.js'
+import { NATIVE_SLOTS, insertFNode } from './h.js'
 import { attachContextResponder, resolveProvided, requestContext, findInstanceHost } from './context.js'
 
 // Slots context handed to compiled templates so hSlot() emits real <slot> outlets.
@@ -231,24 +231,11 @@ export function defineComponent(options) {
                 if (options.render) {
                     const nodes = options.render(result, mergedComponents)
                     container.innerHTML = ''
-                    
-                    function mountNode(fnode) {
-                        if (!fnode || !fnode.node) return
-                        container.appendChild(fnode.node)
-                        
-                        if (fnode.effects) {
-                            instance._effects.push(...fnode.effects)
-                        }
-                        
-                        if (fnode.children) {
-                            for (const child of fnode.children) {
-                                mountNode(child)
-                            }
-                        }
-                    }
-                    
-                    for (const node of nodes) {
-                        mountNode(node)
+
+                    for (const fnode of nodes) {
+                        if (!fnode || !fnode.node) continue
+                        insertFNode(container, fnode)
+                        if (fnode.effects) instance._effects.push(...fnode.effects)
                     }
                 } else {
                     const template = result?.template || ''

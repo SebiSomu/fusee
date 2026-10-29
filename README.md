@@ -34,6 +34,12 @@ Fusée is a custom, high-performance fine-grained reactive JavaScript framework 
   ignored in string templates; content right after an `f-if` element being dropped by the
   compiler; manifest pages in the Go dev server not receiving their `Load` data;
   `fusee-framework` and `fusee-framework/server` failing to import in plain Node.
+- Fixed compiled templates (`.fusee` files and JSX `render()`): nested elements were flattened
+  into the component's container; `f-for` lists and `f-if` branches that were already non-empty
+  or true at mount rendered nothing; swapping two keyed rows had no effect; loops without
+  `:key` rendered only their last item.
+- `f-for` items now use the same syntax on the client, in SSR and in the Go engine:
+  `{{ row.id }}`. Compiled client templates used to need `{{ row().id }}`, which still works.
 
 ## What's New in 2.6.1
 
@@ -530,14 +536,17 @@ and compressed with gzip level 9 and brotli quality 11:
 | :----: | :--------------------- | :----------: | :----------: |
 | **1**  | **Solid**              |    3.9 KB    |    3.5 KB    |
 | **2**  | **Preact**             |    5.9 KB    |    5.4 KB    |
-| **3**  | <mark>**Fusée**</mark> | **6.2 KB**   | **5.6 KB**   |
-| **4**  | **Lit**                |    6.3 KB    |    5.7 KB    |
+| **3**  | **Lit**                |    6.3 KB    |    5.7 KB    |
+| **4**  | <mark>**Fusée**</mark> | **6.3 KB**   | **5.7 KB**   |
 | **5**  | **Svelte**             |   12.8 KB    |   11.7 KB    |
 | **6**  | **Mithril**            |   13.8 KB    |   12.1 KB    |
 | **7**  | **Vue**                |   24.5 KB    |   22.1 KB    |
 | **8**  | **Qwik**               |   27.3 KB    |   24.4 KB    |
 | **9**  | **Angular**            |   34.6 KB    |   31.0 KB    |
 | **10** | **React**              |   44.9 KB    |   39.3 KB    |
+
+Lit and Fusée are within a few bytes of each other: Lit is 12 bytes smaller with gzip, Fusée
+9 bytes smaller with brotli.
 
 Fusée is tree-shakable: an app only ships the parts it uses. The benchmark app mounts a
 compiled template directly with the runtime. Apps built from `defineComponent()` also include

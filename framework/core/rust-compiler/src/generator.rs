@@ -49,6 +49,9 @@ struct Generator<'a> {
     hoisted_lookup: HashMap<NodeId, String>,
     hoisted_order: Vec<(NodeId, String)>,
     local_scopes: Vec<HashSet<String>>,
+    /// Loop items per f-for scope (parallel to `local_scopes`). hFor passes each item as an
+    /// accessor, so references to it are emitted as calls; indexes stay plain values.
+    item_scopes: Vec<HashSet<String>>,
 }
 
 impl<'a> Generator<'a> {
@@ -60,6 +63,7 @@ impl<'a> Generator<'a> {
             hoisted_lookup: HashMap::new(),
             hoisted_order: Vec::new(),
             local_scopes: Vec::new(),
+            item_scopes: Vec::new(),
         }
     }
 
@@ -358,6 +362,7 @@ impl<'a> Generator<'a> {
             scope.insert(idx.clone());
         }
         self.local_scopes.push(scope);
+        self.item_scopes.push(HashSet::from([item.clone()]));
 
         let props = node.props().cloned().unwrap_or_default();
         let inner_props: Vec<Prop> = props
@@ -382,6 +387,7 @@ impl<'a> Generator<'a> {
         let key_js = self.wrap_expr(&key_expr);
 
         self.local_scopes.pop();
+        self.item_scopes.pop();
 
         Ok(format!(
             "hFor(\n        () => {},\n        {} => {},\n        {} => {}\n    )",
@@ -393,6 +399,17 @@ impl<'a> Generator<'a> {
         self.local_scopes.iter().any(|s| s.contains(id))
     }
 
+    /// Whether `id` resolves to an f-for item (an accessor), looking at the innermost scope
+    /// that binds the name, so an inner index shadowing an outer item stays a plain value.
+    fn is_item_accessor(&self, id: &str) -> bool {
+        self.local_scopes
+            .iter()
+            .zip(self.item_scopes.iter())
+            .rev()
+            .find(|(locals, _)| locals.contains(id))
+            .map_or(false, |(_, items)| items.contains(id))
+    }
+
     fn wrap_expr(&mut self, expr: &str) -> String {
         if expr.contains("_ctx.") {
             return expr.to_string();
@@ -400,6 +417,9 @@ impl<'a> Generator<'a> {
         if is_dotted_identifier_path(expr.trim()) {
             let id = expr.trim().to_string();
             let root_var = id.split('.').next().unwrap_or("");
+            if self.is_item_accessor(root_var) {
+                return format!("{}(){}", root_var, &id[root_var.len()..]);
+            }
             if self.is_local(root_var) {
                 return id;
             }
@@ -468,6 +488,10 @@ impl<'a> Generator<'a> {
                     }
                 } else if self.is_local(&id) {
                     out.push_str(&id);
+                    // A loop item already called as `row()` is left as written.
+                    if self.is_item_accessor(&id) && chars.get(k) != Some(&'(') {
+                        out.push_str("()");
+                    }
                 } else {
                     out.push_str("_ctx.");
                     out.push_str(&id);
