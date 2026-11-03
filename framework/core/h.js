@@ -1,4 +1,4 @@
-import { effect, batch, signal, microEffect, untrack } from '../core/signal.js'
+import { effect, batch, signal, microEffect, untrack, runDetached } from '../core/signal.js'
 import { createEventHandler, registerDelegatedEvent, isDelegatedEvent } from '../core/event-delegation.js'
 import { resolveElementProperty } from '../core/element-props.js'
 
@@ -92,7 +92,8 @@ export function hIf(branches) {
         if (matchIdx === -1) return
 
         const [, getChildren] = branches[matchIdx]
-        const children = untrack(getChildren)
+        // Detached: branch effects belong to the branch, which is unmounted explicitly below.
+        const children = runDetached(getChildren)
 
         for (const fnode of children) {
             if (!fnode?.node) continue
@@ -101,7 +102,11 @@ export function hIf(branches) {
         }
     })
 
-    effects.push(cleanup)
+    effects.push(() => {
+        cleanup()
+        _unmountNodes(currentNodes)
+        currentNodes = []
+    })
 
     return {
         node: anchor,
@@ -137,6 +142,13 @@ export function hFor(sourceGetter, renderItem, keyFn) {
             const key = keyFn(keyEvaluatorGetter, i)
             // Loops without :key compile to a key of undefined; key them by position, as SSR does.
             newKeys[i] = key === undefined ? i : key
+        }
+
+        if (newKeys.length === 0 && keyedMap.size > 0) {
+            _clearRows(parent, keyedMap)
+            keyedMap = new Map()
+            oldKeys  = newKeys
+            return
         }
 
         if (oldKeys.length === newKeys.length) {
@@ -195,7 +207,9 @@ export function hFor(sourceGetter, renderItem, keyFn) {
                 newMap.set(key, exists)
             } else {
                 const itemSignal = signal(item)
-                const fnode = untrack(() => renderItem(itemSignal, i))
+                // Detached: otherwise every row's effects are registered as children of this
+                // list effect and stay reachable after the row is removed.
+                const fnode = runDetached(() => renderItem(itemSignal, i))
                 newMap.set(key, { fnode, key, itemSignal })
             }
         }
@@ -237,7 +251,12 @@ export function hFor(sourceGetter, renderItem, keyFn) {
         oldKeys  = newKeys
     })
 
-    effects.push(cleanup)
+    effects.push(() => {
+        cleanup()
+        _unmountNodes([...keyedMap.values()].map(e => e.fnode))
+        keyedMap = new Map()
+        oldKeys  = []
+    })
 
     return {
         node: anchor,
@@ -246,6 +265,28 @@ export function hFor(sourceGetter, renderItem, keyFn) {
         _getNodes: () => [...keyedMap.values()].map(e => e.fnode),
         _afterInsert: mounted.resume,
     }
+}
+
+/**
+ * Unmounts every row. When the rows are the only elements in the parent, the parent is emptied
+ * in one operation instead of one removeChild per row, and its other nodes (the anchor, template
+ * whitespace, text) are put back in order.
+ */
+function _clearRows(parent, keyedMap) {
+    const fnodes = [...keyedMap.values()].map(e => e.fnode)
+    const rowsAreElements = fnodes.every(f => f.node.nodeType === 1)
+
+    if (rowsAreElements && parent.childElementCount === fnodes.length) {
+        const kept = []
+        for (let n = parent.firstChild; n; n = n.nextSibling) {
+            if (n.nodeType !== 1) kept.push(n)
+        }
+        for (const fnode of fnodes) _disposeEffects(fnode)
+        parent.textContent = ''
+        parent.append(...kept)
+        return
+    }
+    _unmountNodes(fnodes)
 }
 
 /** Updates a keyed row's item signal without subscribing the list effect to it. */
@@ -525,16 +566,19 @@ function _mountChildren(parent, children, parentEffects) {
     return mounted
 }
 
+function _disposeEffects(fnode) {
+    if (!fnode.effects) return
+    for (let i = fnode.effects.length - 1; i >= 0; i--) {
+        const cleanup = fnode.effects[i]
+        if (typeof cleanup === 'function') cleanup()
+    }
+}
+
 function _unmountNodes(fnodes) {
     for (const fnode of fnodes) {
         if (!fnode) continue
 
-        if (fnode.effects) {
-            for (let i = fnode.effects.length - 1; i >= 0; i--) {
-                const cleanup = fnode.effects[i]
-                if (typeof cleanup === 'function') cleanup()
-            }
-        }
+        _disposeEffects(fnode)
 
         if (fnode.node?.parentNode) {
             fnode.node.parentNode.removeChild(fnode.node)

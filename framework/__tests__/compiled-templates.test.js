@@ -235,6 +235,42 @@ describe('keyed list updates', () => {
         expect(warn).not.toHaveBeenCalled()
     })
 
+    it('clears every row and stops updating the removed ones', () => {
+        const { rows, container } = mountRows(3)
+        const firstLabel = rows()[0].label
+        const removedCell = container.querySelectorAll('td')[1]
+
+        rows([])
+        firstLabel('changed')
+
+        expect(container.querySelectorAll('tr')).toHaveLength(0)
+        expect(removedCell.textContent).toBe('row 1')
+
+        rows([{ id: 9, label: signal('row 9') }])
+        expect(items(container, 'td.id')).toEqual(['9'])
+    })
+
+    it('keeps sibling nodes when a list next to them is cleared', () => {
+        const rows = signal([{ id: 1 }, { id: 2 }])
+        const { container } = mountTemplate('<ul><li class="head">head</li><li f-for="row in rows" :key="row.id">{{ row.id }}</li></ul>', { rows })
+
+        rows([])
+
+        expect(items(container)).toEqual(['head'])
+    })
+
+    it('disposes row effects when the template is unmounted', () => {
+        const label = signal('before')
+        const rows = signal([{ id: 1, label }])
+        const { container, api } = mountTemplate('<ul><li f-for="row in rows" :key="row.id"><b f-if="row.id">{{ row.label() }}</b></li></ul>', { rows })
+        const cell = container.querySelector('b')
+
+        api.unmount()
+        label('after')
+
+        expect(cell.textContent).toBe('before')
+    })
+
     it('runs the benchmark operations on 1,000 rows', () => {
         const { rows, ids, container } = mountRows(1000)
         expect(ids()).toHaveLength(1000)

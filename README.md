@@ -14,7 +14,7 @@ Fusée is a custom, high-performance fine-grained reactive JavaScript framework 
 
 ---
 
-## What's New in 2.7.0
+## What's New in 2.7.2
 
 - Added **Web Components**: `defineElement()` turns a fusée component into a native custom
   element with reactive props synced to attributes, shadow DOM, scoped `css` styles, native
@@ -45,14 +45,7 @@ Fusée is a custom, high-performance fine-grained reactive JavaScript framework 
   JSX components use it automatically.
 - Fixed the JSX runtime: it failed to load (wrong import path), and text and `{expression}`
   children were not rendered.
-
-## What's New in 2.6.1
-
-- Added package manager choice in the `fusee init` command and automatic installation
-  of dependencies; (2.6.0)
-- Added `--install` and `--skip-install` flags to the `fusee init` command; (2.6.0)
-- Added `pm` flag to the `fusee init` command; (2.6.0)
-- Updated dev dependency for vite babel plugin. (2.6.1)
+- Fixed dependency tracking in f-for for h.js
 
 ## Quick Start
 
@@ -516,21 +509,46 @@ It can be installed from the CLI after installing the SSR engine (default: not i
 
 ## Performance Benchmarks
 
-Framework Total Mean (Create, Update, Swap, Clear tests)
-Compared to other popular JS Frameworks:
+The benchmark runs the operations from
+[js-framework-benchmark](https://github.com/krausest/js-framework-benchmark) on a keyed table in
+headless Chromium. Each sample is read from a Chrome trace: it is the busy main-thread time from
+the start of the operation until the frame that shows the result is committed (script, style,
+layout and paint), with time spent idle waiting for the next frame left out. Every sample starts
+from a freshly loaded page with 3 warmup runs, and the DOM is checked after each operation.
+Some tests slow the CPU down, as js-framework-benchmark does.
 
-|  Rank  | Framework              | Execution Time |
-| :----: | :--------------------- | :------------: |
-| **1**  | **Qwik**               |   117.55 ms    |
-| **2**  | <mark>**Fusée**</mark> | **120.30 ms**  |
-| **3**  | **Angular**            |   121.29 ms    |
-| **4**  | **Solid**              |   121.54 ms    |
-| **5**  | **Preact**             |   123.18 ms    |
-| **6**  | **Vue**                |   123.99 ms    |
-| **7**  | **Svelte**             |   125.15 ms    |
-| **8**  | **React**              |   126.12 ms    |
-| **9**  | **Mithril**            |   128.35 ms    |
-| **10** | **Lit**                |   131.08 ms    |
+Fusée (current `main`), median of 15 runs, AMD Ryzen 5 3500U laptop (lower is better):
+
+| Operation              | CPU slowdown |  Median  |  ± 95% CI  |  Script  |
+| :--------------------- | :----------: | :------: | :--------: | :------: |
+| Create 1,000 rows      |      1x      |  51.6 ms |  ± 4.4 ms  |  14.5 ms |
+| Replace 1,000 rows     |      1x      |  51.0 ms |  ± 4.2 ms  |  20.1 ms |
+| Update every 10th row  |      4x      |  56.9 ms |  ± 4.6 ms  |   5.0 ms |
+| Select row             |      4x      |   9.0 ms |  ± 0.8 ms  |   2.5 ms |
+| Swap 2 rows            |      4x      |  39.3 ms |  ± 2.4 ms  |   3.2 ms |
+| Remove row             |      2x      |  25.7 ms |  ± 3.6 ms  |   2.6 ms |
+| Create 10,000 rows     |      1x      | 500.4 ms | ± 208.0 ms | 159.4 ms |
+| Append 1,000 rows      |      1x      |  47.1 ms |  ± 4.1 ms  |  13.4 ms |
+| Clear 1,000 rows       |      4x      |  39.1 ms |  ± 8.2 ms  |  36.9 ms |
+
+"Script" is the part of the median spent in JavaScript, including garbage collection; the rest
+is the browser's style, layout and paint work.
+
+### Memory
+
+JS heap after a forced garbage collection:
+
+| Version        | Fresh page | 1,000 rows | After 5× create + clear |
+| :------------- | :--------: | :--------: | :---------------------: |
+| Current `main` |  1.10 MB   |  4.38 MB   |       **1.36 MB**       |
+| 2.7.2          |  1.10 MB   |  4.41 MB   |        10.81 MB         |
+
+Up to 2.7.1, `f-for` kept every row it had ever rendered reachable, so each create + clear
+cycle left about 1.9 MB behind. Removed rows are now freed.
+
+A ranking against React, Vue, Angular, Svelte, Solid, Preact, Qwik, Lit and Mithril with this
+method is being re-measured. The previous ranking measured each operation plus two animation
+frames, so frame timing (about 33 ms) hid most of the differences between frameworks.
 
 ### Bundle size
 
