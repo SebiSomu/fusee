@@ -5,7 +5,7 @@
 <h1 align="center">Fusée Framework</h1>
 
 <p align="center">
-  <strong>v2.7.1 — Signals-First JS Framework | Atomic Reactivity | Rust Compiler | Go Toolchain</strong>
+  <strong>v2.7.3 — Signals-First JS Framework | Atomic Reactivity | Rust Compiler | Go Toolchain</strong>
 </p>
 
 <br />
@@ -14,7 +14,7 @@ Fusée is a custom, high-performance fine-grained reactive JavaScript framework 
 
 ---
 
-## What's New in 2.7.2
+## What's New in 2.7.3
 
 - Added **Web Components**: `defineElement()` turns a fusée component into a native custom
   element with reactive props synced to attributes, shadow DOM, scoped `css` styles, native
@@ -46,6 +46,24 @@ Fusée is a custom, high-performance fine-grained reactive JavaScript framework 
 - Fixed the JSX runtime: it failed to load (wrong import path), and text and `{expression}`
   children were not rendered.
 - Fixed dependency tracking in f-for for h.js
+- Fixed shipping of intended libraries into separated dedicated libraries in npm (like router, di, store, etc.).
+  `fusee-framework` is now the core only (reactivity, components, elements, templates,
+  `createApp`). The rest has its own entry point:
+
+  | Entry                     | Exports                                                              |
+  | ------------------------- | -------------------------------------------------------------------- |
+  | `fusee-framework/router`  | `createRouter`, `navigate`, `generateRoutes`, guards, route signals  |
+  | `fusee-framework/store`   | `defineStore`, `storeToRefs`, `useNestedStore`, store plugins        |
+  | `fusee-framework/di`      | `InjectionToken`, `provideGlobal`, `EnvironmentInjector`             |
+  | `fusee-framework/actions` | `defineAction`, `createActionProxy`, `useAction` (client side)       |
+  | `fusee-framework/plugins` | `defineFuseePlugin` and the other plugin descriptors                 |
+  | `fusee-framework/server`  | Node: `handleActionRequest`, SSR helpers, `generateManifest`         |
+
+  **Breaking:** import these from their entry, e.g.
+  `import { createRouter } from 'fusee-framework/router'`. Auto-imports and new projects from
+  `fusee init` already do. `provide()` / `inject()` stay in the core.
+  FREL, Comet and the Go SSR engine are no longer in the npm package: install them with
+  `fusee add frel | comet | server`.
 
 ## Quick Start
 
@@ -486,13 +504,10 @@ my-app/
 Full type definitions are available for all framework primitives:
 
 ```typescript
-import type {
-  Signal,
-  Computed,
-  Component,
-  Router,
-  ServerAction,
-} from "./framework/types";
+import type { Signal, Computed, ComponentFactory } from "fusee-framework";
+import type { Router, Route } from "fusee-framework/router";
+import type { StoreHook } from "fusee-framework/store";
+import type { ActionProxy } from "fusee-framework/actions";
 ```
 
 Every fusée export is auto-imported in Vite builds (`framework/auto-import-preset.js`, typed in `framework/auto-imports.d.ts`). Your own services, components, stores, actions, utilities, and types should be imported explicitly.
@@ -519,15 +534,14 @@ Some tests slow the CPU down, as js-framework-benchmark does.
 
 Fusée (current `main`), median of 15 runs, AMD Ryzen 5 3500U laptop (lower is better):
 
-| Operation              | CPU slowdown |  Median  |  ± 95% CI  |  Script  |
-| :--------------------- | :----------: | :------: | :--------: | :------: |
+| Operation              | CPU slowdown |  Median  | ± 95% CI |  Script  |
+| :--------------------- | :----------: | :------: | :------: | :------: |
 | Create 1,000 rows      |      1x      |  51.6 ms |  ± 4.4 ms  |  14.5 ms |
 | Replace 1,000 rows     |      1x      |  51.0 ms |  ± 4.2 ms  |  20.1 ms |
 | Update every 10th row  |      4x      |  56.9 ms |  ± 4.6 ms  |   5.0 ms |
 | Select row             |      4x      |   9.0 ms |  ± 0.8 ms  |   2.5 ms |
 | Swap 2 rows            |      4x      |  39.3 ms |  ± 2.4 ms  |   3.2 ms |
 | Remove row             |      2x      |  25.7 ms |  ± 3.6 ms  |   2.6 ms |
-| Create 10,000 rows     |      1x      | 500.4 ms | ± 208.0 ms | 159.4 ms |
 | Append 1,000 rows      |      1x      |  47.1 ms |  ± 4.1 ms  |  13.4 ms |
 | Clear 1,000 rows       |      4x      |  39.1 ms |  ± 8.2 ms  |  36.9 ms |
 

@@ -22,7 +22,7 @@ function importInNode(relativePath, after = `console.log('ok')`) {
 const GLOBAL_NAMES = `console.log(['signal', 'defineComponent', 'defineStore', 'defineElement', 'emit'].filter(n => typeof globalThis[n] === 'function').join(','))`
 
 describe('public entry points load in plain Node', () => {
-    it.each(['index.js', 'globals.js', 'server/index.js', 'router/index.js', 'core/ssr.js', 'server-legacy/index.js'])('%s', (entry) => {
+    it.each(['index.js', 'globals.js', 'server/index.js', 'router/index.js', 'store/index.js', 'di/index.js', 'actions/index.js', 'plugins/index.js', 'core/ssr.js', 'server-legacy/index.js'])('%s', (entry) => {
         expect(importInNode(entry)).toBe('ok')
     })
 })

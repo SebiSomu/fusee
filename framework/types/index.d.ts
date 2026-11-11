@@ -1,23 +1,17 @@
 import { createApp as createAppFn } from './app-registry'
 
+// Core entry only. Router, store, DI tokens, actions and plugins have their own entries
+// (fusee-framework/router, /store, /di, /actions, /plugins) with their own typings.
 export * from './signal'
 export * from './component'
 export * from './element'
 export * from './composable'
-export * from './router'
 export * from './compiler'
 export * from './directives'
-export * from './store'
 export * from './event-delegation'
-export * from './di'
 export * from './reconcile'
 export * from './resource'
-export * from './actions'
-export * from './actions.server'
-export * from './plugins'
 export * from './app-registry'
-export * from '../core/comet-js/comet'
-export * from '../core/comet-js/comet-fusee'
 
 declare global {
     type Signal<T = any> = import('./signal').Signal<T>

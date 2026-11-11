@@ -6,63 +6,66 @@
 // biome-ignore lint: disable
 export {}
 declare global {
-  const InjectionToken: typeof import('fusee-framework').InjectionToken
-  const MutationType: typeof import('fusee-framework').MutationType
+  const InjectionToken: typeof import('fusee-framework/di').InjectionToken
+  const MutationType: typeof import('fusee-framework/store').MutationType
+  const afterEach: typeof import('fusee-framework/router').afterEach
   const assertSetupContext: typeof import('fusee-framework').assertSetupContext
   const batch: typeof import('fusee-framework').batch
-  const clearStores: typeof import('fusee-framework').clearStores
+  const beforeEach: typeof import('fusee-framework/router').beforeEach
+  const clearStores: typeof import('fusee-framework/store').clearStores
   const computed: typeof import('fusee-framework').computed
-  const createActionProxy: typeof import('fusee-framework').createActionProxy
+  const createActionProxy: typeof import('fusee-framework/actions').createActionProxy
   const createApp: typeof import('fusee-framework').createApp
-  const createRouter: typeof import('fusee-framework').createRouter
+  const createRouter: typeof import('fusee-framework/router').createRouter
   const createSuspense: typeof import('fusee-framework').createSuspense
   const css: typeof import('fusee-framework').css
-  const currentRoute: typeof import('fusee-framework').currentRoute
-  const defineAction: typeof import('fusee-framework').defineAction
+  const currentRoute: typeof import('fusee-framework/router').currentRoute
+  const defineAction: typeof import('fusee-framework/actions').defineAction
   const defineAsyncComponent: typeof import('fusee-framework').defineAsyncComponent
   const defineCompiledComponent: typeof import('fusee-framework').defineCompiledComponent
-  const defineCompilerPlugin: typeof import('fusee-framework').defineCompilerPlugin
+  const defineCompilerPlugin: typeof import('fusee-framework/plugins').defineCompilerPlugin
   const defineComponent: typeof import('fusee-framework').defineComponent
   const defineComposable: typeof import('fusee-framework').defineComposable
-  const defineDevToolsPlugin: typeof import('fusee-framework').defineDevToolsPlugin
+  const defineDevToolsPlugin: typeof import('fusee-framework/plugins').defineDevToolsPlugin
   const defineElement: typeof import('fusee-framework').defineElement
-  const defineFuseePlugin: typeof import('fusee-framework').defineFuseePlugin
+  const defineFuseePlugin: typeof import('fusee-framework/plugins').defineFuseePlugin
   const defineResource: typeof import('fusee-framework').defineResource
-  const defineRuntimeAdapter: typeof import('fusee-framework').defineRuntimeAdapter
-  const defineServerPlugin: typeof import('fusee-framework').defineServerPlugin
-  const defineStore: typeof import('fusee-framework').defineStore
+  const defineRuntimeAdapter: typeof import('fusee-framework/plugins').defineRuntimeAdapter
+  const defineServerPlugin: typeof import('fusee-framework/plugins').defineServerPlugin
+  const defineStore: typeof import('fusee-framework/store').defineStore
   const directive: typeof import('fusee-framework').directive
   const effect: typeof import('fusee-framework').effect
   const emit: typeof import('fusee-framework').emit
-  const generateRoutes: typeof import('fusee-framework').generateRoutes
+  const generateRoutes: typeof import('fusee-framework/router').generateRoutes
   const getCurrentInstance: typeof import('fusee-framework').getCurrentInstance
   const inject: typeof import('fusee-framework').inject
   const inspect: typeof import('fusee-framework').inspect
-  const matchedRoutes: typeof import('fusee-framework').matchedRoutes
-  const mountOutlet: typeof import('fusee-framework').mountOutlet
+  const matchedRoutes: typeof import('fusee-framework/router').matchedRoutes
+  const mountOutlet: typeof import('fusee-framework/router').mountOutlet
   const mountTemplate: typeof import('fusee-framework').mountTemplate
-  const navigate: typeof import('fusee-framework').navigate
+  const navigate: typeof import('fusee-framework/router').navigate
   const onCleanup: typeof import('fusee-framework').onCleanup
   const onMount: typeof import('fusee-framework').onMount
   const onUnmount: typeof import('fusee-framework').onUnmount
   const parseSlots: typeof import('fusee-framework').parseSlots
   const provide: typeof import('fusee-framework').provide
-  const provideGlobal: typeof import('fusee-framework').provideGlobal
+  const provideGlobal: typeof import('fusee-framework/di').provideGlobal
   const reconcile: typeof import('fusee-framework').reconcile
-  const registerStorePlugin: typeof import('fusee-framework').registerStorePlugin
-  const resetStore: typeof import('fusee-framework').resetStore
+  const registerStorePlugin: typeof import('fusee-framework/store').registerStorePlugin
+  const resetStore: typeof import('fusee-framework/store').resetStore
   const resource: typeof import('fusee-framework').resource
-  const routeParams: typeof import('fusee-framework').routeParams
-  const routeQuery: typeof import('fusee-framework').routeQuery
+  const routeMeta: typeof import('fusee-framework/router').routeMeta
+  const routeParams: typeof import('fusee-framework/router').routeParams
+  const routeQuery: typeof import('fusee-framework/router').routeQuery
   const scheduleAsyncJob: typeof import('fusee-framework').scheduleAsyncJob
   const signal: typeof import('fusee-framework').signal
-  const storeToGetters: typeof import('fusee-framework').storeToGetters
-  const storeToRefs: typeof import('fusee-framework').storeToRefs
-  const storeToState: typeof import('fusee-framework').storeToState
+  const storeToGetters: typeof import('fusee-framework/store').storeToGetters
+  const storeToRefs: typeof import('fusee-framework/store').storeToRefs
+  const storeToState: typeof import('fusee-framework/store').storeToState
   const toCustomElement: typeof import('fusee-framework').toCustomElement
   const unsafeCSS: typeof import('fusee-framework').unsafeCSS
   const untrack: typeof import('fusee-framework').untrack
-  const useAction: typeof import('fusee-framework').useAction
-  const useNestedStore: typeof import('fusee-framework').useNestedStore
+  const useAction: typeof import('fusee-framework/actions').useAction
+  const useNestedStore: typeof import('fusee-framework/store').useNestedStore
   const watch: typeof import('fusee-framework').watch
 }

@@ -38,3 +38,5 @@ comet-test.go
 *_test.go
 
 *.txt
+# Local-only demo apps (also outside the "files" whitelist)
+app/

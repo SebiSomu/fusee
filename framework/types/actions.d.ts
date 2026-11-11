@@ -1,3 +1,5 @@
+import type { Signal } from './signal'
+
 export interface ActionOptions {
     name?: string
     baseUrl?: string

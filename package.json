@@ -1,6 +1,6 @@
 {
   "name": "fusee-framework",
-  "version": "2.7.2",
+  "version": "2.7.3",
   "description": "Fusée - Signals-first JS Framework | Peak Performance",
   "main": "./framework/index.js",
   "types": "./framework/types/index.d.ts",
@@ -12,6 +12,8 @@
     "!framework/core/compiler-legacy/",
     "!framework/server-legacy/",
     "!framework/engine-go/",
+    "!framework/core/comet-js/",
+    "!framework/frel/",
     "framework/core/rust-compiler/pkg/fusee_compiler_bg.wasm",
     "bin/index.js",
     "bin/create-fusee-win.exe",
@@ -67,6 +69,22 @@
     "./router": {
       "types": "./framework/types/router.d.ts",
       "import": "./framework/router/index.js"
+    },
+    "./store": {
+      "types": "./framework/types/store.d.ts",
+      "import": "./framework/store/index.js"
+    },
+    "./di": {
+      "types": "./framework/types/di-entry.d.ts",
+      "import": "./framework/di/index.js"
+    },
+    "./actions": {
+      "types": "./framework/types/actions.d.ts",
+      "import": "./framework/actions/index.js"
+    },
+    "./plugins": {
+      "types": "./framework/types/plugins.d.ts",
+      "import": "./framework/plugins/index.js"
     },
     "./runtime/ssr": {
       "import": "./framework/core/ssr.js"

@@ -115,17 +115,14 @@ export function compileNode(node, context, components, effects) {
     if (node.nodeType === 1 && node.hasAttribute('f-once')) {
         node.removeAttribute('f-once')
         const temporaryEffects = []
+        const ownsContent = setsOwnContent(node)
 
         processDirectives(node, context, components, temporaryEffects)
         processBindingAttrs(node, context, temporaryEffects)
         processMustaches(node, context, temporaryEffects)
         bindComponents(node, components, context, temporaryEffects)
 
-        let child = node.firstChild
-        while (child) {
-            compileOnce(child, context, components, temporaryEffects)
-            child = child.nextSibling
-        }
+        if (!ownsContent) forEachChild(node, child => compileOnce(child, context, components, temporaryEffects))
 
         for (let i = temporaryEffects.length - 1; i >= 0; i--) {
             const cleanup = temporaryEffects[i]
@@ -135,34 +132,49 @@ export function compileNode(node, context, components, effects) {
     }
 
     if (node.nodeType === 1) {
+        const ownsContent = setsOwnContent(node)
         if (processDirectives(node, context, components, effects)) return
         processBindingAttrs(node, context, effects)
         bindComponents(node, components, context, effects)
+        if (ownsContent) return
     } else if (node.nodeType === 3) {
         processMustaches(node, context, effects)
     }
 
-    let child = node.firstChild
-    while (child) {
-        compileNode(child, context, components, effects)
-        child = child.nextSibling
+    forEachChild(node, child => compileNode(child, context, components, effects))
+}
+
+/**
+ * f-text / f-html write the element's content from data. That content is output, not
+ * template: compiling it would evaluate any {{ }} or directives a value happens to contain.
+ */
+function setsOwnContent(node) {
+    return node.hasAttribute('f-text') || node.hasAttribute('f-html')
+}
+
+/**
+ * Visits the children present when the walk starts. Compiling a child can replace it
+ * (interpolated text becomes a fragment) or detach later siblings (an f-if group), so
+ * following child.nextSibling would stop early or visit detached nodes.
+ */
+function forEachChild(node, visit) {
+    for (const child of Array.from(node.childNodes)) {
+        if (child.parentNode === node) visit(child)
     }
 }
 
 function compileOnce(node, context, components, effects) {
     if (node.nodeType === 1) {
+        const ownsContent = setsOwnContent(node)
         if (processDirectives(node, context, components, effects)) return
         processBindingAttrs(node, context, effects)
         bindComponents(node, components, context, effects)
+        if (ownsContent) return
     } else if (node.nodeType === 3) {
         processMustaches(node, context, effects)
     }
 
-    let child = node.firstChild
-    while (child) {
-        compileOnce(child, context, components, effects)
-        child = child.nextSibling
-    }
+    forEachChild(node, child => compileOnce(child, context, components, effects))
 }
 
 function processMustaches(node, context, effects) {
